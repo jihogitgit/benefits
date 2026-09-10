@@ -10,6 +10,7 @@ async function main() {
     fetchList: () => fetchAll('serviceList', { onPage: (p, t) => console.log(`serviceList ${p}/${t}`) }),
     fetchConditions: () => fetchAll('supportConditions', { onPage: (p, t) => console.log(`supportConditions ${p}/${t}`) }),
     log: console.log,
+    force: process.argv.includes('--force'),
   })
   console.log(JSON.stringify({ ...result, changedSlugs: result.changedSlugs.length }, null, 2))
   if (result.aborted_reason) process.exit(2)

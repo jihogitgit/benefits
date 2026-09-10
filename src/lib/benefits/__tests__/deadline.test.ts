@@ -24,6 +24,11 @@ describe('parseDeadline', () => {
     expect(parseDeadline('○ 정기신청 : 5.1.~5.31.').deadline_type).toBe('unknown') // 연도 없음
     expect(parseDeadline(null)).toEqual({ deadline_type: 'unknown', apply_start: null, apply_end: null })
   })
+  it('달력에 없는 날짜는 버린다 (실데이터: 2026.03.00., 04-31)', () => {
+    expect(parseDeadline('2026.03.00.∼4.00.')).toEqual({ deadline_type: 'unknown', apply_start: null, apply_end: null })
+    expect(parseDeadline('2024-01-01~2024-04-31(시군별 상이)')).toEqual({ deadline_type: 'period', apply_start: null, apply_end: '2024-01-01' })
+    expect(parseDeadline('2026.02.30 ~ 2026.03.15')).toEqual({ deadline_type: 'period', apply_start: null, apply_end: '2026-03-15' })
+  })
   it('예산 소진 시까지는 always', () => {
     expect(parseDeadline('예산 소진시까지').deadline_type).toBe('always')
   })

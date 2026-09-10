@@ -6,6 +6,9 @@ describe('isChanged', () => {
   it('수정일시 같음 → 변경 아님', () => expect(isChanged('2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')).toBe(false))
   it('수정일시 다름 → 변경', () => expect(isChanged('2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z')).toBe(true))
   it('둘 다 null → 변경 아님(재처리 안 함)', () => expect(isChanged(null, null)).toBe(false))
+  it('Postgres 표기(+00:00)와 JS 표기(.000Z)가 같은 시각이면 변경 아님', () =>
+    expect(isChanged('2026-01-29T11:18:25+00:00', '2026-01-29T11:18:25.000Z')).toBe(false))
+  it('한쪽만 null이면 변경', () => expect(isChanged(null, '2026-01-29T11:18:25.000Z')).toBe(true))
 })
 
 describe('shouldAbortForDrop', () => {

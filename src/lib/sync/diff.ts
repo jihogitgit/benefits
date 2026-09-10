@@ -1,7 +1,14 @@
+/** 문자열 표기가 달라도 같은 시각이면 같게 본다 (Postgres '+00:00' vs JS '.000Z'). 파싱 불가는 null. */
+function toEpoch(v: string | null | undefined): number | null {
+  if (!v) return null
+  const t = new Date(v).getTime()
+  return Number.isNaN(t) ? null : t
+}
+
 /** 기존 행이 없거나 원천 수정일시가 달라졌으면 변경으로 본다. */
 export function isChanged(existingUpdatedAt: string | null | undefined, incomingUpdatedAt: string | null): boolean {
   if (existingUpdatedAt === undefined) return true
-  return (existingUpdatedAt ?? null) !== (incomingUpdatedAt ?? null)
+  return toEpoch(existingUpdatedAt) !== toEpoch(incomingUpdatedAt)
 }
 
 export const DROP_THRESHOLD = 0.3

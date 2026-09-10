@@ -84,6 +84,13 @@ describe('runGov24Sync', () => {
     expect(calls.runs[0].finished_at).not.toBeNull()
   })
 
+  it('force면 수정일시가 같아도 다시 upsert한다', async () => {
+    const { repo, calls } = fakeRepo({ A: { id: 'id-A', slug: 'a', source_updated_at: '2026-01-01T00:00:00.000Z' } })
+    const result = await runGov24Sync({ repo, fetchList: async () => [item('A', '기존', '20260101090000')], fetchConditions: async () => [], now, force: true })
+    expect(result.upserted).toBe(1)
+    expect(calls.benefits[0].slug).toBe('a')
+  })
+
   it('기존 slug를 유지하고 신규 slug 충돌은 접미로 해소한다', async () => {
     const { repo, calls } = fakeRepo({
       A: { id: 'id-A', slug: '청년-지원', source_updated_at: null },
@@ -127,6 +134,15 @@ describe('runGov24Sync', () => {
     const list = [item('E', '서울 청년수당', '20260201090000', { 소관기관명: '서울특별시' })]
     await runGov24Sync({ repo, fetchList: async () => list, fetchConditions: async () => [{ 서비스ID: 'E', JA0404: 'Y' }], now })
     expect(calls.conditions[0]).toMatchObject({ region_codes: ['seoul'], household_types: ['single'] })
+  })
+
+  it('Supabase 오류 객체도 읽을 수 있는 문자열로 기록한다', async () => {
+    const { repo, calls } = fakeRepo()
+    ;(repo.upsertBenefits as ReturnType<typeof vi.fn>).mockRejectedValueOnce({ code: '22008', message: 'date/time field value out of range', details: null })
+    await expect(
+      runGov24Sync({ repo, fetchList: async () => [item('A', 'x', '20260201090000')], fetchConditions: async () => [], now }),
+    ).rejects.toBeTruthy()
+    expect(calls.runs[0].error).toBe('22008 date/time field value out of range')
   })
 
   it('fetch가 throw하면 run에 error를 남기고 다시 throw', async () => {

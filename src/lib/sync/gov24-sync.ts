@@ -14,6 +14,19 @@ export interface Gov24SyncDeps {
   now?: Date
   batchSize?: number
   log?: (msg: string) => void
+  /** true면 수정일시가 같아도 전부 다시 정규화·upsert (코드맵·태깅 규칙 변경 후 재적용용) */
+  force?: boolean
+}
+
+/** Error, Supabase 오류 객체({message, code, …}), 기타 값을 사람이 읽을 문자열로. */
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const o = err as Record<string, unknown>
+    if (typeof o.message === 'string') return [o.code, o.message].filter(Boolean).join(' ')
+    try { return JSON.stringify(err) } catch { /* fallthrough */ }
+  }
+  return String(err)
 }
 
 /**
@@ -78,7 +91,7 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
       const prev = existing.get(item.서비스ID)
       const cond = condBySource.get(item.서비스ID) ?? null
       const probe = normalizeBenefit(item, cond, prev?.slug ?? '', now)
-      if (!isChanged(prev?.source_updated_at, probe.source_updated_at)) {
+      if (!deps.force && !isChanged(prev?.source_updated_at, probe.source_updated_at)) {
         result.skipped++
         continue
       }
@@ -125,7 +138,7 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
     run.removed = result.removed
     return result
   } catch (err) {
-    run.error = err instanceof Error ? err.message : String(err)
+    run.error = errorMessage(err)
     throw err
   } finally {
     run.finished_at = new Date().toISOString()
