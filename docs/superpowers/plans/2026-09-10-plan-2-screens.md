@@ -1373,30 +1373,53 @@ export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: D
 
 `src/components/benefits/AdPlacement.tsx`:
 ```tsx
+import type { ReactNode } from 'react'
 import AdSlot from '@/components/ads/AdSlot'
 
-/** 광고 위치별 단일 진입점. 승인 전에는 애드핏, 승인 후 env로 애드센스 전환. 높이를 예약해 CLS를 막는다. */
-export default function AdPlacement({ slot }: { slot: 'home' | 'list' | 'detail-1' | 'detail-2' | 'rail' }) {
-  const adsense = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
-  const adfitMobile = process.env.NEXT_PUBLIC_ADFIT_UNIT_MOBILE
-  const adfitPc = process.env.NEXT_PUBLIC_ADFIT_UNIT_PC
-  const isRail = slot === 'rail'
+export type AdPlacementSlot = 'home' | 'list' | 'detail-1' | 'detail-2' | 'rail'
 
-  if (adsense) {
+// NEXT_PUBLIC_* 는 정적으로 분석 가능한 참조만 빌드 시 치환된다. process.env[`...${slot}...`] 같은
+// 동적 인덱싱은 클라이언트 번들에서 조용히 undefined가 되므로 슬롯별로 나열한다.
+const ADSENSE_SLOT: Record<AdPlacementSlot, string | undefined> = {
+  home: process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME,
+  list: process.env.NEXT_PUBLIC_ADSENSE_SLOT_LIST,
+  'detail-1': process.env.NEXT_PUBLIC_ADSENSE_SLOT_DETAIL_1,
+  'detail-2': process.env.NEXT_PUBLIC_ADSENSE_SLOT_DETAIL_2,
+  rail: process.env.NEXT_PUBLIC_ADSENSE_SLOT_RAIL,
+}
+
+function AdFrame({ isRail, children }: { isRail: boolean; children: ReactNode }) {
+  // aria-label은 role 없는 div에서는 무시된다. aside는 complementary 역할을 가져 라벨이 실제로 노출된다.
+  return (
+    <aside className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
+      <p className="mb-1 text-[10px] text-gray-400">광고</p>
+      {children}
+    </aside>
+  )
+}
+
+/** 광고 위치별 단일 진입점. 승인 전에는 애드핏, 승인 후 env로 애드센스 전환. 높이를 예약해 CLS를 막는다. */
+export default function AdPlacement({ slot }: { slot: AdPlacementSlot }) {
+  const isRail = slot === 'rail'
+  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+  const adsenseSlot = ADSENSE_SLOT[slot]
+
+  // 클라이언트와 슬롯 ID가 모두 있어야 애드센스를 태운다. 하나만 있으면 AdSlot이 아무것도 렌더하지
+  // 않는데 높이는 예약돼 빈 박스가 남아 CLS를 해친다. 그래서 애드핏으로 폴백하고, 그것도 없으면 null.
+  if (adsenseClient && adsenseSlot) {
     return (
-      <div className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
-        <p className="mb-1 text-[10px] text-gray-400">광고</p>
-        <AdSlot type="adsense" adClient={adsense} adSlot={process.env[`NEXT_PUBLIC_ADSENSE_SLOT_${slot.toUpperCase().replace('-', '_')}`] ?? ''} adFormat={isRail ? 'vertical' : 'auto'} />
-      </div>
+      <AdFrame isRail={isRail}>
+        <AdSlot type="adsense" adClient={adsenseClient} adSlot={adsenseSlot} adFormat={isRail ? 'vertical' : 'auto'} />
+      </AdFrame>
     )
   }
-  const unit = isRail ? adfitPc : adfitMobile
+
+  const unit = isRail ? process.env.NEXT_PUBLIC_ADFIT_UNIT_PC : process.env.NEXT_PUBLIC_ADFIT_UNIT_MOBILE
   if (!unit) return null
   return (
-    <div className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
-      <p className="mb-1 text-[10px] text-gray-400">광고</p>
+    <AdFrame isRail={isRail}>
       <AdSlot type="adfit" adUnit={unit} adWidth={isRail ? 300 : 320} adHeight={isRail ? 600 : 100} />
-    </div>
+    </AdFrame>
   )
 }
 ```

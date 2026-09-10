@@ -13,11 +13,13 @@ const ADSENSE_SLOT: Record<AdPlacementSlot, string | undefined> = {
 }
 
 function AdFrame({ isRail, children }: { isRail: boolean; children: ReactNode }) {
+  // aria-label은 role 없는 div에서는 무시된다. aside는 complementary 역할을 가져 라벨이 실제로 노출된다.
+  // 보이는 '광고' 문구는 광고를 콘텐츠와 구분해야 하는 정책 요구라 함께 남긴다.
   return (
-    <div className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
+    <aside className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
       <p className="mb-1 text-[10px] text-gray-400">광고</p>
       {children}
-    </div>
+    </aside>
   )
 }
 
