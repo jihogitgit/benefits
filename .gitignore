@@ -1,7 +1,10 @@
 node_modules/
 .next/
 .env*
-!.env.example
+!.env.local.example
 .superpowers/
 .omc/
 .DS_Store
+fixtures/**/*.raw.json
+*.tsbuildinfo
+next-env.d.ts
