@@ -1769,7 +1769,9 @@ describe('DiagnosisResults', () => {
 
   it('저장된 진단으로 검색해 목록과 총 개수를 보여주고, 조건 확인 필요 그룹을 구분한다', async () => {
     localStorage.setItem('diagnosis', JSON.stringify({ ageBand: '20s', situations: ['job_seeker'], region: 'seoul' }))
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 2, items: [item('a'), item('b', { hasConditions: false })] })))
+    // Response 본문은 한 번만 읽을 수 있고 mock.calls도 테스트 간에 누적된다. beforeEach에서
+    // fetchMock.mockReset()을 부르고, 값은 호출마다 새 Response를 만들어 돌려준다.
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ total: 2, items: [item('a'), item('b', { hasConditions: false })] }))))
     render(<DiagnosisResults />)
     await waitFor(() => expect(screen.getByText(/총 2개/)).toBeInTheDocument())
     expect(screen.getByText('제목 a')).toBeInTheDocument()
@@ -1823,8 +1825,22 @@ function label(d: Diagnosis): string {
   return parts.join(' · ')
 }
 
-function toRow(i: SearchResultItem) {
-  return { ...i, apply_start: null, agency: null, synced_at: '', segments: i.segments as ('youth' | 'parenting' | 'small_biz' | 'other')[] }
+/** 검색 API 응답을 카드가 요구하는 목록 행으로. 스프레드를 쓰면 deadline_type이 string으로
+ *  남아 BenefitListRow['deadline_type'](DeadlineType)에 대입되지 않으므로 필드를 명시한다. */
+function toRow(i: SearchResultItem): BenefitListRow {
+  return {
+    slug: i.slug,
+    title: i.title,
+    summary: i.summary,
+    amount_text: i.amount_text,
+    deadline_type: i.deadline_type as DeadlineType,
+    apply_start: null,
+    apply_end: i.apply_end,
+    region_code: i.region_code,
+    segments: i.segments as Segment[],
+    agency: null,
+    synced_at: '',
+  }
 }
 
 export default function DiagnosisResults() {
@@ -1885,14 +1901,10 @@ export default function DiagnosisResults() {
 
       {error && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {matched.map((i, idx) => (
-          <div key={i.slug} className="contents">
-            <BenefitCard row={toRow(i)} />
-            {idx === 4 && <div className="sm:col-span-2"><AdPlacement slot="list" /></div>}
-          </div>
-        ))}
-      </div>
+      {/* BenefitList가 같은 그리드와 5번째 카드 뒤 광고를 이미 담당한다. 여기서 다시 만들면
+          사이트 전체와 어긋나므로 재사용한다. '조건 확인 필요' 그룹은 광고를 한 번 더 넣지 않도록
+          일반 그리드로 둔다. */}
+      {matched.length > 0 && <BenefitList rows={matched.map(toRow)} />}
 
       {unsure.length > 0 && (
         <section className="mt-8">
