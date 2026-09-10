@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // unstable_cache는 테스트에서 그대로 통과시킨다
 vi.mock('next/cache', () => ({ unstable_cache: (fn: (...a: unknown[]) => unknown) => fn }))
@@ -13,10 +13,11 @@ const chain = () => {
 const from = vi.fn()
 vi.mock('@/lib/supabase/server', () => ({ createPublicClient: () => ({ from }) }))
 
-import { getBenefitBySlug, listBySegment, listDeadlineSoon, countByRegion } from '../queries'
+import { getBenefitBySlug, listBySegment, listDeadlineSoon, getLastSyncAt, countByRegion } from '../queries'
 
 describe('queries', () => {
   beforeEach(() => from.mockReset())
+  afterEach(() => vi.useRealTimers())
 
   it('getBenefitBySlug는 조건·해설을 함께 조인하고 없으면 null', async () => {
     const c = chain()
@@ -45,13 +46,24 @@ describe('queries', () => {
   })
 
   it('listDeadlineSoon은 오늘~N일 사이 기간 항목만', async () => {
+    // 캐시 키를 안정시키려고 현재 시각을 인자로 받지 않으므로 시스템 시각을 고정해서 검증한다.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-10T03:00:00Z'))
     const c = chain()
     c.limit.mockResolvedValue({ data: [], error: null })
     from.mockReturnValue(c)
-    await listDeadlineSoon(14, new Date('2026-09-10T03:00:00Z'))
+    await listDeadlineSoon(14)
     expect(c.eq).toHaveBeenCalledWith('deadline_type', 'period')
     expect(c.gte).toHaveBeenCalledWith('apply_end', '2026-09-10')
     expect(c.lte).toHaveBeenCalledWith('apply_end', '2026-09-24')
+  })
+
+  it('getLastSyncAt은 진행 중인 동기화 행을 제외한다', async () => {
+    const c = chain()
+    c.maybeSingle.mockResolvedValue({ data: { finished_at: '2026-09-10T03:00:00+00:00' }, error: null })
+    from.mockReturnValue(c)
+    expect(await getLastSyncAt()).toBe('2026-09-10T03:00:00+00:00')
+    expect(c.not).toHaveBeenCalledWith('finished_at', 'is', null)
   })
 
   it('countByRegion은 region_code별 건수를 집계한다', async () => {

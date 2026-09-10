@@ -93,7 +93,12 @@ export const listBySegment = unstable_cache(
 )
 
 export const listDeadlineSoon = unstable_cache(
-  async (days: number, now: Date = new Date(), limit = 8): Promise<BenefitListRow[]> => {
+  // '오늘'을 인자로 받지 않고 안에서 읽는다. unstable_cache는 인자까지 키에 넣으므로 호출부가
+  // 요청마다 new Date()를 넘기면 키가 매번 달라져 캐시가 사실상 꺼진다(적중률 0, 항목 무한 증가).
+  // 안에서 읽으면 키는 [days, limit]으로 안정되고, '오늘' 경계는 revalidate 범위만큼만 늦어진다.
+  // 테스트는 vitest의 fakeTimers(toFake: ['Date'])로 vi.setSystemTime을 써서 고정한다.
+  async (days: number, limit = 8): Promise<BenefitListRow[]> => {
+    const now = new Date()
     const from = kstDateString(now)
     const to = kstDateString(new Date(now.getTime() + days * 86_400_000))
     const { data, error } = await createPublicClient()
@@ -113,8 +118,9 @@ export const listDeadlineSoon = unstable_cache(
 )
 
 export const listRecentlyUpdated = unstable_cache(
-  async (hours: number, now: Date = new Date(), limit = 8): Promise<BenefitListRow[]> => {
-    const since = new Date(now.getTime() - hours * 3_600_000).toISOString()
+  // listDeadlineSoon과 같은 이유로 현재 시각을 인자로 받지 않는다.
+  async (hours: number, limit = 8): Promise<BenefitListRow[]> => {
+    const since = new Date(Date.now() - hours * 3_600_000).toISOString()
     const { data, error } = await createPublicClient()
       .from('benefits')
       .select(LIST_COLS)
@@ -190,6 +196,10 @@ export const getLastSyncAt = unstable_cache(
       .select('finished_at')
       .is('error', null)
       .is('aborted_reason', null)
+      // 진행 중인 동기화 행도 error·aborted_reason이 null이라 정렬 1위를 차지한다. finished_at을
+      // 요구하지 않으면 동기화가 도는 동안 홈의 '마지막 확인' 줄이 비고, revalidate(600s) 때문에
+      // 동기화가 끝난 뒤에도 최대 10분 더 빈 채로 남는다.
+      .not('finished_at', 'is', null)
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle()

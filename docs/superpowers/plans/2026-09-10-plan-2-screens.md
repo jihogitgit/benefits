@@ -706,7 +706,9 @@ describe('queries', () => {
     const c = chain()
     c.limit.mockResolvedValue({ data: [], error: null })
     from.mockReturnValue(c)
-    await listDeadlineSoon(14, new Date('2026-09-10T03:00:00Z'))
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-10T03:00:00Z'))
+    await listDeadlineSoon(14)
     expect(c.eq).toHaveBeenCalledWith('deadline_type', 'period')
     expect(c.gte).toHaveBeenCalledWith('apply_end', '2026-09-10')
     expect(c.lte).toHaveBeenCalledWith('apply_end', '2026-09-24')
@@ -831,7 +833,10 @@ export const listBySegment = unstable_cache(
 )
 
 export const listDeadlineSoon = unstable_cache(
-  async (days: number, now: Date = new Date(), limit = 8): Promise<BenefitListRow[]> => {
+  // '오늘'을 인자로 받지 않는다. unstable_cache는 인자까지 키에 넣으므로 요청마다 new Date()를
+  // 넘기면 키가 매번 달라져 캐시 적중률이 0이 되고 revalidate·태그가 무력화된다.
+  async (days: number, limit = 8): Promise<BenefitListRow[]> => {
+    const now = new Date()
     const from = kstDateString(now)
     const to = kstDateString(new Date(now.getTime() + days * 86_400_000))
     const { data, error } = await createPublicClient()
@@ -851,8 +856,9 @@ export const listDeadlineSoon = unstable_cache(
 )
 
 export const listRecentlyUpdated = unstable_cache(
-  async (hours: number, now: Date = new Date(), limit = 8): Promise<BenefitListRow[]> => {
-    const since = new Date(now.getTime() - hours * 3_600_000).toISOString()
+  // listDeadlineSoon과 같은 이유로 현재 시각을 인자로 받지 않는다.
+  async (hours: number, limit = 8): Promise<BenefitListRow[]> => {
+    const since = new Date(Date.now() - hours * 3_600_000).toISOString()
     const { data, error } = await createPublicClient()
       .from('benefits')
       .select(LIST_COLS)
@@ -914,6 +920,9 @@ export const getLastSyncAt = unstable_cache(
       .select('finished_at')
       .is('error', null)
       .is('aborted_reason', null)
+      // 진행 중인 동기화 행도 error·aborted_reason이 null이라 정렬 1위가 된다. finished_at을
+      // 요구하지 않으면 동기화가 도는 동안 홈의 '마지막 확인' 줄이 빈다.
+      .not('finished_at', 'is', null)
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -954,7 +963,7 @@ git commit -m "feat: 서버 조회 함수 (태그 캐시) + sync_runs 공개 읽
 **Files:**
 - Create: `src/app/(site)/layout.tsx`, `src/components/layout/Header.tsx`, `src/components/layout/Footer.tsx`, `src/components/ads/AdSlot.tsx`, `src/app/(site)/about/page.tsx`, `src/app/(site)/privacy/page.tsx`, `src/app/(site)/terms/page.tsx`, `src/app/(site)/contact/page.tsx`, `src/app/ads.txt/route.ts`
 - Modify: `src/app/layout.tsx`, `.env.local.example`
-- Move: `src/app/page.tsx` → `src/app/(site)/page.tsx` (Task 6에서 내용 교체)
+- Move: `src/app/page.tsx` → `src/app/(site)/page.tsx` (Task 7에서 내용 교체. `(site)/layout.tsx`가 이미 `<main>`으로 감싸므로 페이지에서 `<main>`을 또 쓰지 않는다)
 
 - [ ] **Step 1: AdSlot 복사**
 
@@ -1634,8 +1643,7 @@ import { PUBLIC_SEGMENTS } from '../../../data/segments'
 export const revalidate = 3600
 
 export default async function HomePage() {
-  const now = new Date()
-  const [soon, recent, lastSync] = await Promise.all([listDeadlineSoon(14, now, 8), listRecentlyUpdated(48, now, 8), getLastSyncAt()])
+  const [soon, recent, lastSync] = await Promise.all([listDeadlineSoon(14, 8), listRecentlyUpdated(48, 8), getLastSyncAt()])
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -2762,7 +2770,7 @@ export const metadata: Metadata = {
 
 export default async function DeadlinePage() {
   const now = new Date()
-  const rows = await listDeadlineSoon(45, now, 200)
+  const rows = await listDeadlineSoon(45, 200)
   const groups = groupByWeek(rows, now)
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
