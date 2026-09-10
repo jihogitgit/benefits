@@ -11,6 +11,14 @@ describe('site', () => {
     expect(absoluteUrl('youth')).toBe('https://example.com/youth')
     expect(siteUrl()).toBe('https://example.com')
   })
+  it('빈 문자열 env는 기본값으로 (상대 URL 유출 방지)', () => {
+    process.env.NEXT_PUBLIC_SITE_URL = ''
+    process.env.SITE_NAME = '   '
+    expect(siteUrl()).toBe('http://localhost:3000')
+    expect(absoluteUrl('/youth')).toBe('http://localhost:3000/youth')
+    expect(siteName()).toBe('지원금 포털')
+  })
+
   it('사이트명은 env, 없으면 기본값', () => {
     expect(siteName()).toBe('테스트포털')
     delete process.env.SITE_NAME

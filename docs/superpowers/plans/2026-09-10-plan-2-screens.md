@@ -82,7 +82,7 @@ describe('segment path mapping', () => {
   it('URL 경로 ↔ DB 값', () => {
     expect(pathOf('small_biz')).toBe('small-biz')
     expect(pathOf('youth')).toBe('youth')
-    expect(SEGMENT_BY_PATH['small-biz'].slug).toBe('small_biz')
+    expect(SEGMENT_BY_PATH['small-biz']?.slug).toBe('small_biz')
     expect(SEGMENT_BY_PATH['nope']).toBeUndefined()
   })
   it('공개 세그먼트는 other를 제외한 3개', () => {
@@ -106,6 +106,14 @@ describe('site', () => {
     expect(absoluteUrl('youth')).toBe('https://example.com/youth')
     expect(siteUrl()).toBe('https://example.com')
   })
+  it('빈 문자열 env는 기본값으로 (상대 URL 유출 방지)', () => {
+    process.env.NEXT_PUBLIC_SITE_URL = ''
+    process.env.SITE_NAME = '   '
+    expect(siteUrl()).toBe('http://localhost:3000')
+    expect(absoluteUrl('/youth')).toBe('http://localhost:3000/youth')
+    expect(siteName()).toBe('지원금 포털')
+  })
+
   it('사이트명은 env, 없으면 기본값', () => {
     expect(siteName()).toBe('테스트포털')
     delete process.env.SITE_NAME
@@ -141,7 +149,8 @@ export const SEGMENTS: SegmentDef[] = [
 ]
 
 export const PUBLIC_SEGMENTS = SEGMENTS.filter((s) => s.slug !== 'other')
-export const SEGMENT_BY_PATH: Record<string, SegmentDef> = Object.fromEntries(SEGMENTS.map((s) => [s.path, s]))
+// 값은 신뢰할 수 없는 URL 세그먼트로 조회되므로 undefined를 타입에 남겨 호출자가 반드시 검사하게 한다
+export const SEGMENT_BY_PATH: Record<string, SegmentDef | undefined> = Object.fromEntries(SEGMENTS.map((s) => [s.path, s]))
 export const SEGMENT_BY_SLUG: Record<string, SegmentDef> = Object.fromEntries(SEGMENTS.map((s) => [s.slug, s]))
 export function pathOf(slug: Segment): string {
   return SEGMENT_BY_SLUG[slug].path
@@ -179,11 +188,13 @@ export function createPublicClient(): SupabaseClient {
 `src/lib/seo/site.ts`:
 ```ts
 export function siteName(): string {
-  return process.env.SITE_NAME ?? '지원금 포털'
+  return process.env.SITE_NAME?.trim() || '지원금 포털'
 }
 
+// ?? 가 아니라 || 를 쓴다. 빈 문자열 env를 그대로 통과시키면 canonical·사이트맵·JSON-LD가
+// 상대 URL로 새어나가 색인이 깨진다(.env.local.example은 대부분의 값을 빈 칸으로 배포한다).
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
+  return (process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'http://localhost:3000').replace(/\/+$/, '')
 }
 
 export function absoluteUrl(path: string): string {

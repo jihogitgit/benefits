@@ -16,7 +16,8 @@ export const SEGMENTS: SegmentDef[] = [
 ]
 
 export const PUBLIC_SEGMENTS = SEGMENTS.filter((s) => s.slug !== 'other')
-export const SEGMENT_BY_PATH: Record<string, SegmentDef> = Object.fromEntries(SEGMENTS.map((s) => [s.path, s]))
+// 값은 신뢰할 수 없는 URL 세그먼트로 조회되므로 undefined를 타입에 남겨 호출자가 반드시 검사하게 한다
+export const SEGMENT_BY_PATH: Record<string, SegmentDef | undefined> = Object.fromEntries(SEGMENTS.map((s) => [s.path, s]))
 export const SEGMENT_BY_SLUG: Record<string, SegmentDef> = Object.fromEntries(SEGMENTS.map((s) => [s.slug, s]))
 export function pathOf(slug: Segment): string {
   return SEGMENT_BY_SLUG[slug].path
