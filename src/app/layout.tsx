@@ -1,20 +1,35 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
-
-const siteName = process.env.SITE_NAME ?? '지원금 포털'
+import { siteName, siteUrl, SITE_DESCRIPTION } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
-  title: { default: siteName, template: `%s | ${siteName}` },
-  description: '나이·상황·지역 조건으로 받을 수 있는 정부 지원금을 한눈에 확인하세요.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  // 페이지가 갖춰지기 전까지 색인 차단. Plan 2에서 true로 전환.
-  robots: { index: false, follow: false },
+  title: { default: `${siteName()} — 나에게 맞는 정부 지원금 찾기`, template: `%s | ${siteName()}` },
+  description: SITE_DESCRIPTION,
+  metadataBase: new URL(siteUrl()),
+  openGraph: { type: 'website', locale: 'ko_KR', siteName: siteName() },
+  robots: { index: true, follow: true },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID
+  const adsense = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        {adsense && (
+          <Script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense}`} crossOrigin="anonymous" strategy="afterInteractive" />
+        )}
+        {gaId && (
+          <>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');`}
+            </Script>
+          </>
+        )}
+        {children}
+      </body>
     </html>
   )
 }
