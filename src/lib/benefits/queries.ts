@@ -1,14 +1,14 @@
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
-import type { Segment } from '@/types/database'
+import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
   slug: string
   title: string
   summary: string | null
   amount_text: string | null
-  deadline_type: string
+  deadline_type: DeadlineType
   apply_start: string | null
   apply_end: string | null
   region_code: string
@@ -20,7 +20,7 @@ export interface BenefitListRow {
 export interface ConditionJoin {
   age_min: number | null
   age_max: number | null
-  gender: string
+  gender: Gender
   income_bands: string[]
   life_stages: string[]
   household_types: string[]
@@ -34,7 +34,7 @@ export interface ArticleJoin {
   faq_json: { q: string; a: string }[]
   checklist_json: { label: string; condition_key: string }[]
   related_ids: string[]
-  review_status: string
+  review_status: ReviewStatus
   indexable: boolean
   reviewed_at: string | null
 }
@@ -46,11 +46,13 @@ export interface BenefitDetail extends BenefitListRow {
   apply_method: string | null
   apply_url: string | null
   contact: string | null
-  status: string
+  status: BenefitStatus
   source_updated_at: string | null
   benefit_conditions: ConditionJoin | null
   benefit_articles: ArticleJoin | null
 }
+
+const ROWS_PER_PAGE = 1000 // Supabase 단일 응답 기본 최대 행 수
 
 const LIST_COLS = 'slug, title, summary, amount_text, deadline_type, apply_start, apply_end, region_code, segments, agency, synced_at'
 const DETAIL_COLS = `id, ${LIST_COLS}, target_text, criteria_text, apply_method, apply_url, contact, status, source_updated_at,
@@ -129,10 +131,24 @@ export const listRecentlyUpdated = unstable_cache(
 
 export const countByRegion = unstable_cache(
   async (segment: Segment): Promise<Record<string, number>> => {
-    const { data, error } = await createPublicClient().from('benefits').select('region_code').eq('status', 'open').contains('segments', [segment])
-    if (error) throw error
+    // Supabase는 한 응답에 최대 1000행만 준다. 세그먼트 하나가 1000건을 넘으면(출산/육아는 3천 건대)
+    // 페이징 없이는 집계가 조용히 축소되므로 반드시 range로 끝까지 돌린다. 커서 없는 range는
+    // 정렬이 없으면 페이지가 겹치거나 빠질 수 있어 기본키로 안정 정렬을 건다.
+    const supabase = createPublicClient()
     const counts: Record<string, number> = {}
-    for (const r of (data ?? []) as { region_code: string }[]) counts[r.region_code] = (counts[r.region_code] ?? 0) + 1
+    for (let offset = 0; ; offset += ROWS_PER_PAGE) {
+      const { data, error } = await supabase
+        .from('benefits')
+        .select('region_code')
+        .eq('status', 'open')
+        .contains('segments', [segment])
+        .order('id', { ascending: true })
+        .range(offset, offset + ROWS_PER_PAGE - 1)
+      if (error) throw error
+      const rows = (data ?? []) as { region_code: string }[]
+      for (const r of rows) counts[r.region_code] = (counts[r.region_code] ?? 0) + 1
+      if (rows.length < ROWS_PER_PAGE) break
+    }
     return counts
   },
   ['count-by-region'],

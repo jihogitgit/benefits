@@ -56,10 +56,25 @@ describe('queries', () => {
 
   it('countByRegion은 region_code별 건수를 집계한다', async () => {
     const c = chain()
-    c.contains.mockResolvedValue({ data: [{ region_code: 'seoul' }, { region_code: 'seoul' }, { region_code: 'ALL' }], error: null })
+    c.range.mockResolvedValue({ data: [{ region_code: 'seoul' }, { region_code: 'seoul' }, { region_code: 'ALL' }], error: null })
     from.mockReturnValue(c)
     const counts = await countByRegion('youth')
     expect(counts).toEqual({ seoul: 2, ALL: 1 })
+    expect(c.range).toHaveBeenCalledTimes(1)
+    expect(c.range).toHaveBeenCalledWith(0, 999)
+  })
+
+  it('countByRegion은 1000행 상한을 넘으면 다음 페이지까지 집계한다', async () => {
+    const c = chain()
+    const full = Array.from({ length: 1000 }, () => ({ region_code: 'seoul' }))
+    c.range
+      .mockResolvedValueOnce({ data: full, error: null })
+      .mockResolvedValueOnce({ data: [{ region_code: 'busan' }], error: null })
+    from.mockReturnValue(c)
+    const counts = await countByRegion('parenting')
+    expect(counts).toEqual({ seoul: 1000, busan: 1 })
+    expect(c.range).toHaveBeenNthCalledWith(1, 0, 999)
+    expect(c.range).toHaveBeenNthCalledWith(2, 1000, 1999)
   })
 
   it('오류는 throw', async () => {

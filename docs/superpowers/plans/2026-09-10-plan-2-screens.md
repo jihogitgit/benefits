@@ -933,7 +933,7 @@ create policy "public read sync_runs" on sync_runs for select using (true);
 ```
 Supabase 대시보드 SQL Editor에서 실행한다.
 
-태그 참고: Cron 라우트는 `benefit:{slug}`와 `segment:{seg}`도 재검증하지만, `unstable_cache`는 함수 단위 태그라 개별 slug 태그를 붙일 수 없다. 대신 상세·목록은 `benefits:all` 태그를 쓰고, Cron 라우트가 변경이 있을 때 `benefits:all`도 재검증하도록 Task 11에서 한 줄 추가한다.
+태그 참고: Cron 라우트는 `benefit:{slug}`와 `segment:{seg}`도 재검증하지만, `unstable_cache`는 함수 단위 태그라 개별 slug 태그를 붙일 수 없다. 대신 상세·목록은 `benefits:all` 태그를 쓰고, Cron 라우트가 변경이 있을 때 `benefits:all`도 재검증하도록 Task 12에서 한 줄 추가한다.
 
 - [ ] **Step 4: 통과 확인**
 
