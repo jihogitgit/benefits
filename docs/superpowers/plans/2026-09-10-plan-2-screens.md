@@ -239,6 +239,16 @@ describe('deadlineLabel', () => {
 })
 
 describe('firstLine', () => {
+  it('연도로 시작하는 줄은 연도를 보존한다 (번호 목록으로 오인 금지)', () => {
+    expect(firstLine('2026.03.01. ~ 2026.03.31. 접수')).toBe('2026.03.01. ~ 2026.03.31. 접수')
+    expect(firstLine('※ 2026. 3. 1~2027.2.28. 까지 적용')).toBe('2026. 3. 1~2027.2.28. 까지 적용')
+  })
+
+  it('번호 목록 접두사는 제거한다', () => {
+    expect(firstLine('1) 지원 대상')).toBe('지원 대상')
+    expect(firstLine('3. 신청 방법')).toBe('신청 방법')
+  })
+
   it('원문의 첫 의미 있는 줄을 120자 이내로', () => {
     expect(firstLine('○ 3~5세에 대해 교육비를 지급합니다.\r\n  - 국공립 100,000원')).toBe('3~5세에 대해 교육비를 지급합니다.')
     expect(firstLine(null)).toBeNull()
@@ -342,12 +352,16 @@ export function deadlineLabel(b: { deadline_type: DeadlineType | string; apply_s
   return '공고 확인'
 }
 
+// 글머리 기호 + (번호 목록 접두사) + 남은 기호를 제거한다.
+// 번호는 1~2자리에 구분자 뒤 공백까지 있어야 목록으로 본다('2026.03.01.'의 연도가 잘리지 않게).
+const BULLET_PREFIX = /^[\s○●◦•\-–·※▶►]*(?:\d{1,2}\s*[.)]\s+)?[\s○●◦•\-–·※▶►]*/
+
 /** 원문에서 첫 의미 있는 줄. 글머리 기호 제거, 120자 상한. */
 export function firstLine(text: string | null | undefined, max = 120): string | null {
   if (!text) return null
   const line = text
     .split(/\r?\n/)
-    .map((l) => l.replace(/^[\s○●◦•\-–·※▶►\d.)]+/, '').trim())
+    .map((l) => l.replace(BULLET_PREFIX, '').trim())
     .find((l) => l.length > 0)
   if (!line) return null
   return line.length > max ? line.slice(0, max) : line

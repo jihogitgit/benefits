@@ -19,12 +19,16 @@ export function deadlineLabel(b: { deadline_type: DeadlineType | string; apply_s
   return '공고 확인'
 }
 
+// 글머리 기호 + (번호 목록 접두사) + 남은 기호를 제거한다.
+// 번호는 1~2자리에 구분자 뒤 공백까지 있어야 목록으로 본다('2026.03.01.'의 연도가 잘리지 않게).
+const BULLET_PREFIX = /^[\s○●◦•\-–·※▶►]*(?:\d{1,2}\s*[.)]\s+)?[\s○●◦•\-–·※▶►]*/
+
 /** 원문에서 첫 의미 있는 줄. 글머리 기호 제거, 120자 상한. */
 export function firstLine(text: string | null | undefined, max = 120): string | null {
   if (!text) return null
   const line = text
     .split(/\r?\n/)
-    .map((l) => l.replace(/^[\s○●◦•\-–·※▶►]*(?:\d+\s*[.)]\s*)?[\s○●◦•\-–·※▶►]*/, '').trim())
+    .map((l) => l.replace(BULLET_PREFIX, '').trim())
     .find((l) => l.length > 0)
   if (!line) return null
   return line.length > max ? line.slice(0, max) : line
