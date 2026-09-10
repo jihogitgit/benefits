@@ -66,6 +66,8 @@ src/
 
 ### Task 1: 공통 기반 — utils, anon 클라이언트, site 상수, 세그먼트 경로 매핑
 
+> ✅ **완료** — 커밋 `104ba3e`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
 - Create: `src/lib/utils.ts`, `src/lib/supabase/server.ts`, `src/lib/seo/site.ts`
 - Modify: `data/segments.ts`
@@ -219,6 +221,8 @@ git commit -m "feat: 공통 기반 (cn, anon 클라이언트, site 상수, 세�
 ---
 
 ### Task 2: 순수 함수 — 포맷, 색인 정책, JSON-LD
+
+> ✅ **완료** — 커밋 `dcad201, 0a1aa1a, 857ff41`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/lib/benefits/format.ts`, `src/lib/seo/index-policy.ts`, `src/lib/seo/jsonld.ts`
@@ -484,6 +488,8 @@ git commit -m "feat: 포맷·색인 정책·JSON-LD 순수 함수"
 
 ### Task 3: 진단 상태(localStorage)와 칩 옵션
 
+> ✅ **완료** — 커밋 `40010e8, 844e65a, 861482a`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
 - Create: `src/lib/benefits/age-bands.ts`, `src/lib/diagnosis/options.ts`, `src/lib/diagnosis/storage.ts`
 - Modify: `src/lib/benefits/search.ts` (AGE_BANDS를 leaf 모듈에서 re-export, situations 중복 제거)
@@ -645,6 +651,8 @@ git commit -m "feat(diagnosis): 진단 상태 localStorage 스키마와 칩 옵�
 ---
 
 ### Task 4: 서버 조회 함수 (queries.ts)
+
+> ✅ **완료** — 커밋 `6b071ee, f9ffce3, b78c6b5`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/lib/benefits/queries.ts`
@@ -959,6 +967,8 @@ git commit -m "feat: 서버 조회 함수 (태그 캐시) + sync_runs 공개 읽
 ---
 
 ### Task 5: 레이아웃 셸, 광고 슬롯, 필수 페이지
+
+> ✅ **완료** — 커밋 `2a509e3, 5668cf0`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/app/(site)/layout.tsx`, `src/components/layout/Header.tsx`, `src/components/layout/Footer.tsx`, `src/components/ads/AdSlot.tsx`, `src/app/(site)/about/page.tsx`, `src/app/(site)/privacy/page.tsx`, `src/app/(site)/terms/page.tsx`, `src/app/(site)/contact/page.tsx`, `src/app/ads.txt/route.ts`
@@ -1282,6 +1292,8 @@ git commit -m "feat: 사이트 레이아웃(헤더·푸터), AdSlot, 필수 페�
 
 ### Task 6: 공통 지원금 컴포넌트 (카드·배지·목록)
 
+> ✅ **완료** — 커밋 `03ad119, 3460b1c`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
 - Create: `src/components/benefits/DdayBadge.tsx`, `src/components/benefits/BenefitCard.tsx`, `src/components/benefits/BenefitList.tsx`, `src/components/benefits/AdPlacement.tsx`
 - Test: `src/components/benefits/__tests__/BenefitCard.test.tsx`
@@ -1470,6 +1482,8 @@ git commit -m "feat(ui): 지원금 카드·D-day 배지·목록·광고 배치"
 ---
 
 ### Task 7: 홈 — 조건 진단 패널 + 마감 임박·신규·세그먼트 블록
+
+> ✅ **완료** — 커밋 `ba39120, 0754805, 3c3487e, 875ad4f`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/components/diagnosis/DiagnosisPanel.tsx`
@@ -1737,6 +1751,8 @@ git commit -m "feat(home): 조건 진단 패널과 마감 임박·분야·최근
 
 ### Task 8: /my 진단 결과 (CSR, noindex)
 
+> ✅ **완료** — 커밋 `e212bd3`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
 - Create: `src/components/diagnosis/DiagnosisResults.tsx`, `src/app/(site)/my/page.tsx`
 - Test: `src/components/diagnosis/__tests__/DiagnosisResults.test.tsx`
@@ -1962,6 +1978,8 @@ git commit -m "feat(my): 진단 결과 페이지 (CSR, noindex, 더 보기, 조�
 ---
 
 ### Task 9: 세그먼트 허브 + 세그먼트×지역
+
+> ✅ **완료** — 커밋 `46df9c7, b4ccff7`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 > **착수 전 확인 (Plan 2 실행 중 발견):** 실데이터의 소관기관명이 `전남광주통합특별시`로 들어와
 > `extractRegion`이 광주를 전부 `jeonnam`으로 분류한다(전남 1,053건, 광주 1건).
