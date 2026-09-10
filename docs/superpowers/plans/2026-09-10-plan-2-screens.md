@@ -1271,7 +1271,10 @@ Expected: `/about /privacy /terms /contact` 정적 라우트 생성, 오류 없�
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A
+# 여러 에이전트가 같은 워크트리를 쓸 수 있으므로 git add -A 를 쓰지 않는다. 남의 미커밋 작업이
+# 함께 스테이징된다(실제로 이 태스크에서 한 번 발생해 reset --soft 로 되돌렸다).
+git add src/app src/components public .env.local.example
+git diff --cached --stat   # 내가 만든 파일만 있는지 확인
 git commit -m "feat: 사이트 레이아웃(헤더·푸터), AdSlot, 필수 페이지 4개, ads.txt"
 ```
 
@@ -3228,7 +3231,8 @@ Plan 2 이관 질문 중 "검색 랭킹" 항목을 다음으로 교체:
 - [ ] **Step 6: Commit 및 병합**
 
 ```bash
-git add -A
+git add docs README.md
+git diff --cached --stat
 git commit -m "docs: Plan 2 완료 — 페이지·색인 정책·광고 안내, 스펙 갱신"
 git checkout main && git merge --ff-only feat/plan-2-screens
 ```
