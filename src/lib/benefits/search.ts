@@ -3,8 +3,10 @@ import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { REGIONS } from '../../../data/regions'
 import { daysUntil } from './status'
 
-export const AGE_BANDS = ['10s', '20s', '30s', '40s', '50s+'] as const
-export type AgeBand = (typeof AGE_BANDS)[number]
+import { AGE_BANDS, type AgeBand } from './age-bands'
+
+export { AGE_BANDS }
+export type { AgeBand }
 const SITUATIONS = Object.keys(SITUATION_TO_CONDITIONS)
 const REGION_SLUGS = new Set(REGIONS.map((r) => r.slug))
 
@@ -23,10 +25,15 @@ export function parseSearchParams(sp: URLSearchParams): SearchInput {
   const region = sp.get('region')
   return {
     ageBand: AGE_BANDS.includes(age as AgeBand) ? (age as AgeBand) : null,
-    situations: (sp.get('situations') ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => SITUATIONS.includes(s)),
+    // 중복 제거: 같은 결과에 서로 다른 캐시 키가 생기는 것을 막는다
+    situations: [
+      ...new Set(
+        (sp.get('situations') ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => SITUATIONS.includes(s)),
+      ),
+    ],
     region: region && REGION_SLUGS.has(region) ? region : null,
     countOnly: sp.get('count') === '1',
     limit: Math.min(100, Math.max(1, Number(sp.get('limit') ?? 50) || 50)),

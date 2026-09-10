@@ -485,8 +485,9 @@ git commit -m "feat: 포맷·색인 정책·JSON-LD 순수 함수"
 ### Task 3: 진단 상태(localStorage)와 칩 옵션
 
 **Files:**
-- Create: `src/lib/diagnosis/options.ts`, `src/lib/diagnosis/storage.ts`
-- Test: `src/lib/diagnosis/__tests__/storage.test.ts`
+- Create: `src/lib/benefits/age-bands.ts`, `src/lib/diagnosis/options.ts`, `src/lib/diagnosis/storage.ts`
+- Modify: `src/lib/benefits/search.ts` (AGE_BANDS를 leaf 모듈에서 re-export, situations 중복 제거)
+- Test: `src/lib/diagnosis/__tests__/storage.test.ts`, `src/lib/diagnosis/__tests__/options.test.ts`
 
 - [ ] **Step 1: 실패하는 테스트**
 
@@ -532,7 +533,9 @@ Expected: FAIL — 모듈 없음
 
 `src/lib/diagnosis/options.ts`:
 ```ts
-import { AGE_BANDS, type AgeBand } from '@/lib/benefits/search'
+// AGE_BANDS는 leaf 모듈에서 가져온다. search.ts를 value로 import하면 codemap·regions·status까지
+// 클라이언트 번들에 끌려온다(이 모듈은 클라이언트 컴포넌트가 쓴다).
+import { AGE_BANDS, type AgeBand } from '@/lib/benefits/age-bands'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { REGIONS } from '../../../data/regions'
 
@@ -560,15 +563,13 @@ export const VALID_AGE = new Set<string>(AGE_BANDS)
 export const VALID_SITUATION = new Set(Object.keys(SITUATION_TO_CONDITIONS))
 export const VALID_REGION = new Set(REGIONS.map((r) => r.slug))
 
-// options.ts의 SITUATION_OPTIONS는 codemap의 SITUATION_TO_CONDITIONS 키와 같아야 한다.
-if (process.env.NODE_ENV !== 'production') {
-  for (const o of SITUATION_OPTIONS) if (!VALID_SITUATION.has(o.value)) throw new Error(`알 수 없는 상황 값: ${o.value}`)
-}
+// 칩 목록과 codemap 키의 일치는 모듈 레벨 throw가 아니라
+// src/lib/diagnosis/__tests__/options.test.ts 에서 양방향 집합 비교로 검증한다.
 ```
 
 `src/lib/diagnosis/storage.ts`:
 ```ts
-import type { AgeBand } from '@/lib/benefits/search'
+import type { AgeBand } from '@/lib/benefits/age-bands'
 import { VALID_AGE, VALID_SITUATION, VALID_REGION } from './options'
 
 export interface Diagnosis {
@@ -578,13 +579,23 @@ export interface Diagnosis {
 }
 
 export const STORAGE_KEY = 'diagnosis'
-export const EMPTY: Diagnosis = { ageBand: null, situations: [], region: null }
+
+/** 읽기 전용 기본값. 호출자가 실수로 변형하지 못하게 동결한다. 새 객체가 필요하면 emptyDiagnosis(). */
+export const EMPTY: Diagnosis = Object.freeze({ ageBand: null, situations: [], region: null }) as Diagnosis
+
+/** 매번 새 객체를 돌려준다. 호출자가 situations를 직접 변형해도 모듈 상태가 오염되지 않는다. */
+export function emptyDiagnosis(): Diagnosis {
+  return { ageBand: null, situations: [], region: null }
+}
 
 function sanitize(raw: unknown): Diagnosis {
-  if (!raw || typeof raw !== 'object') return EMPTY
+  if (!raw || typeof raw !== 'object') return emptyDiagnosis()
   const o = raw as Record<string, unknown>
   const ageBand = typeof o.ageBand === 'string' && VALID_AGE.has(o.ageBand) ? (o.ageBand as AgeBand) : null
-  const situations = Array.isArray(o.situations) ? o.situations.filter((s): s is string => typeof s === 'string' && VALID_SITUATION.has(s)) : []
+  // 중복 제거: 손으로 편집한 payload가 캐시 키를 무한정 늘리지 못하게 한다
+  const situations = Array.isArray(o.situations)
+    ? [...new Set(o.situations.filter((s): s is string => typeof s === 'string' && VALID_SITUATION.has(s)))]
+    : []
   const region = typeof o.region === 'string' && VALID_REGION.has(o.region) ? o.region : null
   return { ageBand, situations, region }
 }
@@ -592,9 +603,9 @@ function sanitize(raw: unknown): Diagnosis {
 export function readDiagnosis(): Diagnosis {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? sanitize(JSON.parse(raw)) : EMPTY
+    return raw ? sanitize(JSON.parse(raw)) : emptyDiagnosis()
   } catch {
-    return EMPTY
+    return emptyDiagnosis()
   }
 }
 
@@ -1508,7 +1519,8 @@ export default function DiagnosisPanel() {
   const [restored, setRestored] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  // 첫 렌더 후 localStorage 복원 (SSR 불일치 방지)
+  // 첫 렌더 후 localStorage 복원. 서버에서는 readDiagnosis()가 항상 빈 값을 주므로
+  // 렌더 중에 읽으면 hydration 불일치가 난다. 반드시 useEffect에서 읽는다.
   useEffect(() => {
     const saved = readDiagnosis()
     if (!isEmpty(saved)) {

@@ -1,4 +1,4 @@
-import { AGE_BANDS, type AgeBand } from '@/lib/benefits/search'
+import { AGE_BANDS, type AgeBand } from '@/lib/benefits/age-bands'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { REGIONS } from '../../../data/regions'
 
@@ -25,8 +25,3 @@ export const REGION_OPTIONS: { value: string; label: string }[] = REGIONS.map((r
 export const VALID_AGE = new Set<string>(AGE_BANDS)
 export const VALID_SITUATION = new Set(Object.keys(SITUATION_TO_CONDITIONS))
 export const VALID_REGION = new Set(REGIONS.map((r) => r.slug))
-
-// options.ts의 SITUATION_OPTIONS는 codemap의 SITUATION_TO_CONDITIONS 키와 같아야 한다.
-if (process.env.NODE_ENV !== 'production') {
-  for (const o of SITUATION_OPTIONS) if (!VALID_SITUATION.has(o.value)) throw new Error(`알 수 없는 상황 값: ${o.value}`)
-}
