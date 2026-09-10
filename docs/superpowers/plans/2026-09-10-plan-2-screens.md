@@ -3013,7 +3013,19 @@ export default function OgImage() {
       revalidateTag('benefits:all') // unstable_cache 조회 함수(상세·목록·집계)
     }
 ```
-기존 `if (result.changed > 0 || result.closed > 0) revalidateTag('benefits:home')` 줄을 위 블록으로 교체한다. 테스트 `sync-gov24.test.ts`의 성공 케이스에 `expect(revalidateTag).toHaveBeenCalledWith('benefits:all')`를 추가한다.
+아래 세 줄을 위 블록으로 **교체**한다(앞의 두 루프까지 함께 지운다):
+```ts
+    for (const slug of result.changedSlugs) revalidateTag(`benefit:${slug}`)
+    for (const seg of result.changedSegments) revalidateTag(`segment:${seg}`)
+    if (result.changed > 0 || result.closed > 0) revalidateTag('benefits:home')
+```
+두 루프를 지우는 이유: `unstable_cache`의 태그는 함수 단위라 `benefit:{slug}`·`segment:{seg}` 태그를 가진
+캐시 항목이 하나도 없다. 즉 두 루프는 아무것도 무효화하지 못하는 no-op이면서, 원본 갱신 시각이 통째로
+바뀌는 동기화(실제로 10,947건 전부 변경으로 잡힌 적이 있다)에서는 만 번 넘는 호출이 되어 Vercel Hobby의
+60초 maxDuration을 위협한다. `benefits:all` 하나가 상세·목록·집계 전부를 덮는다.
+
+테스트 `sync-gov24.test.ts`의 성공 케이스에 `expect(revalidateTag).toHaveBeenCalledWith('benefits:all')`를
+추가하고, `benefit:`/`segment:` 태그로는 더 이상 호출되지 않는지도 확인한다.
 
 - [ ] **Step 4: 통과 확인 + 빌드**
 
