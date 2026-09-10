@@ -952,7 +952,7 @@ git commit -m "feat: 서버 조회 함수 (태그 캐시) + sync_runs 공개 읽
 ### Task 5: 레이아웃 셸, 광고 슬롯, 필수 페이지
 
 **Files:**
-- Create: `src/app/(site)/layout.tsx`, `src/components/layout/Header.tsx`, `src/components/layout/Footer.tsx`, `src/components/ads/AdSlot.tsx`, `src/app/(site)/about/page.tsx`, `src/app/(site)/privacy/page.tsx`, `src/app/(site)/terms/page.tsx`, `src/app/(site)/contact/page.tsx`, `public/ads.txt`
+- Create: `src/app/(site)/layout.tsx`, `src/components/layout/Header.tsx`, `src/components/layout/Footer.tsx`, `src/components/ads/AdSlot.tsx`, `src/app/(site)/about/page.tsx`, `src/app/(site)/privacy/page.tsx`, `src/app/(site)/terms/page.tsx`, `src/app/(site)/contact/page.tsx`, `src/app/ads.txt/route.ts`
 - Modify: `src/app/layout.tsx`, `.env.local.example`
 - Move: `src/app/page.tsx` → `src/app/(site)/page.tsx` (Task 6에서 내용 교체)
 
@@ -1224,10 +1224,24 @@ export default function ContactPage() {
 }
 ```
 
-`public/ads.txt`:
-```
-# Google AdSense 승인 후 퍼블리셔 ID로 교체
-# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+`src/app/ads.txt/route.ts` (정적 `public/ads.txt`를 두지 않는다):
+
+Google은 도메인 루트의 ads.txt에 자기 퍼블리셔 ID가 없으면 광고 게재를 차단한다. 주석만 있는 파일도
+같은 취급이라, 승인 전에 자리만 잡아두려고 `public/ads.txt`를 배포하면 승인 후 노출이 0이 된다.
+따라서 라우트로 두고 `NEXT_PUBLIC_ADSENSE_CLIENT`가 없으면 404를 준다.
+
+```ts
+export const dynamic = 'force-static'
+
+export function GET() {
+  const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.trim()
+  if (!client) return new Response(null, { status: 404 })
+  // AdSense가 주는 값은 'ca-pub-...' 형태지만 ads.txt 레코드에는 'pub-...'을 쓴다.
+  const publisherId = client.replace(/^ca-/, '')
+  return new Response(`google.com, ${publisherId}, DIRECT, f08c47fec0942fa0\n`, {
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  })
+}
 ```
 
 `prose` 클래스는 Tailwind typography 플러그인이 필요하다. 설치 없이 쓰려면 `globals.css`에 최소 스타일을 추가한다:

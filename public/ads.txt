@@ -1,2 +1,0 @@
-# Google AdSense 승인 후 퍼블리셔 ID로 교체
-# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
