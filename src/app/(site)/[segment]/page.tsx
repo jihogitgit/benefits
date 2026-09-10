@@ -73,6 +73,15 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
         <h2 className="mb-3 text-lg font-bold">마감 임박 순</h2>
         <BenefitList rows={rows} now={now} />
       </section>
+      {/* 목록은 limit으로 잘린다. 제목의 전체 건수와 카드 수가 다르면 사용자가 누락을 의심하므로
+          잘렸다는 사실과 정렬 기준을 밝히고, 나머지를 찾는 경로(조건 진단)로 이어준다. */}
+      {total > rows.length && (
+        <p className="mt-4 text-sm text-gray-500">
+          마감이 가까운 {rows.length.toLocaleString()}개를 먼저 보여줍니다. 나머지는{' '}
+          <Link href="/" className="font-semibold text-indigo-700 hover:underline">조건 진단</Link>
+          으로 좁혀서 찾아보세요.
+        </p>
+      )}
     </div>
   )
 }
