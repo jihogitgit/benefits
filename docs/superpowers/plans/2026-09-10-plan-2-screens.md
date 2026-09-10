@@ -52,7 +52,7 @@ src/
 │   ├── diagnosis/options.ts            # 칩 정의(나이·상황·지역 라벨)
 │   ├── benefits/queries.ts             # 서버 조회 함수 (태그 캐시)
 │   ├── benefits/checklist.ts           # 조건 → 체크 항목, 프리필 평가 (pure)
-│   ├── benefits/format.ts              # D-day 문구, 기한 문구, 금액 요약 (pure)
+│   ├── benefits/format.ts              # D-day 문구, 기한 문구, 원문 첫 줄 추출, KST 시각 (pure)
 │   ├── seo/index-policy.ts             # 색인 여부 결정 (pure)
 │   ├── seo/jsonld.ts                   # GovernmentService·BreadcrumbList·FAQPage·ItemList 생성 (pure)
 │   └── seo/site.ts                     # SITE_NAME, SITE_URL, absoluteUrl()
@@ -363,9 +363,10 @@ export function deadlineLabel(b: { deadline_type: DeadlineType | string; apply_s
   return '공고 확인'
 }
 
-// 글머리 기호 + (번호 목록 접두사) + 남은 기호를 제거한다.
-// 번호는 1~2자리에 구분자 뒤 공백까지 있어야 목록으로 본다('2026.03.01.'의 연도가 잘리지 않게).
-const BULLET_PREFIX = /^[\s○●◦•\-–·※▶►]*(?:\d{1,2}\s*[.)]\s+)?[\s○●◦•\-–·※▶►]*/
+// 글머리 기호 + (번호·원문자 목록 접두사) + 남은 기호를 제거한다. 기호 목록은 실제 보조금24
+// 원문(fixtures/gov24)에서 확인된 것들이다. 번호는 1~2자리에 구분자 뒤 공백까지 있어야 목록으로
+// 본다('2026.03.01.'의 연도가 잘리지 않게). 괄호·대괄호로 시작하는 줄은 의미 있는 내용이므로 남긴다.
+const BULLET_PREFIX = /^[\s○●◦•‧∙·ㆍ□◇◈▪▫▶►▷☞※＊*\-–]*(?:[①-⑳]|\d{1,2}\s*[.)]\s+)?[\s○●◦•‧∙·ㆍ□◇◈▪▫▶►▷☞※＊*\-–]*/
 
 /** 원문에서 첫 의미 있는 줄. 글머리 기호 제거, 120자 상한. */
 export function firstLine(text: string | null | undefined, max = 120): string | null {

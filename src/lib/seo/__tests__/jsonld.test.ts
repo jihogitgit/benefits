@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { governmentService, breadcrumbs, faqPage, itemList } from '../jsonld'
+import { governmentService, breadcrumbs, faqPage, itemList, jsonLdString } from '../jsonld'
 
 beforeEach(() => {
   process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com'
@@ -26,5 +26,12 @@ describe('jsonld', () => {
   it('ItemList', () => {
     const j = itemList([{ name: 'a', path: '/benefit/a' }])
     expect(j.itemListElement[0].url).toBe('https://example.com/benefit/a')
+  })
+
+  it('jsonLdString은 </script 이스케이프로 태그 탈출을 막는다', () => {
+    const out = jsonLdString({ name: '</script><img src=x onerror=alert(1)>' })
+    expect(out).not.toContain('</script')
+    expect(out).toContain('\\u003c/script')
+    expect(JSON.parse(out).name).toBe('</script><img src=x onerror=alert(1)>')
   })
 })
