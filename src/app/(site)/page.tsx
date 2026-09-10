@@ -20,15 +20,19 @@ export default async function HomePage() {
 
       <AdPlacement slot="home" />
 
-      <section className="mt-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-bold">마감 임박 (2주 이내)</h2>
-          <Link href="/deadline" className="text-sm text-indigo-700 hover:underline">전체 보기</Link>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {soon.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
-        </div>
-      </section>
+      {/* 기간형 공고는 614건뿐이라 2주 이내가 0건인 시기가 실제로 생긴다. 제목만 남은 빈 섹션은
+          내용 없는 페이지로 보이므로 항목이 있을 때만 렌더한다. */}
+      {soon.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-lg font-bold">마감 임박 (2주 이내)</h2>
+            <Link href="/deadline" className="text-sm text-indigo-700 hover:underline">전체 보기</Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {soon.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
+          </div>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-bold">분야별로 보기</h2>

@@ -1677,6 +1677,8 @@ export default async function HomePage() {
 
       <AdPlacement slot="home" />
 
+      {/* 2주 이내 마감이 0건인 시기가 실제로 생긴다(기간형 공고 614건). 제목만 남은 빈 섹션을 만들지 않는다. */}
+      {soon.length > 0 && (
       <section className="mt-8">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-lg font-bold">마감 임박 (2주 이내)</h2>
@@ -1686,6 +1688,7 @@ export default async function HomePage() {
           {soon.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
         </div>
       </section>
+      )}
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-bold">분야별로 보기</h2>
