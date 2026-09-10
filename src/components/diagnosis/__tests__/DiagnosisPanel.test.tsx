@@ -4,10 +4,14 @@ import DiagnosisPanel from '../DiagnosisPanel'
 
 describe('DiagnosisPanel', () => {
   const fetchMock = vi.fn()
+  const okResponse = () => Promise.resolve(new Response(JSON.stringify({ total: 27, items: [] })))
   beforeEach(() => {
     localStorage.clear()
+    fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 27, items: [] })))
+    // Response 본문은 한 번만 읽을 수 있다. mockResolvedValue로 같은 객체를 돌려주면 두 번째
+    // 호출의 r.json()이 실패해 실제 조회 실패와 구분되지 않는다. 호출마다 새 Response를 만든다.
+    fetchMock.mockImplementation(okResponse)
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -35,6 +39,14 @@ describe('DiagnosisPanel', () => {
   it('아무것도 고르지 않으면 안내 문구', () => {
     render(<DiagnosisPanel />)
     expect(screen.getByText(/조건을 골라 주세요/)).toBeInTheDocument()
+  })
+
+  it('개수 조회가 실패하면 로딩 문구 대신 중립 문구를 보여준다', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response('nope', { status: 500 })))
+    render(<DiagnosisPanel />)
+    fireEvent.click(screen.getByRole('button', { name: '30대' }))
+    await waitFor(() => expect(screen.getByRole('link', { name: /내 지원금 보기/ })).toBeInTheDocument())
+    expect(screen.queryByText(/찾는 중/)).not.toBeInTheDocument()
   })
 
   it('같은 칩을 다시 누르면 해제된다', () => {

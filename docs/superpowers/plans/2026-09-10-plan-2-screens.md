@@ -1489,7 +1489,9 @@ describe('DiagnosisPanel', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.stubGlobal('fetch', fetchMock)
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 27, items: [] })))
+    fetchMock.mockReset()
+    // Response 본문은 한 번만 읽을 수 있다. 같은 객체를 재사용하면 두 번째 호출의 r.json()이 실패한다.
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ total: 27, items: [] }))))
   })
   afterEach(() => vi.unstubAllGlobals())
 
