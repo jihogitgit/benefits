@@ -24,6 +24,9 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 export default function DiagnosisPanel() {
   const [d, setD] = useState<Diagnosis>(EMPTY)
   const [total, setTotal] = useState<number | null>(null)
+  // 조회 실패를 따로 들고 있는다. 실패를 total=null로만 두면 CTA가 '찾는 중…'에 영구히 머물러
+  // 사용자에게 거짓 상태를 보여준다. 실패해도 /my로는 갈 수 있으니 중립 문구로 바꾼다.
+  const [countFailed, setCountFailed] = useState(false)
   const [restored, setRestored] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -41,18 +44,24 @@ export default function DiagnosisPanel() {
   useEffect(() => {
     if (isEmpty(d)) {
       setTotal(null)
+      setCountFailed(false)
       return
     }
     writeDiagnosis(d)
+    setCountFailed(false)
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
     const sp = toSearchParams(d)
     sp.set('count', '1')
     fetch(`/api/benefits/search?${sp.toString()}`, { signal: ac.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => j && setTotal(j.total))
-      .catch(() => {})
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`search ${r.status}`))))
+      .then((j) => setTotal(j.total))
+      .catch((e: unknown) => {
+        // 조건이 바뀌어 취소된 요청은 실패가 아니다.
+        if (!ac.signal.aborted) setCountFailed(true)
+        void e
+      })
     return () => ac.abort()
   }, [d])
 
@@ -77,7 +86,7 @@ export default function DiagnosisPanel() {
       <div className="mt-5 space-y-4 rounded-xl bg-white p-4 text-gray-900">
         <div>
           <p className="mb-2 text-xs font-semibold text-gray-500">나이</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="나이">
             {AGE_OPTIONS.map((o) => (
               <Chip key={o.value} on={d.ageBand === o.value} onClick={() => pickAge(o.value)}>{o.label}</Chip>
             ))}
@@ -85,7 +94,7 @@ export default function DiagnosisPanel() {
         </div>
         <div>
           <p className="mb-2 text-xs font-semibold text-gray-500">상황 (여러 개 가능)</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="상황 (여러 개 가능)">
             {SITUATION_OPTIONS.map((o) => (
               <Chip key={o.value} on={d.situations.includes(o.value)} onClick={() => toggleSituation(o.value)}>{o.label}</Chip>
             ))}
@@ -93,7 +102,7 @@ export default function DiagnosisPanel() {
         </div>
         <div>
           <p className="mb-2 text-xs font-semibold text-gray-500">지역</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="지역">
             {REGION_OPTIONS.map((o) => (
               <Chip key={o.value} on={d.region === o.value} onClick={() => pickRegion(o.value)}>{o.label}</Chip>
             ))}
@@ -110,7 +119,7 @@ export default function DiagnosisPanel() {
               className="block rounded-xl bg-indigo-600 py-3.5 text-center text-base font-bold text-white hover:bg-indigo-700"
             >
               {restored ? '이어서 보기: ' : ''}
-              {total === null ? '내 지원금 찾는 중…' : `내 지원금 ${total.toLocaleString()}개 보기 →`}
+              {countFailed ? '내 지원금 보기 →' : total === null ? '내 지원금 찾는 중…' : `내 지원금 ${total.toLocaleString()}개 보기 →`}
             </Link>
           )}
         </div>
