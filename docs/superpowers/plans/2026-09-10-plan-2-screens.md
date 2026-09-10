@@ -1920,6 +1920,13 @@ git commit -m "feat(my): 진단 결과 페이지 (CSR, noindex, 더 보기, 조�
 
 ### Task 9: 세그먼트 허브 + 세그먼트×지역
 
+> **착수 전 확인 (Plan 2 실행 중 발견):** 실데이터의 소관기관명이 `전남광주통합특별시`로 들어와
+> `extractRegion`이 광주를 전부 `jeonnam`으로 분류한다(전남 1,053건, 광주 1건). 지역 칩과 사이트맵이
+> 1건짜리 광주 페이지를 만들지 않도록, 건수가 0 또는 1인 지역은 칩·링크·사이트맵에서 제외한다.
+> 지역 taxonomy 자체를 바꾸는 결정(광주 슬러그 폐지 또는 리다이렉트)은 스펙 12장에 기록되어 있고
+> 사용자 확인이 필요하다. 또한 `benefits.region_code`는 코드가 아니라 slug를 담는다는 점에 주의한다.
+
+
 **Files:**
 - Create: `src/app/(site)/[segment]/page.tsx`, `src/app/(site)/[segment]/[region]/page.tsx`, `src/components/JsonLd.tsx`
 - Test: `src/lib/seo/__tests__/hub-meta.test.ts`, `src/lib/seo/hub-meta.ts`
