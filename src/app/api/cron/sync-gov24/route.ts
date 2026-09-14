@@ -27,9 +27,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ ...result, changedSlugs: undefined }, { status: 409 })
     }
 
-    for (const slug of result.changedSlugs) revalidateTag(`benefit:${slug}`)
-    for (const seg of result.changedSegments) revalidateTag(`segment:${seg}`)
-    if (result.changed > 0 || result.closed > 0) revalidateTag('benefits:home')
+    // benefit:{slug}·segment:{seg} 루프는 두지 않는다. unstable_cache의 태그는 함수 단위라 그런 태그를
+    // 가진 캐시 항목이 하나도 없어 아무것도 무효화하지 못하면서, 원문 갱신 시각이 통째로 바뀌는 동기화
+    // (10,947건 전부 변경으로 잡힌 적이 있다)에서는 만 번 넘는 호출이 되어 maxDuration 60초를 위협한다.
+    // 조회 함수는 모두 benefits:all 또는 benefits:home 태그를 달고 있으므로 이 두 개면 전부 덮는다.
+    if (result.changed > 0 || result.closed > 0 || result.removed > 0) {
+      revalidateTag('benefits:home')
+      revalidateTag('benefits:all') // unstable_cache 조회 함수(상세·목록·집계)
+    }
 
     return NextResponse.json({ ...result, changedSlugs: result.changedSlugs.length })
   } catch (err) {
