@@ -209,3 +209,21 @@ export const getLastSyncAt = unstable_cache(
   ['last-sync'],
   { tags: ['benefits:home'], revalidate: 600 },
 )
+
+export interface GuideRow {
+  slug: string
+  title: string
+  body_md: string
+  segment: string | null
+  published_at: string | null
+}
+
+export const getGuide = unstable_cache(
+  async (slug: string): Promise<GuideRow | null> => {
+    const { data, error } = await createPublicClient().from('guides').select('slug, title, body_md, segment, published_at').eq('slug', slug).maybeSingle()
+    if (error) throw error
+    return data
+  },
+  ['guide'],
+  { tags: ['guides'], revalidate: 86400 },
+)
