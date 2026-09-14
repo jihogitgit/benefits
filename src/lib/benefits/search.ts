@@ -87,8 +87,10 @@ function situationHit(c: CondLike, situations: string[]): boolean {
  * 상황은 하나라도 일치하면 통과.
  */
 export function matchesConditions(c: CondLike, q: Criteria): boolean {
-  if (q.ageRange && c.age_min !== null && c.age_max !== null) {
-    if (c.age_max < q.ageRange[0] || c.age_min > q.ageRange[1]) return false
+  // age_min·age_max는 각각 독립적으로 null일 수 있다. 둘 다 있을 때만 거르면 "만 65세 이상"처럼
+  // 한쪽만 설정된 조건이 나이 필터를 그대로 통과한다. 열린 쪽만 경계 없음으로 본다.
+  if (q.ageRange && (c.age_min !== null || c.age_max !== null)) {
+    if ((c.age_max ?? 120) < q.ageRange[0] || (c.age_min ?? 0) > q.ageRange[1]) return false
   }
   if (q.region && c.region_codes.length > 0 && !c.region_codes.includes(q.region)) return false
   if (q.situations.length > 0 && hasSituationCond(c) && !situationHit(c, q.situations)) return false
@@ -105,7 +107,7 @@ export function matchScore(c: CondLike | null, q: Criteria): number {
   let s = 0
   if (q.situations.length && hasSituationCond(c) && situationHit(c, q.situations)) s += 2
   if (q.region && c.region_codes.includes(q.region)) s += 1
-  if (q.ageRange && c.age_min !== null && c.age_max !== null) s += 1
+  if (q.ageRange && (c.age_min !== null || c.age_max !== null)) s += 1
   return s
 }
 

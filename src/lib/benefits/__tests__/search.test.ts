@@ -31,6 +31,14 @@ describe('matchesConditions', () => {
     expect(matchesConditions(cond, { ageRange: [30, 39], situations: [], region: null })).toBe(true)
     expect(matchesConditions(cond, { ageRange: [40, 49], situations: [], region: null })).toBe(false)
   })
+  it('한쪽만 설정된 나이 조건도 거른다', () => {
+    const onlyMin = { ...cond, age_min: 65, age_max: null }
+    expect(matchesConditions(onlyMin, { ageRange: [20, 29], situations: [], region: null })).toBe(false)
+    expect(matchesConditions(onlyMin, { ageRange: [50, 120], situations: [], region: null })).toBe(true)
+    const onlyMax = { ...cond, age_min: null, age_max: 18 }
+    expect(matchesConditions(onlyMax, { ageRange: [20, 29], situations: [], region: null })).toBe(false)
+    expect(matchesConditions(onlyMax, { ageRange: [10, 19], situations: [], region: null })).toBe(true)
+  })
   it('나이 조건이 없는 항목은 나이로 거르지 않는다', () => {
     expect(matchesConditions({ ...cond, age_min: null, age_max: null }, { ageRange: [40, 49], situations: [], region: null })).toBe(true)
   })

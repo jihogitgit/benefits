@@ -29,6 +29,10 @@ describe('buildChecklist', () => {
   it('조건이 없으면 빈 배열', () => {
     expect(buildChecklist(null, null)).toEqual([])
   })
+  it('나이 상한만 없으면 "N세 이상", 하한만 없으면 "N세 이하"', () => {
+    expect(buildChecklist({ ...cond, age_min: 65, age_max: null }, null)[0]).toEqual({ key: 'age', label: '만 65세 이상' })
+    expect(buildChecklist({ ...cond, age_min: null, age_max: 18 }, null)[0]).toEqual({ key: 'age', label: '만 18세 이하' })
+  })
 })
 
 describe('evaluateChecklist', () => {
@@ -41,6 +45,12 @@ describe('evaluateChecklist', () => {
     const r = evaluateChecklist(items, cond, { ageBand: '30s', situations: [], region: null })
     expect(r[0].state).toBe('pass') // 30~39 ∩ 19~34
     expect(r[1].state).toBe('unknown')
+  })
+  it('한쪽만 설정된 나이 조건도 평가한다', () => {
+    const oneSided = { ...cond, age_min: 65, age_max: null }
+    const its = buildChecklist(oneSided, null)
+    expect(evaluateChecklist(its, oneSided, { ageBand: '20s', situations: [], region: null })[0].state).toBe('fail')
+    expect(evaluateChecklist(its, oneSided, { ageBand: '50s+', situations: [], region: null })[0].state).toBe('pass')
   })
   it('진단이 없으면 모두 unknown', () => {
     expect(evaluateChecklist(items, cond, { ageBand: null, situations: [], region: null }).every((x) => x.state === 'unknown')).toBe(true)
