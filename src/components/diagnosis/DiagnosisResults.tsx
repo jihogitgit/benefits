@@ -33,7 +33,7 @@ function toRow(i: SearchResultItem): BenefitListRow {
     apply_end: i.apply_end,
     region_code: i.region_code,
     segments: i.segments as Segment[],
-    agency: null,
+    agency: i.agency,
     synced_at: '',
   }
 }

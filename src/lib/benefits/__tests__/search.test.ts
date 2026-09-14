@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSearchParams, ageBandToRange, matchesConditions, rankBenefits, cacheKeyFor } from '../search'
+import { parseSearchParams, ageBandToRange, matchesConditions, matchScore, rankBenefits, cacheKeyFor } from '../search'
 
 describe('parseSearchParams', () => {
   it('쿼리스트링을 검색 입력으로', () => {
@@ -47,15 +47,42 @@ describe('matchesConditions', () => {
   })
 })
 
+describe('matchScore', () => {
+  const base = { age_min: null, age_max: null, gender: 'any' as const, life_stages: [], household_types: [], occupations: [], region_codes: [] }
+  const q = { ageRange: [20, 29] as [number, number], situations: ['job_seeker'], region: 'seoul' }
+  it('상황 일치 +2, 지역 일치 +1, 나이 조건 일치 +1', () => {
+    expect(matchScore({ ...base, occupations: ['job_seeker'], region_codes: ['seoul'], age_min: 19, age_max: 34 }, q)).toBe(4)
+    expect(matchScore({ ...base, region_codes: ['seoul'] }, q)).toBe(1)
+    expect(matchScore(base, q)).toBe(0)
+    expect(matchScore(null, q)).toBe(0)
+  })
+  it('사용자가 상황을 고르지 않았으면 상황 점수를 주지 않는다', () => {
+    expect(matchScore({ ...base, occupations: ['job_seeker'] }, { ageRange: null, situations: [], region: null })).toBe(0)
+  })
+  it('전국(region_codes 빈 배열) 항목은 지역 점수를 못 받는다', () => {
+    expect(matchScore(base, { ageRange: null, situations: [], region: 'seoul' })).toBe(0)
+  })
+})
+
 describe('rankBenefits', () => {
   it('마감 임박 → 상시 → 조건 확인 필요 순', () => {
     const rows = [
-      { slug: 'always', deadline_type: 'always', apply_end: null, hasConditions: true },
-      { slug: 'soon', deadline_type: 'period', apply_end: '2026-09-15', hasConditions: true },
-      { slug: 'unknown', deadline_type: 'unknown', apply_end: null, hasConditions: false },
-      { slug: 'later', deadline_type: 'period', apply_end: '2026-10-15', hasConditions: true },
+      { slug: 'always', deadline_type: 'always', apply_end: null, hasConditions: true, score: 0 },
+      { slug: 'soon', deadline_type: 'period', apply_end: '2026-09-15', hasConditions: true, score: 0 },
+      { slug: 'unknown', deadline_type: 'unknown', apply_end: null, hasConditions: false, score: 0 },
+      { slug: 'later', deadline_type: 'period', apply_end: '2026-10-15', hasConditions: true, score: 0 },
     ]
     expect(rankBenefits(rows, new Date('2026-09-10T03:00:00Z')).map((r) => r.slug)).toEqual(['soon', 'later', 'always', 'unknown'])
+  })
+
+  it('점수 높은 항목이 먼저, 같은 점수 안에서 마감 임박 → 상시 → 조건 확인 필요', () => {
+    const rows = [
+      { slug: 'generic-soon', deadline_type: 'period', apply_end: '2026-09-15', hasConditions: true, score: 0 },
+      { slug: 'match-always', deadline_type: 'always', apply_end: null, hasConditions: true, score: 3 },
+      { slug: 'match-soon', deadline_type: 'period', apply_end: '2026-09-20', hasConditions: true, score: 3 },
+      { slug: 'unsure', deadline_type: 'unknown', apply_end: null, hasConditions: false, score: 0 },
+    ]
+    expect(rankBenefits(rows, new Date('2026-09-10T03:00:00Z')).map((r) => r.slug)).toEqual(['match-soon', 'match-always', 'generic-soon', 'unsure'])
   })
 })
 

@@ -4,7 +4,7 @@ import DiagnosisResults from '../DiagnosisResults'
 
 const item = (slug: string, extra = {}) => ({
   slug, title: `제목 ${slug}`, summary: null, amount_text: '10만원', deadline_type: 'always', apply_end: null,
-  region_code: 'ALL', segments: ['youth'], hasConditions: true, dday: null, ...extra,
+  region_code: 'ALL', segments: ['youth'], agency: null, hasConditions: true, dday: null, score: 0, ...extra,
 })
 
 describe('DiagnosisResults', () => {
