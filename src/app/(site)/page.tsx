@@ -1,12 +1,20 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import DiagnosisPanel from '@/components/diagnosis/DiagnosisPanel'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import AdPlacement from '@/components/benefits/AdPlacement'
 import { listDeadlineSoon, listRecentlyUpdated, getLastSyncAt } from '@/lib/benefits/queries'
 import { formatKstDate } from '@/lib/benefits/format'
+import { absoluteUrl } from '@/lib/seo/site'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 
 export const revalidate = 3600
+
+// 루트 레이아웃의 './' 기본값을 홈에서만 명시값으로 덮는다. 홈은 revalidate로 서버에서 다시
+// 렌더되는데, 그때 Next가 받는 경로가 '/'가 아니라 '/index'라서 './'가 naemok.com/index로
+// 풀린다. 존재하지 않는 URL을 정본으로 선언하게 되고, 빌드 시점 HTML에는 나타나지 않아
+// 로컬·프리뷰에서는 보이지 않는다(프로덕션 도메인에서 실측으로 발견).
+export const metadata: Metadata = { alternates: { canonical: absoluteUrl('/') } }
 
 export default async function HomePage() {
   // listDeadlineSoon/listRecentlyUpdated는 현재 시각을 인자로 받지 않는다(unstable_cache 키 오염 방지).

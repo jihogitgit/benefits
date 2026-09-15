@@ -17,6 +17,13 @@ describe('canonical 상대경로 해석', () => {
     expect(resolveRelativeUrl('./', '/benefit/some-slug')).toBe('/benefit/some-slug')
   })
 
+  // 홈이 './'를 쓰면 안 되는 이유. Vercel에서 revalidate로 홈을 다시 렌더할 때 넘어오는 경로가
+  // '/'가 아니라 '/index'였고, 그 결과 canonical이 naemok.com/index로 나갔다. 빌드 시점 HTML은
+  // 멀쩡해서 로컬·프리뷰에서는 재현되지 않는다. 그래서 (site)/page.tsx는 canonical을 명시한다.
+  it("'/index'가 넘어오면 './'는 홈이 아닌 /index를 가리킨다", () => {
+    expect(resolveRelativeUrl('./', '/index')).toBe('/index')
+  })
+
   it('절대 경로·절대 URL은 그대로 통과한다 (페이지가 지정한 canonical 보존)', () => {
     expect(resolveRelativeUrl('/youth', '/benefit/x')).toBe('/youth')
     expect(resolveRelativeUrl('https://naemok.com/youth', '/benefit/x')).toBe('https://naemok.com/youth')
