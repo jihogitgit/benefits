@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   // 잃는다. './' 해석 자체의 회귀는 __tests__/canonical.test.ts가 지킨다.
   alternates: { canonical: './' },
   openGraph: { type: 'website', locale: 'ko_KR', siteName: siteName() },
+  // 네이버 서치어드바이저 소유확인. 네이버는 DNS 방식을 지원하지 않아 메타 태그로만 가능하다.
+  // 공개값이라 env로 숨길 이유가 없고, 태그가 사라지면 소유확인이 풀리므로 코드에 고정한다.
+  verification: { other: { 'naver-site-verification': 'cb12820b99e82998654bf1693726ced03349fb33' } },
   robots: { index: true, follow: true },
 }
 
