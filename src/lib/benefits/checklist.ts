@@ -8,7 +8,13 @@ export interface CheckItem {
   key: string // 'age' | 'region' | 'gender' | 'household:x' | 'occupation:x' | 'life:x' | 'income:x' | 검수자가 정한 키
   label: string
 }
-export type CheckState = 'pass' | 'fail' | 'unknown'
+/**
+ * pass = 진단값이 조건 구간에 완전히 들어감, partial = 일부만 겹침(정확한 나이를 모르므로 단정 불가),
+ * fail = 전혀 겹치지 않음, unknown = 판정 근거 없음.
+ * 진단은 나이를 10년 단위로만 받으므로 겹침만으로 '충족'이라 하면 50세에게 '만 65세 이상'을
+ * 자격 있다고 안내하게 된다(age_min>=60 조건이 858건). partial은 체크를 비우고 확인을 요구한다.
+ */
+export type CheckState = 'pass' | 'partial' | 'fail' | 'unknown'
 export interface EvaluatedItem extends CheckItem {
   state: CheckState
 }
@@ -68,7 +74,9 @@ export function evaluateChecklist(items: CheckItem[], cond: ConditionJoin | null
     if (it.key === 'age' && cond && (cond.age_min !== null || cond.age_max !== null)) {
       const r = ageBandToRange(d.ageBand)
       // 열린 쪽은 경계 없음으로 본다. ageBandToRange의 상한과 맞춰 120을 쓴다.
-      if (r) state = r[1] < (cond.age_min ?? 0) || r[0] > (cond.age_max ?? 120) ? 'fail' : 'pass'
+      const lo = cond.age_min ?? 0
+      const hi = cond.age_max ?? 120
+      if (r) state = r[1] < lo || r[0] > hi ? 'fail' : r[0] >= lo && r[1] <= hi ? 'pass' : 'partial'
     } else if (it.key === 'region' && cond?.region_codes.length) {
       if (d.region) state = cond.region_codes.includes(d.region) ? 'pass' : 'fail'
     } else if (it.key.startsWith('household:') || it.key.startsWith('occupation:') || it.key.startsWith('life:')) {
@@ -83,8 +91,11 @@ export function summarize(evaluated: EvaluatedItem[]): string {
   if (!evaluated.length) return ''
   const pass = evaluated.filter((e) => e.state === 'pass').length
   const fail = evaluated.filter((e) => e.state === 'fail').length
+  const partial = evaluated.filter((e) => e.state === 'partial').length
   if (fail > 0) return `${evaluated.length}개 중 ${fail}개가 내 조건과 다릅니다. 공식 페이지에서 확인해 보세요.`
+  // '바로 신청해 보세요'는 전 항목이 확정 충족일 때만 낸다. partial이 하나라도 있으면 단정하지 않는다.
   if (pass === evaluated.length) return `${evaluated.length}개 조건 모두 충족! 바로 신청해 보세요.`
   if (pass > 0) return `${evaluated.length}개 중 ${pass}개 충족 · 나머지는 직접 확인하세요.`
+  if (partial > 0) return '조건 구간이 일부만 겹칩니다. 공식 페이지에서 정확한 기준을 확인하세요.'
   return '홈에서 조건을 고르면 자동으로 체크됩니다.'
 }

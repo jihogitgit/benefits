@@ -41,6 +41,10 @@ export default function Checklist({ items, cond }: { items: CheckItem[]; cond: C
             <label htmlFor={`chk-${i}`} className={cn('text-sm', e.state === 'fail' && 'text-red-700 line-through decoration-red-300')}>
               {e.label}
               {e.state === 'fail' && <span className="ml-1 text-xs no-underline">내 조건과 다름</span>}
+              {/* 부분 겹침은 체크하지 않고 확인을 요구한다. 오늘은 나이 항목만 partial이 될 수 있다. */}
+              {e.state === 'partial' && (
+                <span className="ml-1 text-xs text-amber-700">· {e.key === 'age' ? '나이 확인 필요' : '확인 필요'}</span>
+              )}
             </label>
           </li>
         ))}

@@ -44,3 +44,24 @@ describe('Checklist', () => {
     expect(screen.getByText(/대상 조건이 등록되지 않은/)).toBeInTheDocument()
   })
 })
+
+describe('Checklist 부분 겹침', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('나이대가 일부만 겹치면 체크를 비우고 "나이 확인 필요"를 붙인다', () => {
+    localStorage.setItem('diagnosis', JSON.stringify({ ageBand: '30s', situations: [], region: 'seoul' }))
+    render(<Checklist items={items} cond={cond} />)
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
+    expect(boxes[0].checked).toBe(false) // 만 19~34세 ∩ 30대 = 부분
+    expect(screen.getByText(/나이 확인 필요/)).toBeInTheDocument()
+    expect(screen.queryByText(/바로 신청/)).not.toBeInTheDocument()
+  })
+
+  it('부분 겹침 항목도 사용자가 직접 체크할 수 있다', () => {
+    localStorage.setItem('diagnosis', JSON.stringify({ ageBand: '30s', situations: [], region: 'seoul' }))
+    render(<Checklist items={items} cond={cond} />)
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
+    fireEvent.click(boxes[0])
+    expect(boxes[0].checked).toBe(true)
+  })
+})
