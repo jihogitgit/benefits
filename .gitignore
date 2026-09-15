@@ -8,3 +8,4 @@ node_modules/
 fixtures/**/*.raw.json
 *.tsbuildinfo
 next-env.d.ts
+.vercel
