@@ -19,7 +19,9 @@
 - Vercel Cron: `/api/cron/sync-gov24` (KST 03:00, 12:00), `Authorization: Bearer $CRON_SECRET`
 - 안전장치: 직전 성공 대비 30% 이상 건수 감소 시 중단(409), `sync_runs.aborted_reason` 기록
 - 마감·소멸 항목은 삭제하지 않고 `status`만 closed/removed로 변경
-- 변경된 항목은 `benefit:{slug}`, `segment:{seg}`, `benefits:home` 태그로 재검증
+- 변경이 있으면 `benefits:home`·`benefits:all` 두 태그만 재검증한다. `unstable_cache`의 태그는 함수 단위라
+  `benefit:{slug}`·`segment:{seg}` 태그를 가진 캐시 항목은 존재하지 않는다(그런 루프는 no-op이면서
+  전건 변경 시 만 번 넘는 호출이 되어 `maxDuration` 60초를 위협한다)
 
 ## 검색 API
 
@@ -29,6 +31,31 @@
 - `situations`: pregnancy, has_child, job_seeker, business, single, no_house, student (쉼표 구분)
 - `region`: 시도 slug (seoul, gyeonggi …)
 - `count=1`이면 총 개수만, 아니면 `limit`(최대 100)·`offset`으로 페이지
+- 정렬: 조건 일치 점수(상황 2·지역 1·나이 1) 내림차순 → 마감 임박 → 상시 → 조건 확인 필요.
+  조건이 아예 등록되지 않은 전 국민 대상 항목은 점수 0이라 뒤로 간다
+
+## 페이지
+
+| 경로 | 내용 | 색인 |
+|---|---|---|
+| `/` | 조건 진단 + 마감 임박 + 분야 | O |
+| `/my` | 진단 결과 (localStorage 기반) | X |
+| `/youth` `/parenting` `/small-biz` | 세그먼트 허브 | O |
+| `/{segment}/{region}` | 세그먼트×지역 (항목 3개 이상 + 지역 안내문 있을 때만) | 조건부 |
+| `/benefit/{slug}` | 상세 (검수 게재된 해설이 있을 때만) | 조건부 |
+| `/deadline` | 마감 캘린더 | O |
+| `/guide/{slug}` | 가이드 | O |
+
+색인 규칙은 `src/lib/seo/index-policy.ts` 한 곳에서 결정하고 페이지 robots 메타와 사이트맵이 모두 따른다.
+
+사이트맵은 `generateSitemaps`로 분할되며 실제 경로는 `/sitemap/0.xml`(정적 + 지역 허브)과
+`/sitemap/1~3.xml`(공개 세그먼트별 상세)이다. **`/sitemap.xml` 인덱스는 Next가 만들지 않으므로**
+`robots.txt`는 분할 파일을 전부 나열한다(`sitemapPaths()`가 두 곳의 단일 출처다).
+
+## 광고
+
+`AdPlacement` 컴포넌트가 유일한 진입점. `NEXT_PUBLIC_ADSENSE_CLIENT`와 해당 슬롯 ID가 **둘 다** 있으면
+애드센스, 없고 `NEXT_PUBLIC_ADFIT_UNIT_*`가 있으면 애드핏, 둘 다 없으면 렌더하지 않는다.
 
 ## 테스트
 

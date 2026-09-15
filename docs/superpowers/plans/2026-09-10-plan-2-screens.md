@@ -52,7 +52,7 @@ src/
 │   ├── diagnosis/options.ts            # 칩 정의(나이·상황·지역 라벨)
 │   ├── benefits/queries.ts             # 서버 조회 함수 (태그 캐시)
 │   ├── benefits/checklist.ts           # 조건 → 체크 항목, 프리필 평가 (pure)
-│   ├── benefits/format.ts              # D-day 문구, 기한 문구, 금액 요약 (pure)
+│   ├── benefits/format.ts              # D-day 문구, 기한 문구, 원문 첫 줄 추출, KST 시각 (pure)
 │   ├── seo/index-policy.ts             # 색인 여부 결정 (pure)
 │   ├── seo/jsonld.ts                   # GovernmentService·BreadcrumbList·FAQPage·ItemList 생성 (pure)
 │   └── seo/site.ts                     # SITE_NAME, SITE_URL, absoluteUrl()
@@ -65,6 +65,8 @@ src/
 ---
 
 ### Task 1: 공통 기반 — utils, anon 클라이언트, site 상수, 세그먼트 경로 매핑
+
+> ✅ **완료** — 커밋 `104ba3e`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/lib/utils.ts`, `src/lib/supabase/server.ts`, `src/lib/seo/site.ts`
@@ -82,7 +84,7 @@ describe('segment path mapping', () => {
   it('URL 경로 ↔ DB 값', () => {
     expect(pathOf('small_biz')).toBe('small-biz')
     expect(pathOf('youth')).toBe('youth')
-    expect(SEGMENT_BY_PATH['small-biz'].slug).toBe('small_biz')
+    expect(SEGMENT_BY_PATH['small-biz']?.slug).toBe('small_biz')
     expect(SEGMENT_BY_PATH['nope']).toBeUndefined()
   })
   it('공개 세그먼트는 other를 제외한 3개', () => {
@@ -106,6 +108,14 @@ describe('site', () => {
     expect(absoluteUrl('youth')).toBe('https://example.com/youth')
     expect(siteUrl()).toBe('https://example.com')
   })
+  it('빈 문자열 env는 기본값으로 (상대 URL 유출 방지)', () => {
+    process.env.NEXT_PUBLIC_SITE_URL = ''
+    process.env.SITE_NAME = '   '
+    expect(siteUrl()).toBe('http://localhost:3000')
+    expect(absoluteUrl('/youth')).toBe('http://localhost:3000/youth')
+    expect(siteName()).toBe('지원금 포털')
+  })
+
   it('사이트명은 env, 없으면 기본값', () => {
     expect(siteName()).toBe('테스트포털')
     delete process.env.SITE_NAME
@@ -141,7 +151,8 @@ export const SEGMENTS: SegmentDef[] = [
 ]
 
 export const PUBLIC_SEGMENTS = SEGMENTS.filter((s) => s.slug !== 'other')
-export const SEGMENT_BY_PATH: Record<string, SegmentDef> = Object.fromEntries(SEGMENTS.map((s) => [s.path, s]))
+// 값은 신뢰할 수 없는 URL 세그먼트로 조회되므로 undefined를 타입에 남겨 호출자가 반드시 검사하게 한다
+export const SEGMENT_BY_PATH: Record<string, SegmentDef | undefined> = Object.fromEntries(SEGMENTS.map((s) => [s.path, s]))
 export const SEGMENT_BY_SLUG: Record<string, SegmentDef> = Object.fromEntries(SEGMENTS.map((s) => [s.slug, s]))
 export function pathOf(slug: Segment): string {
   return SEGMENT_BY_SLUG[slug].path
@@ -179,11 +190,13 @@ export function createPublicClient(): SupabaseClient {
 `src/lib/seo/site.ts`:
 ```ts
 export function siteName(): string {
-  return process.env.SITE_NAME ?? '지원금 포털'
+  return process.env.SITE_NAME?.trim() || '지원금 포털'
 }
 
+// ?? 가 아니라 || 를 쓴다. 빈 문자열 env를 그대로 통과시키면 canonical·사이트맵·JSON-LD가
+// 상대 URL로 새어나가 색인이 깨진다(.env.local.example은 대부분의 값을 빈 칸으로 배포한다).
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
+  return (process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'http://localhost:3000').replace(/\/+$/, '')
 }
 
 export function absoluteUrl(path: string): string {
@@ -208,6 +221,8 @@ git commit -m "feat: 공통 기반 (cn, anon 클라이언트, site 상수, 세�
 ---
 
 ### Task 2: 순수 함수 — 포맷, 색인 정책, JSON-LD
+
+> ✅ **완료** — 커밋 `dcad201, 0a1aa1a, 857ff41`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/lib/benefits/format.ts`, `src/lib/seo/index-policy.ts`, `src/lib/seo/jsonld.ts`
@@ -239,6 +254,16 @@ describe('deadlineLabel', () => {
 })
 
 describe('firstLine', () => {
+  it('연도로 시작하는 줄은 연도를 보존한다 (번호 목록으로 오인 금지)', () => {
+    expect(firstLine('2026.03.01. ~ 2026.03.31. 접수')).toBe('2026.03.01. ~ 2026.03.31. 접수')
+    expect(firstLine('※ 2026. 3. 1~2027.2.28. 까지 적용')).toBe('2026. 3. 1~2027.2.28. 까지 적용')
+  })
+
+  it('번호 목록 접두사는 제거한다', () => {
+    expect(firstLine('1) 지원 대상')).toBe('지원 대상')
+    expect(firstLine('3. 신청 방법')).toBe('신청 방법')
+  })
+
   it('원문의 첫 의미 있는 줄을 120자 이내로', () => {
     expect(firstLine('○ 3~5세에 대해 교육비를 지급합니다.\r\n  - 국공립 100,000원')).toBe('3~5세에 대해 교육비를 지급합니다.')
     expect(firstLine(null)).toBeNull()
@@ -342,12 +367,17 @@ export function deadlineLabel(b: { deadline_type: DeadlineType | string; apply_s
   return '공고 확인'
 }
 
+// 글머리 기호 + (번호·원문자 목록 접두사) + 남은 기호를 제거한다. 기호 목록은 실제 보조금24
+// 원문(fixtures/gov24)에서 확인된 것들이다. 번호는 1~2자리에 구분자 뒤 공백까지 있어야 목록으로
+// 본다('2026.03.01.'의 연도가 잘리지 않게). 괄호·대괄호로 시작하는 줄은 의미 있는 내용이므로 남긴다.
+const BULLET_PREFIX = /^[\s○●◦•‧∙·ㆍ□◇◈▪▫▶►▷☞※＊*\-–]*(?:[①-⑳]|\d{1,2}\s*[.)]\s+)?[\s○●◦•‧∙·ㆍ□◇◈▪▫▶►▷☞※＊*\-–]*/
+
 /** 원문에서 첫 의미 있는 줄. 글머리 기호 제거, 120자 상한. */
 export function firstLine(text: string | null | undefined, max = 120): string | null {
   if (!text) return null
   const line = text
     .split(/\r?\n/)
-    .map((l) => l.replace(/^[\s○●◦•\-–·※▶►\d.)]+/, '').trim())
+    .map((l) => l.replace(BULLET_PREFIX, '').trim())
     .find((l) => l.length > 0)
   if (!line) return null
   return line.length > max ? line.slice(0, max) : line
@@ -458,9 +488,12 @@ git commit -m "feat: 포맷·색인 정책·JSON-LD 순수 함수"
 
 ### Task 3: 진단 상태(localStorage)와 칩 옵션
 
+> ✅ **완료** — 커밋 `40010e8, 844e65a, 861482a`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
-- Create: `src/lib/diagnosis/options.ts`, `src/lib/diagnosis/storage.ts`
-- Test: `src/lib/diagnosis/__tests__/storage.test.ts`
+- Create: `src/lib/benefits/age-bands.ts`, `src/lib/diagnosis/options.ts`, `src/lib/diagnosis/storage.ts`
+- Modify: `src/lib/benefits/search.ts` (AGE_BANDS를 leaf 모듈에서 re-export, situations 중복 제거)
+- Test: `src/lib/diagnosis/__tests__/storage.test.ts`, `src/lib/diagnosis/__tests__/options.test.ts`
 
 - [ ] **Step 1: 실패하는 테스트**
 
@@ -506,7 +539,9 @@ Expected: FAIL — 모듈 없음
 
 `src/lib/diagnosis/options.ts`:
 ```ts
-import { AGE_BANDS, type AgeBand } from '@/lib/benefits/search'
+// AGE_BANDS는 leaf 모듈에서 가져온다. search.ts를 value로 import하면 codemap·regions·status까지
+// 클라이언트 번들에 끌려온다(이 모듈은 클라이언트 컴포넌트가 쓴다).
+import { AGE_BANDS, type AgeBand } from '@/lib/benefits/age-bands'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { REGIONS } from '../../../data/regions'
 
@@ -534,15 +569,13 @@ export const VALID_AGE = new Set<string>(AGE_BANDS)
 export const VALID_SITUATION = new Set(Object.keys(SITUATION_TO_CONDITIONS))
 export const VALID_REGION = new Set(REGIONS.map((r) => r.slug))
 
-// options.ts의 SITUATION_OPTIONS는 codemap의 SITUATION_TO_CONDITIONS 키와 같아야 한다.
-if (process.env.NODE_ENV !== 'production') {
-  for (const o of SITUATION_OPTIONS) if (!VALID_SITUATION.has(o.value)) throw new Error(`알 수 없는 상황 값: ${o.value}`)
-}
+// 칩 목록과 codemap 키의 일치는 모듈 레벨 throw가 아니라
+// src/lib/diagnosis/__tests__/options.test.ts 에서 양방향 집합 비교로 검증한다.
 ```
 
 `src/lib/diagnosis/storage.ts`:
 ```ts
-import type { AgeBand } from '@/lib/benefits/search'
+import type { AgeBand } from '@/lib/benefits/age-bands'
 import { VALID_AGE, VALID_SITUATION, VALID_REGION } from './options'
 
 export interface Diagnosis {
@@ -552,13 +585,23 @@ export interface Diagnosis {
 }
 
 export const STORAGE_KEY = 'diagnosis'
-export const EMPTY: Diagnosis = { ageBand: null, situations: [], region: null }
+
+/** 읽기 전용 기본값. 호출자가 실수로 변형하지 못하게 동결한다. 새 객체가 필요하면 emptyDiagnosis(). */
+export const EMPTY: Diagnosis = Object.freeze({ ageBand: null, situations: [], region: null }) as Diagnosis
+
+/** 매번 새 객체를 돌려준다. 호출자가 situations를 직접 변형해도 모듈 상태가 오염되지 않는다. */
+export function emptyDiagnosis(): Diagnosis {
+  return { ageBand: null, situations: [], region: null }
+}
 
 function sanitize(raw: unknown): Diagnosis {
-  if (!raw || typeof raw !== 'object') return EMPTY
+  if (!raw || typeof raw !== 'object') return emptyDiagnosis()
   const o = raw as Record<string, unknown>
   const ageBand = typeof o.ageBand === 'string' && VALID_AGE.has(o.ageBand) ? (o.ageBand as AgeBand) : null
-  const situations = Array.isArray(o.situations) ? o.situations.filter((s): s is string => typeof s === 'string' && VALID_SITUATION.has(s)) : []
+  // 중복 제거: 손으로 편집한 payload가 캐시 키를 무한정 늘리지 못하게 한다
+  const situations = Array.isArray(o.situations)
+    ? [...new Set(o.situations.filter((s): s is string => typeof s === 'string' && VALID_SITUATION.has(s)))]
+    : []
   const region = typeof o.region === 'string' && VALID_REGION.has(o.region) ? o.region : null
   return { ageBand, situations, region }
 }
@@ -566,9 +609,9 @@ function sanitize(raw: unknown): Diagnosis {
 export function readDiagnosis(): Diagnosis {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? sanitize(JSON.parse(raw)) : EMPTY
+    return raw ? sanitize(JSON.parse(raw)) : emptyDiagnosis()
   } catch {
-    return EMPTY
+    return emptyDiagnosis()
   }
 }
 
@@ -608,6 +651,8 @@ git commit -m "feat(diagnosis): 진단 상태 localStorage 스키마와 칩 옵�
 ---
 
 ### Task 4: 서버 조회 함수 (queries.ts)
+
+> ✅ **완료** — 커밋 `6b071ee, f9ffce3, b78c6b5`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/lib/benefits/queries.ts`
@@ -669,7 +714,9 @@ describe('queries', () => {
     const c = chain()
     c.limit.mockResolvedValue({ data: [], error: null })
     from.mockReturnValue(c)
-    await listDeadlineSoon(14, new Date('2026-09-10T03:00:00Z'))
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-10T03:00:00Z'))
+    await listDeadlineSoon(14)
     expect(c.eq).toHaveBeenCalledWith('deadline_type', 'period')
     expect(c.gte).toHaveBeenCalledWith('apply_end', '2026-09-10')
     expect(c.lte).toHaveBeenCalledWith('apply_end', '2026-09-24')
@@ -794,7 +841,10 @@ export const listBySegment = unstable_cache(
 )
 
 export const listDeadlineSoon = unstable_cache(
-  async (days: number, now: Date = new Date(), limit = 8): Promise<BenefitListRow[]> => {
+  // '오늘'을 인자로 받지 않는다. unstable_cache는 인자까지 키에 넣으므로 요청마다 new Date()를
+  // 넘기면 키가 매번 달라져 캐시 적중률이 0이 되고 revalidate·태그가 무력화된다.
+  async (days: number, limit = 8): Promise<BenefitListRow[]> => {
+    const now = new Date()
     const from = kstDateString(now)
     const to = kstDateString(new Date(now.getTime() + days * 86_400_000))
     const { data, error } = await createPublicClient()
@@ -814,8 +864,9 @@ export const listDeadlineSoon = unstable_cache(
 )
 
 export const listRecentlyUpdated = unstable_cache(
-  async (hours: number, now: Date = new Date(), limit = 8): Promise<BenefitListRow[]> => {
-    const since = new Date(now.getTime() - hours * 3_600_000).toISOString()
+  // listDeadlineSoon과 같은 이유로 현재 시각을 인자로 받지 않는다.
+  async (hours: number, limit = 8): Promise<BenefitListRow[]> => {
+    const since = new Date(Date.now() - hours * 3_600_000).toISOString()
     const { data, error } = await createPublicClient()
       .from('benefits')
       .select(LIST_COLS)
@@ -877,6 +928,9 @@ export const getLastSyncAt = unstable_cache(
       .select('finished_at')
       .is('error', null)
       .is('aborted_reason', null)
+      // 진행 중인 동기화 행도 error·aborted_reason이 null이라 정렬 1위가 된다. finished_at을
+      // 요구하지 않으면 동기화가 도는 동안 홈의 '마지막 확인' 줄이 빈다.
+      .not('finished_at', 'is', null)
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -896,7 +950,7 @@ create policy "public read sync_runs" on sync_runs for select using (true);
 ```
 Supabase 대시보드 SQL Editor에서 실행한다.
 
-태그 참고: Cron 라우트는 `benefit:{slug}`와 `segment:{seg}`도 재검증하지만, `unstable_cache`는 함수 단위 태그라 개별 slug 태그를 붙일 수 없다. 대신 상세·목록은 `benefits:all` 태그를 쓰고, Cron 라우트가 변경이 있을 때 `benefits:all`도 재검증하도록 Task 11에서 한 줄 추가한다.
+태그 참고: Cron 라우트는 `benefit:{slug}`와 `segment:{seg}`도 재검증하지만, `unstable_cache`는 함수 단위 태그라 개별 slug 태그를 붙일 수 없다. 대신 상세·목록은 `benefits:all` 태그를 쓰고, Cron 라우트가 변경이 있을 때 `benefits:all`도 재검증하도록 Task 12에서 한 줄 추가한다.
 
 - [ ] **Step 4: 통과 확인**
 
@@ -914,10 +968,12 @@ git commit -m "feat: 서버 조회 함수 (태그 캐시) + sync_runs 공개 읽
 
 ### Task 5: 레이아웃 셸, 광고 슬롯, 필수 페이지
 
+> ✅ **완료** — 커밋 `2a509e3, 5668cf0`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
-- Create: `src/app/(site)/layout.tsx`, `src/components/layout/Header.tsx`, `src/components/layout/Footer.tsx`, `src/components/ads/AdSlot.tsx`, `src/app/(site)/about/page.tsx`, `src/app/(site)/privacy/page.tsx`, `src/app/(site)/terms/page.tsx`, `src/app/(site)/contact/page.tsx`, `public/ads.txt`
+- Create: `src/app/(site)/layout.tsx`, `src/components/layout/Header.tsx`, `src/components/layout/Footer.tsx`, `src/components/ads/AdSlot.tsx`, `src/app/(site)/about/page.tsx`, `src/app/(site)/privacy/page.tsx`, `src/app/(site)/terms/page.tsx`, `src/app/(site)/contact/page.tsx`, `src/app/ads.txt/route.ts`
 - Modify: `src/app/layout.tsx`, `.env.local.example`
-- Move: `src/app/page.tsx` → `src/app/(site)/page.tsx` (Task 6에서 내용 교체)
+- Move: `src/app/page.tsx` → `src/app/(site)/page.tsx` (Task 7에서 내용 교체. `(site)/layout.tsx`가 이미 `<main>`으로 감싸므로 페이지에서 `<main>`을 또 쓰지 않는다)
 
 - [ ] **Step 1: AdSlot 복사**
 
@@ -1187,10 +1243,24 @@ export default function ContactPage() {
 }
 ```
 
-`public/ads.txt`:
-```
-# Google AdSense 승인 후 퍼블리셔 ID로 교체
-# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+`src/app/ads.txt/route.ts` (정적 `public/ads.txt`를 두지 않는다):
+
+Google은 도메인 루트의 ads.txt에 자기 퍼블리셔 ID가 없으면 광고 게재를 차단한다. 주석만 있는 파일도
+같은 취급이라, 승인 전에 자리만 잡아두려고 `public/ads.txt`를 배포하면 승인 후 노출이 0이 된다.
+따라서 라우트로 두고 `NEXT_PUBLIC_ADSENSE_CLIENT`가 없으면 404를 준다.
+
+```ts
+export const dynamic = 'force-static'
+
+export function GET() {
+  const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.trim()
+  if (!client) return new Response(null, { status: 404 })
+  // AdSense가 주는 값은 'ca-pub-...' 형태지만 ads.txt 레코드에는 'pub-...'을 쓴다.
+  const publisherId = client.replace(/^ca-/, '')
+  return new Response(`google.com, ${publisherId}, DIRECT, f08c47fec0942fa0\n`, {
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  })
+}
 ```
 
 `prose` 클래스는 Tailwind typography 플러그인이 필요하다. 설치 없이 쓰려면 `globals.css`에 최소 스타일을 추가한다:
@@ -1211,13 +1281,18 @@ Expected: `/about /privacy /terms /contact` 정적 라우트 생성, 오류 없�
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A
+# 여러 에이전트가 같은 워크트리를 쓸 수 있으므로 git add -A 를 쓰지 않는다. 남의 미커밋 작업이
+# 함께 스테이징된다(실제로 이 태스크에서 한 번 발생해 reset --soft 로 되돌렸다).
+git add src/app src/components public .env.local.example
+git diff --cached --stat   # 내가 만든 파일만 있는지 확인
 git commit -m "feat: 사이트 레이아웃(헤더·푸터), AdSlot, 필수 페이지 4개, ads.txt"
 ```
 
 ---
 
 ### Task 6: 공통 지원금 컴포넌트 (카드·배지·목록)
+
+> ✅ **완료** — 커밋 `03ad119, 3460b1c`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
 
 **Files:**
 - Create: `src/components/benefits/DdayBadge.tsx`, `src/components/benefits/BenefitCard.tsx`, `src/components/benefits/BenefitList.tsx`, `src/components/benefits/AdPlacement.tsx`
@@ -1313,30 +1388,53 @@ export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: D
 
 `src/components/benefits/AdPlacement.tsx`:
 ```tsx
+import type { ReactNode } from 'react'
 import AdSlot from '@/components/ads/AdSlot'
 
-/** 광고 위치별 단일 진입점. 승인 전에는 애드핏, 승인 후 env로 애드센스 전환. 높이를 예약해 CLS를 막는다. */
-export default function AdPlacement({ slot }: { slot: 'home' | 'list' | 'detail-1' | 'detail-2' | 'rail' }) {
-  const adsense = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
-  const adfitMobile = process.env.NEXT_PUBLIC_ADFIT_UNIT_MOBILE
-  const adfitPc = process.env.NEXT_PUBLIC_ADFIT_UNIT_PC
-  const isRail = slot === 'rail'
+export type AdPlacementSlot = 'home' | 'list' | 'detail-1' | 'detail-2' | 'rail'
 
-  if (adsense) {
+// NEXT_PUBLIC_* 는 정적으로 분석 가능한 참조만 빌드 시 치환된다. process.env[`...${slot}...`] 같은
+// 동적 인덱싱은 클라이언트 번들에서 조용히 undefined가 되므로 슬롯별로 나열한다.
+const ADSENSE_SLOT: Record<AdPlacementSlot, string | undefined> = {
+  home: process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME,
+  list: process.env.NEXT_PUBLIC_ADSENSE_SLOT_LIST,
+  'detail-1': process.env.NEXT_PUBLIC_ADSENSE_SLOT_DETAIL_1,
+  'detail-2': process.env.NEXT_PUBLIC_ADSENSE_SLOT_DETAIL_2,
+  rail: process.env.NEXT_PUBLIC_ADSENSE_SLOT_RAIL,
+}
+
+function AdFrame({ isRail, children }: { isRail: boolean; children: ReactNode }) {
+  // aria-label은 role 없는 div에서는 무시된다. aside는 complementary 역할을 가져 라벨이 실제로 노출된다.
+  return (
+    <aside className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
+      <p className="mb-1 text-[10px] text-gray-400">광고</p>
+      {children}
+    </aside>
+  )
+}
+
+/** 광고 위치별 단일 진입점. 승인 전에는 애드핏, 승인 후 env로 애드센스 전환. 높이를 예약해 CLS를 막는다. */
+export default function AdPlacement({ slot }: { slot: AdPlacementSlot }) {
+  const isRail = slot === 'rail'
+  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+  const adsenseSlot = ADSENSE_SLOT[slot]
+
+  // 클라이언트와 슬롯 ID가 모두 있어야 애드센스를 태운다. 하나만 있으면 AdSlot이 아무것도 렌더하지
+  // 않는데 높이는 예약돼 빈 박스가 남아 CLS를 해친다. 그래서 애드핏으로 폴백하고, 그것도 없으면 null.
+  if (adsenseClient && adsenseSlot) {
     return (
-      <div className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
-        <p className="mb-1 text-[10px] text-gray-400">광고</p>
-        <AdSlot type="adsense" adClient={adsense} adSlot={process.env[`NEXT_PUBLIC_ADSENSE_SLOT_${slot.toUpperCase().replace('-', '_')}`] ?? ''} adFormat={isRail ? 'vertical' : 'auto'} />
-      </div>
+      <AdFrame isRail={isRail}>
+        <AdSlot type="adsense" adClient={adsenseClient} adSlot={adsenseSlot} adFormat={isRail ? 'vertical' : 'auto'} />
+      </AdFrame>
     )
   }
-  const unit = isRail ? adfitPc : adfitMobile
+
+  const unit = isRail ? process.env.NEXT_PUBLIC_ADFIT_UNIT_PC : process.env.NEXT_PUBLIC_ADFIT_UNIT_MOBILE
   if (!unit) return null
   return (
-    <div className="my-6" style={{ minHeight: isRail ? 600 : 100 }} aria-label="광고">
-      <p className="mb-1 text-[10px] text-gray-400">광고</p>
+    <AdFrame isRail={isRail}>
       <AdSlot type="adfit" adUnit={unit} adWidth={isRail ? 300 : 320} adHeight={isRail ? 600 : 100} />
-    </div>
+    </AdFrame>
   )
 }
 ```
@@ -1385,6 +1483,8 @@ git commit -m "feat(ui): 지원금 카드·D-day 배지·목록·광고 배치"
 
 ### Task 7: 홈 — 조건 진단 패널 + 마감 임박·신규·세그먼트 블록
 
+> ✅ **완료** — 커밋 `ba39120, 0754805, 3c3487e, 875ad4f`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
 - Create: `src/components/diagnosis/DiagnosisPanel.tsx`
 - Modify: `src/app/(site)/page.tsx`
@@ -1403,7 +1503,9 @@ describe('DiagnosisPanel', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.stubGlobal('fetch', fetchMock)
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 27, items: [] })))
+    fetchMock.mockReset()
+    // Response 본문은 한 번만 읽을 수 있다. 같은 객체를 재사용하면 두 번째 호출의 r.json()이 실패한다.
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ total: 27, items: [] }))))
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -1482,7 +1584,8 @@ export default function DiagnosisPanel() {
   const [restored, setRestored] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  // 첫 렌더 후 localStorage 복원 (SSR 불일치 방지)
+  // 첫 렌더 후 localStorage 복원. 서버에서는 readDiagnosis()가 항상 빈 값을 주므로
+  // 렌더 중에 읽으면 hydration 불일치가 난다. 반드시 useEffect에서 읽는다.
   useEffect(() => {
     const saved = readDiagnosis()
     if (!isEmpty(saved)) {
@@ -1582,8 +1685,7 @@ import { PUBLIC_SEGMENTS } from '../../../data/segments'
 export const revalidate = 3600
 
 export default async function HomePage() {
-  const now = new Date()
-  const [soon, recent, lastSync] = await Promise.all([listDeadlineSoon(14, now, 8), listRecentlyUpdated(48, now, 8), getLastSyncAt()])
+  const [soon, recent, lastSync] = await Promise.all([listDeadlineSoon(14, 8), listRecentlyUpdated(48, 8), getLastSyncAt()])
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -1591,6 +1693,8 @@ export default async function HomePage() {
 
       <AdPlacement slot="home" />
 
+      {/* 2주 이내 마감이 0건인 시기가 실제로 생긴다(기간형 공고 614건). 제목만 남은 빈 섹션을 만들지 않는다. */}
+      {soon.length > 0 && (
       <section className="mt-8">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-lg font-bold">마감 임박 (2주 이내)</h2>
@@ -1600,6 +1704,7 @@ export default async function HomePage() {
           {soon.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
         </div>
       </section>
+      )}
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-bold">분야별로 보기</h2>
@@ -1646,6 +1751,8 @@ git commit -m "feat(home): 조건 진단 패널과 마감 임박·분야·최근
 
 ### Task 8: /my 진단 결과 (CSR, noindex)
 
+> ✅ **완료** — 커밋 `e212bd3`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
 **Files:**
 - Create: `src/components/diagnosis/DiagnosisResults.tsx`, `src/app/(site)/my/page.tsx`
 - Test: `src/components/diagnosis/__tests__/DiagnosisResults.test.tsx`
@@ -1678,7 +1785,9 @@ describe('DiagnosisResults', () => {
 
   it('저장된 진단으로 검색해 목록과 총 개수를 보여주고, 조건 확인 필요 그룹을 구분한다', async () => {
     localStorage.setItem('diagnosis', JSON.stringify({ ageBand: '20s', situations: ['job_seeker'], region: 'seoul' }))
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 2, items: [item('a'), item('b', { hasConditions: false })] })))
+    // Response 본문은 한 번만 읽을 수 있고 mock.calls도 테스트 간에 누적된다. beforeEach에서
+    // fetchMock.mockReset()을 부르고, 값은 호출마다 새 Response를 만들어 돌려준다.
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ total: 2, items: [item('a'), item('b', { hasConditions: false })] }))))
     render(<DiagnosisResults />)
     await waitFor(() => expect(screen.getByText(/총 2개/)).toBeInTheDocument())
     expect(screen.getByText('제목 a')).toBeInTheDocument()
@@ -1732,8 +1841,22 @@ function label(d: Diagnosis): string {
   return parts.join(' · ')
 }
 
-function toRow(i: SearchResultItem) {
-  return { ...i, apply_start: null, agency: null, synced_at: '', segments: i.segments as ('youth' | 'parenting' | 'small_biz' | 'other')[] }
+/** 검색 API 응답을 카드가 요구하는 목록 행으로. 스프레드를 쓰면 deadline_type이 string으로
+ *  남아 BenefitListRow['deadline_type'](DeadlineType)에 대입되지 않으므로 필드를 명시한다. */
+function toRow(i: SearchResultItem): BenefitListRow {
+  return {
+    slug: i.slug,
+    title: i.title,
+    summary: i.summary,
+    amount_text: i.amount_text,
+    deadline_type: i.deadline_type as DeadlineType,
+    apply_start: null,
+    apply_end: i.apply_end,
+    region_code: i.region_code,
+    segments: i.segments as Segment[],
+    agency: null,
+    synced_at: '',
+  }
 }
 
 export default function DiagnosisResults() {
@@ -1794,14 +1917,10 @@ export default function DiagnosisResults() {
 
       {error && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {matched.map((i, idx) => (
-          <div key={i.slug} className="contents">
-            <BenefitCard row={toRow(i)} />
-            {idx === 4 && <div className="sm:col-span-2"><AdPlacement slot="list" /></div>}
-          </div>
-        ))}
-      </div>
+      {/* BenefitList가 같은 그리드와 5번째 카드 뒤 광고를 이미 담당한다. 여기서 다시 만들면
+          사이트 전체와 어긋나므로 재사용한다. '조건 확인 필요' 그룹은 광고를 한 번 더 넣지 않도록
+          일반 그리드로 둔다. */}
+      {matched.length > 0 && <BenefitList rows={matched.map(toRow)} />}
 
       {unsure.length > 0 && (
         <section className="mt-8">
@@ -1859,6 +1978,18 @@ git commit -m "feat(my): 진단 결과 페이지 (CSR, noindex, 더 보기, 조�
 ---
 
 ### Task 9: 세그먼트 허브 + 세그먼트×지역
+
+> ✅ **완료** — 커밋 `46df9c7, b4ccff7`. 리뷰 지적사항 반영 완료. 아래 코드 블록은 구현본과 동기화되어 있다.
+
+> **착수 전 확인 (Plan 2 실행 중 발견):** 실데이터의 소관기관명이 `전남광주통합특별시`로 들어와
+> `extractRegion`이 광주를 전부 `jeonnam`으로 분류한다(전남 1,053건, 광주 1건).
+> 규칙 두 가지로 처리한다. (1) 지역 칩은 `countByRegion` 결과가 0인 지역을 렌더하지 않는다 —
+> 죽은 링크를 만들지 않기 위한 것이다. (2) 색인 여부는 새 임계값을 만들지 않고 기존
+> `regionHubIndexable`(`count >= REGION_HUB_MIN_ITEMS(3)` + 지역 안내문 존재)을 그대로 쓴다.
+> 따라서 1건짜리 광주 페이지는 링크는 되지만 noindex라 검색 노출은 없다.
+> 지역 taxonomy 자체를 바꾸는 결정(광주 슬러그 폐지 또는 리다이렉트)은 스펙 12장에 기록되어 있고
+> 사용자 확인이 필요하다. 또한 `benefits.region_code`는 코드가 아니라 slug를 담는다는 점에 주의한다.
+
 
 **Files:**
 - Create: `src/app/(site)/[segment]/page.tsx`, `src/app/(site)/[segment]/[region]/page.tsx`, `src/components/JsonLd.tsx`
@@ -2710,7 +2841,7 @@ export const metadata: Metadata = {
 
 export default async function DeadlinePage() {
   const now = new Date()
-  const rows = await listDeadlineSoon(45, now, 200)
+  const rows = await listDeadlineSoon(45, 200)
   const groups = groupByWeek(rows, now)
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -2953,7 +3084,19 @@ export default function OgImage() {
       revalidateTag('benefits:all') // unstable_cache 조회 함수(상세·목록·집계)
     }
 ```
-기존 `if (result.changed > 0 || result.closed > 0) revalidateTag('benefits:home')` 줄을 위 블록으로 교체한다. 테스트 `sync-gov24.test.ts`의 성공 케이스에 `expect(revalidateTag).toHaveBeenCalledWith('benefits:all')`를 추가한다.
+아래 세 줄을 위 블록으로 **교체**한다(앞의 두 루프까지 함께 지운다):
+```ts
+    for (const slug of result.changedSlugs) revalidateTag(`benefit:${slug}`)
+    for (const seg of result.changedSegments) revalidateTag(`segment:${seg}`)
+    if (result.changed > 0 || result.closed > 0) revalidateTag('benefits:home')
+```
+두 루프를 지우는 이유: `unstable_cache`의 태그는 함수 단위라 `benefit:{slug}`·`segment:{seg}` 태그를 가진
+캐시 항목이 하나도 없다. 즉 두 루프는 아무것도 무효화하지 못하는 no-op이면서, 원본 갱신 시각이 통째로
+바뀌는 동기화(실제로 10,947건 전부 변경으로 잡힌 적이 있다)에서는 만 번 넘는 호출이 되어 Vercel Hobby의
+60초 maxDuration을 위협한다. `benefits:all` 하나가 상세·목록·집계 전부를 덮는다.
+
+테스트 `sync-gov24.test.ts`의 성공 케이스에 `expect(revalidateTag).toHaveBeenCalledWith('benefits:all')`를
+추가하고, `benefit:`/`segment:` 태그로는 더 이상 호출되지 않는지도 확인한다.
 
 - [ ] **Step 4: 통과 확인 + 빌드**
 
@@ -3126,7 +3269,8 @@ Plan 2 이관 질문 중 "검색 랭킹" 항목을 다음으로 교체:
 - [ ] **Step 6: Commit 및 병합**
 
 ```bash
-git add -A
+git add docs README.md
+git diff --cached --stat
 git commit -m "docs: Plan 2 완료 — 페이지·색인 정책·광고 안내, 스펙 갱신"
 git checkout main && git merge --ff-only feat/plan-2-screens
 ```

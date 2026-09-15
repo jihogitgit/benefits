@@ -2,6 +2,7 @@ export type DeadlineType = 'always' | 'period' | 'unknown'
 export type BenefitStatus = 'open' | 'closed' | 'removed'
 export type Gender = 'any' | 'male' | 'female'
 export type Segment = 'youth' | 'parenting' | 'small_biz' | 'other'
+export type ReviewStatus = 'draft' | 'reviewed' | 'published' | 'stale'
 
 export interface BenefitRow {
   source: string

@@ -3,26 +3,33 @@ export interface RegionDef {
   slug: string
   name: string
   keywords: string[] // 소관기관명 첫 어절에서 매칭할 문자열
+  /**
+   * 세그먼트×지역 허브에 노출되는 안내문이자 색인 조건이다(index-policy.ts).
+   * 지역마다 실제로 다른 내용이어야 한다. 지역명만 갈아끼운 템플릿이면 얇은 콘텐츠가 되어
+   * 색인을 열어도 얻는 게 없고 사이트 전체 평가가 깎인다.
+   * `npm run seed:static`으로 regions 테이블에 반영한다.
+   */
+  description_md: string
 }
 
 export const REGIONS: RegionDef[] = [
-  { code: '11', slug: 'seoul', name: '서울', keywords: ['서울특별시', '서울시', '서울'] },
-  { code: '26', slug: 'busan', name: '부산', keywords: ['부산광역시', '부산시', '부산'] },
-  { code: '27', slug: 'daegu', name: '대구', keywords: ['대구광역시', '대구시', '대구'] },
-  { code: '28', slug: 'incheon', name: '인천', keywords: ['인천광역시', '인천시', '인천'] },
-  { code: '29', slug: 'gwangju', name: '광주', keywords: ['광주광역시', '광주시'] },
-  { code: '30', slug: 'daejeon', name: '대전', keywords: ['대전광역시', '대전시', '대전'] },
-  { code: '31', slug: 'ulsan', name: '울산', keywords: ['울산광역시', '울산시', '울산'] },
-  { code: '36', slug: 'sejong', name: '세종', keywords: ['세종특별자치시', '세종시', '세종'] },
-  { code: '41', slug: 'gyeonggi', name: '경기', keywords: ['경기도', '경기'] },
-  { code: '51', slug: 'gangwon', name: '강원', keywords: ['강원특별자치도', '강원도', '강원'] },
-  { code: '43', slug: 'chungbuk', name: '충북', keywords: ['충청북도', '충북'] },
-  { code: '44', slug: 'chungnam', name: '충남', keywords: ['충청남도', '충남'] },
-  { code: '52', slug: 'jeonbuk', name: '전북', keywords: ['전북특별자치도', '전라북도', '전북'] },
-  { code: '46', slug: 'jeonnam', name: '전남', keywords: ['전라남도', '전남'] },
-  { code: '47', slug: 'gyeongbuk', name: '경북', keywords: ['경상북도', '경북'] },
-  { code: '48', slug: 'gyeongnam', name: '경남', keywords: ['경상남도', '경남'] },
-  { code: '50', slug: 'jeju', name: '제주', keywords: ['제주특별자치도', '제주도', '제주'] },
+  { code: '11', slug: 'seoul', name: '서울', keywords: ['서울특별시', '서울시', '서울'] , description_md: '서울은 25개 자치구가 각자 지원사업을 운영해, 같은 서울 안에서도 사는 구에 따라 받을 수 있는 지원금이 다릅니다. 시 본청 사업보다 구청 자체 사업이 많고 특히 출산·육아 분야에 집중돼 있습니다.'},
+  { code: '26', slug: 'busan', name: '부산', keywords: ['부산광역시', '부산시', '부산'] , description_md: '부산은 시 본청이 운영하는 광역 사업과 구·군의 자체 사업이 함께 있습니다. 어르신 돌봄과 건강보험료 지원처럼 생활 밀착형 사업의 비중이 큽니다.'},
+  { code: '27', slug: 'daegu', name: '대구', keywords: ['대구광역시', '대구시', '대구'] , description_md: '대구는 시 본청과 구·군, 시교육청이 각각 지원사업을 운영합니다. 군 지역인 달성군의 자체 사업이 특히 많아 거주지에 따라 받을 수 있는 항목이 크게 달라집니다.'},
+  { code: '28', slug: 'incheon', name: '인천', keywords: ['인천광역시', '인천시', '인천'] , description_md: '인천은 내륙 자치구와 강화·옹진 같은 도서 지역이 함께 있어 지원사업의 성격이 나뉩니다. 도서 지역은 정주 여건과 인재 육성 지원이, 내륙은 출산·육아 지원이 중심입니다.'},
+  { code: '29', slug: 'gwangju', name: '광주', keywords: ['광주광역시', '광주시'] , description_md: '광주 지역 지원금은 보조금24 원문에서 소관기관명이 「전남광주통합특별시」로 등록돼 있어 대부분 전남으로 분류됩니다. 광주에 사신다면 전남 페이지와 아래 전국 공통 지원금을 함께 확인하세요.'},
+  { code: '30', slug: 'daejeon', name: '대전', keywords: ['대전광역시', '대전시', '대전'] , description_md: '대전은 자치구보다 시 본청이 직접 운영하는 사업의 비중이 큽니다. 한부모가족과 다자녀 가정처럼 가구 상황을 기준으로 한 지원이 많습니다.'},
+  { code: '31', slug: 'ulsan', name: '울산', keywords: ['울산광역시', '울산시', '울산'] , description_md: '울산은 출산·육아 지원의 비중이 특히 높아, 구·군마다 출산지원금과 출산축하용품을 따로 운영합니다. 울주군은 군 단위 자체 사업이 별도로 있습니다.'},
+  { code: '36', slug: 'sejong', name: '세종', keywords: ['세종특별자치시', '세종시', '세종'] , description_md: '세종은 자치구·군이 없는 단층제라 대부분의 지원사업을 시 본청과 시교육청이 직접 운영합니다. 사업 수는 많지 않지만 거주지에 따른 차이도 없습니다.'},
+  { code: '41', slug: 'gyeonggi', name: '경기', keywords: ['경기도', '경기'] , description_md: '경기는 지자체 자체 지원사업이 전국에서 가장 많은 지역입니다. 31개 시·군이 각자 사업을 운영하기 때문에 같은 경기도 안에서도 시·군에 따라 받을 수 있는 지원금이 크게 다릅니다.'},
+  { code: '51', slug: 'gangwon', name: '강원', keywords: ['강원특별자치도', '강원도', '강원'] , description_md: '강원은 영월·태백·강릉 등 시·군의 자체 사업 비중이 도 본청보다 큽니다. 인구 감소 지역이 많아 전입·정착 지원과 농축산 관련 사업이 함께 운영됩니다.'},
+  { code: '43', slug: 'chungbuk', name: '충북', keywords: ['충청북도', '충북'] , description_md: '충북은 보은·단양 같은 군 지역과 청주시가 고르게 자체 사업을 운영합니다. 장애인 돌봄과 저소득 가구 생활 지원의 비중이 큽니다.'},
+  { code: '44', slug: 'chungnam', name: '충남', keywords: ['충청남도', '충남'] , description_md: '충남은 천안·논산·보령 등 시 단위 자체 사업이 많고 농업 지원이 두드러집니다. 벼 육묘와 가축 방역처럼 영농 현장에 직접 지급되는 사업이 포함돼 있습니다.'},
+  { code: '52', slug: 'jeonbuk', name: '전북', keywords: ['전북특별자치도', '전라북도', '전북'] , description_md: '전북은 임실·무주 같은 군 지역의 자체 사업이 도 본청보다 많은 편입니다. 농업·축산 지원과 어르신 의료비 지원이 함께 운영됩니다.'},
+  { code: '46', slug: 'jeonnam', name: '전남', keywords: ['전라남도', '전남'] , description_md: '전남은 지자체 자체 지원사업이 전국에서 손꼽히게 많은 지역입니다. 보조금24 원문에서 광주 지역 사업도 「전남광주통합특별시」 소관으로 등록돼 이 페이지에 함께 나옵니다.'},
+  { code: '47', slug: 'gyeongbuk', name: '경북', keywords: ['경상북도', '경북'] , description_md: '경북은 봉화·예천 등 군 지역의 자체 사업이 많습니다. 다문화가족과 국가보훈대상자를 대상으로 한 사업이 다른 지역보다 눈에 띕니다.'},
+  { code: '48', slug: 'gyeongnam', name: '경남', keywords: ['경상남도', '경남'] , description_md: '경남은 도 본청 사업과 거제·창녕·거창 등 시·군 사업이 함께 있습니다. 난임 시술 지원, 장애 아동 교육 지원, 영농 지원이 주요 갈래입니다.'},
+  { code: '50', slug: 'jeju', name: '제주', keywords: ['제주특별자치도', '제주도', '제주'] , description_md: '제주는 행정시 체계라 대부분의 지원사업을 도 본청이 직접 운영합니다. 섬 지역 특성상 학생 이동·교통 비용 지원이 포함돼 있습니다.'},
 ]
 
 export const REGION_ALL = 'ALL'

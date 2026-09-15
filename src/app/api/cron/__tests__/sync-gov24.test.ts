@@ -25,19 +25,33 @@ describe('GET /api/cron/sync-gov24', () => {
     expect(runMock).not.toHaveBeenCalled()
   })
 
-  it('성공 시 결과와 함께 변경 태그를 재검증한다', async () => {
+  it('성공 시 결과와 함께 조회 캐시 태그를 재검증한다', async () => {
     runMock.mockResolvedValue(ok)
     const res = await GET(new NextRequest('http://localhost/api/cron/sync-gov24', { headers: { authorization: 'Bearer secret' } }))
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ upserted: 2, changedSlugs: 2 })
-    expect(revalidateTag).toHaveBeenCalledWith('benefit:a')
-    expect(revalidateTag).toHaveBeenCalledWith('benefit:b')
-    expect(revalidateTag).toHaveBeenCalledWith('segment:youth')
     expect(revalidateTag).toHaveBeenCalledWith('benefits:home')
+    expect(revalidateTag).toHaveBeenCalledWith('benefits:all')
+  })
+
+  it('아무것도 무효화하지 못하는 per-slug·per-segment 태그는 더 이상 부르지 않는다', async () => {
+    // unstable_cache 태그는 함수 단위라 benefit:{slug}·segment:{seg} 태그를 가진 항목이 없다.
+    // 1만 건 변경 시 만 번 넘는 no-op 호출이 되어 maxDuration을 위협했던 회귀를 막는다.
+    runMock.mockResolvedValue(ok)
+    await GET(new NextRequest('http://localhost/api/cron/sync-gov24', { headers: { authorization: 'Bearer secret' } }))
+    const tags = vi.mocked(revalidateTag).mock.calls.map(([t]) => t)
+    expect(tags).toHaveLength(2)
+    expect(tags.some((t) => String(t).startsWith('benefit:') || String(t).startsWith('segment:'))).toBe(false)
+  })
+
+  it('removed만 있어도 재검증한다', async () => {
+    runMock.mockResolvedValue({ ...ok, changed: 0, upserted: 0, closed: 0, removed: 3, changedSlugs: [], changedSegments: [] })
+    await GET(new NextRequest('http://localhost/api/cron/sync-gov24', { headers: { authorization: 'Bearer secret' } }))
+    expect(revalidateTag).toHaveBeenCalledWith('benefits:all')
   })
 
   it('변경이 없으면 홈 태그를 건드리지 않는다', async () => {
-    runMock.mockResolvedValue({ ...ok, changed: 0, upserted: 0, closed: 0, changedSlugs: [], changedSegments: [] })
+    runMock.mockResolvedValue({ ...ok, changed: 0, upserted: 0, closed: 0, removed: 0, changedSlugs: [], changedSegments: [] })
     await GET(new NextRequest('http://localhost/api/cron/sync-gov24', { headers: { authorization: 'Bearer secret' } }))
     expect(revalidateTag).not.toHaveBeenCalled()
   })

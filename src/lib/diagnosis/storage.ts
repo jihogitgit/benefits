@@ -1,0 +1,59 @@
+import type { AgeBand } from '@/lib/benefits/age-bands'
+import { VALID_AGE, VALID_SITUATION, VALID_REGION } from './options'
+
+export interface Diagnosis {
+  ageBand: AgeBand | null
+  situations: string[]
+  region: string | null
+}
+
+export const STORAGE_KEY = 'diagnosis'
+
+/** 읽기 전용 기본값. 호출자가 실수로 변형하지 못하게 동결한다. 새 객체가 필요하면 emptyDiagnosis(). */
+export const EMPTY: Diagnosis = Object.freeze({ ageBand: null, situations: [], region: null }) as Diagnosis
+
+/** 매번 새 객체를 돌려준다. 호출자가 situations를 직접 변형해도 모듈 상태가 오염되지 않는다. */
+export function emptyDiagnosis(): Diagnosis {
+  return { ageBand: null, situations: [], region: null }
+}
+
+function sanitize(raw: unknown): Diagnosis {
+  if (!raw || typeof raw !== 'object') return emptyDiagnosis()
+  const o = raw as Record<string, unknown>
+  const ageBand = typeof o.ageBand === 'string' && VALID_AGE.has(o.ageBand) ? (o.ageBand as AgeBand) : null
+  // 중복 제거: 손으로 편집한 payload가 캐시 키를 무한정 늘리지 못하게 한다
+  const situations = Array.isArray(o.situations)
+    ? [...new Set(o.situations.filter((s): s is string => typeof s === 'string' && VALID_SITUATION.has(s)))]
+    : []
+  const region = typeof o.region === 'string' && VALID_REGION.has(o.region) ? o.region : null
+  return { ageBand, situations, region }
+}
+
+export function readDiagnosis(): Diagnosis {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? sanitize(JSON.parse(raw)) : emptyDiagnosis()
+  } catch {
+    return emptyDiagnosis()
+  }
+}
+
+export function writeDiagnosis(d: Diagnosis): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitize(d)))
+  } catch {
+    // 사생활 보호 모드 등에서 저장 실패는 무시
+  }
+}
+
+export function toSearchParams(d: Diagnosis): URLSearchParams {
+  const sp = new URLSearchParams()
+  if (d.ageBand) sp.set('age', d.ageBand)
+  if (d.situations.length) sp.set('situations', d.situations.join(','))
+  if (d.region) sp.set('region', d.region)
+  return sp
+}
+
+export function isEmpty(d: Diagnosis): boolean {
+  return !d.ageBand && d.situations.length === 0 && !d.region
+}
