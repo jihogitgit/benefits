@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: { default: `내가 받을 수 있는 정부 지원금 조회 | ${siteName()}`, template: `%s | ${siteName()}` },
   description: SITE_DESCRIPTION,
   metadataBase: new URL(siteUrl()),
+  // './'는 metadataBase + 현재 경로로 해석되어 전 페이지가 자기 자신을 canonical로 가리킨다.
+  // 홈·정책 페이지처럼 canonical을 두지 않은 곳에 utm 파라미터가 붙은 링크가 유입되면 별도 URL로
+  // 색인될 수 있어 기본값으로 막는다.
+  // 주의: 하위 페이지가 alternates를 지정하면 이 객체가 병합되지 않고 통째로 교체된다. languages나
+  // types만 추가하는 페이지는 canonical도 같이 적어야 하며, 빠뜨리면 그 페이지만 조용히 canonical을
+  // 잃는다. './' 해석 자체의 회귀는 __tests__/canonical.test.ts가 지킨다.
+  alternates: { canonical: './' },
   openGraph: { type: 'website', locale: 'ko_KR', siteName: siteName() },
   robots: { index: true, follow: true },
 }
