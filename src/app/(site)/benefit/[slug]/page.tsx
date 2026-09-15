@@ -9,7 +9,7 @@ import { benefitIndexable } from '@/lib/seo/index-policy'
 import { governmentService, breadcrumbs, faqPage } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
 import { kstYear } from '@/lib/seo/hub-meta'
-import { SEGMENT_BY_SLUG } from '../../../../../data/segments'
+import { SEGMENT_BY_SLUG, SEGMENT_OTHER } from '../../../../../data/segments'
 import { regionName } from '@/components/benefits/BenefitCard'
 import DdayBadge from '@/components/benefits/DdayBadge'
 import SummaryGrid from '@/components/benefits/SummaryGrid'
@@ -48,7 +48,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
   if (!b) notFound()
 
   const now = new Date()
-  const seg = SEGMENT_BY_SLUG[b.segments[0] ?? 'other']
+  const seg = SEGMENT_BY_SLUG[b.segments[0] ?? 'other'] ?? SEGMENT_OTHER
   const related = await listRelated(seg.slug, b.region_code, b.slug, 6)
   const article = b.benefit_articles
   const published = benefitIndexable({ status: b.status, article })
@@ -151,7 +151,8 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
           <SourceFooter agency={b.agency} syncedAt={b.synced_at} sourceUpdatedAt={b.source_updated_at} applyUrl={b.apply_url} />
         </article>
 
-        <StickyRail applyUrl={b.apply_url} sections={sections} />
+        {/* 모바일 하단 바와 같은 기준으로 숨긴다. 한쪽만 숨기면 뷰포트에 따라 안내가 모순된다. */}
+        <StickyRail applyUrl={closed ? null : b.apply_url} sections={sections} />
       </div>
 
       {b.apply_url && !closed && (

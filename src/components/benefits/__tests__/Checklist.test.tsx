@@ -65,3 +65,17 @@ describe('Checklist 부분 겹침', () => {
     expect(boxes[0].checked).toBe(true)
   })
 })
+
+describe('Checklist 상태 유지', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('부모가 새 props 참조로 리렌더돼도 사용자가 켠 체크를 되돌리지 않는다', () => {
+    const { rerender } = render(<Checklist items={items} cond={cond} />)
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
+    fireEvent.click(boxes[0])
+    expect(boxes[0].checked).toBe(true)
+    // RSC 페이로드 갱신을 흉내낸다: 내용은 같고 참조만 새 객체
+    rerender(<Checklist items={items.map((i) => ({ ...i }))} cond={{ ...cond }} />)
+    expect((screen.getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true)
+  })
+})

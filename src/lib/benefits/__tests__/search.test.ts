@@ -64,6 +64,14 @@ describe('matchScore', () => {
     expect(matchScore(base, q)).toBe(0)
     expect(matchScore(null, q)).toBe(0)
   })
+  it('나이 구간이 겹치지 않으면 가점하지 않는다 (사전 필터 없이 단독 호출돼도)', () => {
+    // export된 함수라 matchesConditions 통과를 전제할 수 없다. 스스로 일치를 확인해야
+    // 향후 호출부(추천 레일 등)가 20대에게 70대 전용 지원금을 가점하지 않는다.
+    expect(matchScore({ ...base, age_min: 70, age_max: 79 }, q)).toBe(0)
+    expect(matchScore({ ...base, age_min: 65, age_max: null }, q)).toBe(0)
+    expect(matchScore({ ...base, age_min: null, age_max: 18 }, q)).toBe(0)
+    expect(matchScore({ ...base, age_min: 25, age_max: 35 }, q)).toBe(1)
+  })
   it('사용자가 상황을 고르지 않았으면 상황 점수를 주지 않는다', () => {
     expect(matchScore({ ...base, occupations: ['job_seeker'] }, { ageRange: null, situations: [], region: null })).toBe(0)
   })

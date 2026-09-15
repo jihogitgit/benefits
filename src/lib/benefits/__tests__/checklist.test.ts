@@ -45,6 +45,12 @@ describe('summarize', () => {
     expect(s).not.toMatch(/바로 신청/)
     expect(s).toMatch(/2개 중 1개 충족/)
   })
+  it('판정할 항목이 없을 때, 진단을 이미 채웠으면 "홈에서 고르면"이라 하지 않는다', () => {
+    const ev = [{ key: 'income:0-50', label: '중위소득 50% 이하', state: 'unknown' as const }]
+    expect(summarize(ev, true)).toMatch(/홈에서 조건을 고르면/)
+    expect(summarize(ev, false)).not.toMatch(/홈에서 조건을 고르면/)
+    expect(summarize(ev, false)).toMatch(/자동 판정할 수 있는 항목이 없습니다/)
+  })
   it('전부 pass 일 때만 "바로 신청"', () => {
     expect(summarize([{ key: 'region', label: '서울 거주', state: 'pass' as const }])).toMatch(/바로 신청/)
   })

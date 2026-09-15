@@ -1,6 +1,6 @@
 import type { ConditionJoin } from './queries'
 import type { Diagnosis } from '@/lib/diagnosis/storage'
-import { ageBandToRange } from './search'
+import { ageBandToRange, AGE_MAX } from './search'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { REGIONS } from '../../../data/regions'
 
@@ -75,7 +75,7 @@ export function evaluateChecklist(items: CheckItem[], cond: ConditionJoin | null
       const r = ageBandToRange(d.ageBand)
       // 열린 쪽은 경계 없음으로 본다. ageBandToRange의 상한과 맞춰 120을 쓴다.
       const lo = cond.age_min ?? 0
-      const hi = cond.age_max ?? 120
+      const hi = cond.age_max ?? AGE_MAX
       if (r) state = r[1] < lo || r[0] > hi ? 'fail' : r[0] >= lo && r[1] <= hi ? 'pass' : 'partial'
     } else if (it.key === 'region' && cond?.region_codes.length) {
       if (d.region) state = cond.region_codes.includes(d.region) ? 'pass' : 'fail'
@@ -87,7 +87,9 @@ export function evaluateChecklist(items: CheckItem[], cond: ConditionJoin | null
   })
 }
 
-export function summarize(evaluated: EvaluatedItem[]): string {
+/** `diagnosisEmpty`는 판정할 게 하나도 없을 때 사용자에게 무엇을 시킬지 가른다. 이미 진단을 채운
+ *  사용자에게 "홈에서 조건을 고르면"이라 안내하면 방금 한 일을 다시 하라는 말이 된다. */
+export function summarize(evaluated: EvaluatedItem[], diagnosisEmpty = true): string {
   if (!evaluated.length) return ''
   const pass = evaluated.filter((e) => e.state === 'pass').length
   const fail = evaluated.filter((e) => e.state === 'fail').length
@@ -97,5 +99,8 @@ export function summarize(evaluated: EvaluatedItem[]): string {
   if (pass === evaluated.length) return `${evaluated.length}개 조건 모두 충족! 바로 신청해 보세요.`
   if (pass > 0) return `${evaluated.length}개 중 ${pass}개 충족 · 나머지는 직접 확인하세요.`
   if (partial > 0) return '조건 구간이 일부만 겹칩니다. 공식 페이지에서 정확한 기준을 확인하세요.'
-  return '홈에서 조건을 고르면 자동으로 체크됩니다.'
+  // 성별·소득 조건은 진단에 해당 입력이 없어 영원히 unknown이다. 그 경우가 여기로 온다.
+  return diagnosisEmpty
+    ? '홈에서 조건을 고르면 자동으로 체크됩니다.'
+    : '이 지원금은 진단값으로 자동 판정할 수 있는 항목이 없습니다. 아래 원문과 공식 페이지에서 확인하세요.'
 }

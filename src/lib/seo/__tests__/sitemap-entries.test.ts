@@ -29,6 +29,11 @@ describe('sitemap entries', () => {
     expect(urls).toContain('https://example.com/about')
     expect(urls.some((u) => u.endsWith('/my'))).toBe(false)
   })
+  it('정적·지역 허브 항목은 lastmod를 신고하지 않는다 (매시간 갱신으로 보이면 신호가 무시된다)', () => {
+    expect(staticEntries().every((e) => e.lastModified === undefined)).toBe(true)
+    const hubs = regionHubEntries([{ segmentPath: 'youth', regionSlug: 'seoul', count: 5 }], { seoul: '서울 안내' })
+    expect(hubs.every((e) => e.lastModified === undefined)).toBe(true)
+  })
 })
 
 describe('sitemapPaths', () => {

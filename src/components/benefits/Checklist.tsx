@@ -3,15 +3,23 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { ConditionJoin } from '@/lib/benefits/queries'
 import { evaluateChecklist, summarize, type CheckItem, type CheckState } from '@/lib/benefits/checklist'
-import { readDiagnosis } from '@/lib/diagnosis/storage'
+import { readDiagnosis, isEmpty } from '@/lib/diagnosis/storage'
 import { cn } from '@/lib/utils'
 
 export default function Checklist({ items, cond }: { items: CheckItem[]; cond: ConditionJoin | null }) {
   const [states, setStates] = useState<CheckState[]>(() => items.map(() => 'unknown'))
+  const [diagnosisEmpty, setDiagnosisEmpty] = useState(true)
 
+  // items·cond는 서버 컴포넌트가 내려주는 새 객체 참조라, 그대로 deps에 넣으면 RSC 페이로드가
+  // 갱신될 때마다(router.refresh, ISR 재검증 후 소프트 내비게이션, Fast Refresh) effect가 다시 돌아
+  // 사용자가 손으로 켜고 끈 체크를 프리필 값으로 덮어쓴다. 항목 구성이 실제로 바뀔 때만 다시 프리필한다.
+  const itemsKey = items.map((i) => i.key).join('|')
   useEffect(() => {
-    setStates(evaluateChecklist(items, cond, readDiagnosis()).map((e) => e.state))
-  }, [items, cond])
+    const d = readDiagnosis()
+    setDiagnosisEmpty(isEmpty(d))
+    setStates(evaluateChecklist(items, cond, d).map((e) => e.state))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey])
 
   if (!items.length) {
     return (
@@ -49,7 +57,7 @@ export default function Checklist({ items, cond }: { items: CheckItem[]; cond: C
           </li>
         ))}
       </ul>
-      <p className="mt-3 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800">{summarize(evaluated)}</p>
+      <p className="mt-3 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800">{summarize(evaluated, diagnosisEmpty)}</p>
       <p className="mt-2 text-xs text-gray-500">
         <Link href="/" className="underline">홈에서 조건을 고르면</Link> 자동으로 채워집니다. 체크는 참고용이며 최종 자격은 공식 페이지에서 확인하세요.
       </p>
