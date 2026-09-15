@@ -13,7 +13,7 @@ async function main() {
 
   const { error: regErr } = await supabase
     .from('regions')
-    .upsert(REGIONS.map(({ code, slug, name }) => ({ code, slug, name })), { onConflict: 'code' })
+    .upsert(REGIONS.map(({ code, slug, name, description_md }) => ({ code, slug, name, description_md })), { onConflict: 'code' })
   if (regErr) throw regErr
   console.log(`regions ${REGIONS.length}건 upsert`)
 }
