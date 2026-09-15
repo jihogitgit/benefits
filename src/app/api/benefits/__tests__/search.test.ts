@@ -38,9 +38,20 @@ describe('GET /api/benefits/search', () => {
     // 전건 스캔과 Redis 쓰기를 무한히 유발할 수 있다.
     searchMock.mockClear()
     rateLimitMock.mockResolvedValueOnce(false)
-    const res = await GET(new NextRequest('http://localhost/api/benefits/search?q=월세'))
+    const res = await GET(
+      new NextRequest('http://localhost/api/benefits/search?q=월세', { headers: { 'x-forwarded-for': '1.2.3.4' } }),
+    )
     expect(res.status).toBe(429)
     expect(res.headers.get('retry-after')).toBe('60')
     expect(searchMock).not.toHaveBeenCalled()
+  })
+
+  it('클라이언트를 식별할 수 없으면 제한하지 않는다', async () => {
+    // 식별 불가 요청을 한 바구니에 몰면 무관한 사용자끼리 카운터를 공유해 전원이 막힌다.
+    rateLimitMock.mockClear()
+    searchMock.mockResolvedValue({ total: 1, items: [] })
+    const res = await GET(new NextRequest('http://localhost/api/benefits/search'))
+    expect(res.status).toBe(200)
+    expect(rateLimitMock).not.toHaveBeenCalled()
   })
 })
