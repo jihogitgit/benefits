@@ -24,6 +24,11 @@ const REGION_NAME: Record<string, string> = Object.fromEntries(REGIONS.map((r) =
 /** 상한 100 이상은 원천에서 '제한 없음'을 뜻하므로 상한 없음과 같게 쓴다. */
 const AGE_UNBOUNDED = 100
 
+/** 0~상한없음은 '제한 없음'이다. 체크 항목으로 내보내면 의미 없는 줄이 하나 늘 뿐이다. */
+function coversAllAges(min: number | null, max: number | null): boolean {
+  return (min ?? 0) <= 0 && (max ?? AGE_MAX) >= AGE_UNBOUNDED
+}
+
 function ageLabel(min: number | null, max: number | null): string {
   if (min !== null && (max === null || max >= AGE_UNBOUNDED)) return `만 ${min}세 이상`
   if (min === null && max !== null) return `만 ${max}세 이하`
@@ -51,7 +56,8 @@ export function buildChecklist(cond: ConditionJoin | null, reviewed: { label: st
   // age_min·age_max는 스키마상 각각 독립적으로 null일 수 있다(실데이터에 한쪽만 있는 행이 존재한다).
   // 둘 다 있을 때만 항목을 만들면 "만 65세 이상" 같은 조건이 체크리스트에서 통째로 빠져,
   // 나머지 조건만 충족한 사용자에게 "모두 충족"이라는 잘못된 안내가 나간다.
-  if (cond.age_min !== null || cond.age_max !== null) {
+  // 반대로 전 구간을 덮는 값(0~120)은 제한이 없다는 뜻이라 "만 0세 이상"이라는 잡음 항목이 된다.
+  if ((cond.age_min !== null || cond.age_max !== null) && !coversAllAges(cond.age_min, cond.age_max)) {
     items.push({ key: 'age', label: ageLabel(cond.age_min, cond.age_max) })
   }
   if (cond.gender !== 'any') items.push({ key: 'gender', label: cond.gender === 'female' ? '여성' : '남성' })
@@ -61,6 +67,15 @@ export function buildChecklist(cond: ConditionJoin | null, reviewed: { label: st
   for (const h of cond.household_types) items.push({ key: `household:${h}`, label: HOUSEHOLD_LABEL[h] ?? h })
   for (const o of cond.occupations) items.push({ key: `occupation:${o}`, label: OCCUPATION_LABEL[o] ?? o })
   return items
+}
+
+/**
+ * 진단값으로는 영원히 판정할 수 없는 항목인지. Diagnosis에 성별·소득 입력이 없어 이 둘은 항상 unknown이다.
+ * 소득 조건 2,173건 · 성별 조건 825건(전체 10,947)이라 전체의 4분의 1가량이 해당한다. 아무 표시 없이
+ * 빈 체크박스로 두면 "나는 자격이 없다"로 읽히므로 UI가 이걸로 "직접 확인" 표시를 붙인다.
+ */
+export function isUnjudgeable(key: string): boolean {
+  return key === 'gender' || key.startsWith('income:')
 }
 
 function situationCovers(situations: string[], kind: 'life' | 'household' | 'occupation', value: string): boolean {

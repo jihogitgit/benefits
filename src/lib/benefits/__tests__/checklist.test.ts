@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildChecklist, evaluateChecklist, summarize } from '../checklist'
+import { buildChecklist, evaluateChecklist, summarize, isUnjudgeable } from '../checklist'
 import type { ConditionJoin } from '../queries'
 
 const cond: ConditionJoin = {
@@ -28,6 +28,11 @@ describe('buildChecklist', () => {
   })
   it('조건이 없으면 빈 배열', () => {
     expect(buildChecklist(null, null)).toEqual([])
+  })
+  it('전 연령(0~제한없음)은 체크 항목으로 만들지 않는다', () => {
+    expect(buildChecklist({ ...cond, age_min: 0, age_max: 120 }, null).map((i) => i.key)).not.toContain('age')
+    expect(buildChecklist({ ...cond, age_min: 0, age_max: null }, null).map((i) => i.key)).not.toContain('age')
+    expect(buildChecklist({ ...cond, age_min: 0, age_max: 18 }, null).map((i) => i.key)).toContain('age')
   })
   it('나이 상한만 없으면 "N세 이상", 하한만 없으면 "N세 이하"', () => {
     expect(buildChecklist({ ...cond, age_min: 65, age_max: null }, null)[0]).toEqual({ key: 'age', label: '만 65세 이상' })
@@ -82,5 +87,17 @@ describe('evaluateChecklist', () => {
   })
   it('진단이 없으면 모두 unknown', () => {
     expect(evaluateChecklist(items, cond, { ageBand: null, situations: [], region: null }).every((x) => x.state === 'unknown')).toBe(true)
+  })
+})
+
+describe('isUnjudgeable', () => {
+  it('성별·소득은 진단으로 판정할 수 없다', () => {
+    expect(isUnjudgeable('gender')).toBe(true)
+    expect(isUnjudgeable('income:0-50|51-75')).toBe(true)
+  })
+  it('나이·지역·상황은 판정할 수 있다', () => {
+    expect(isUnjudgeable('age')).toBe(false)
+    expect(isUnjudgeable('region')).toBe(false)
+    expect(isUnjudgeable('occupation:job_seeker')).toBe(false)
   })
 })

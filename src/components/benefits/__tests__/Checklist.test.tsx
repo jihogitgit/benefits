@@ -79,3 +79,13 @@ describe('Checklist 상태 유지', () => {
     expect((screen.getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true)
   })
 })
+
+describe('Checklist 판정 불가 항목', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('성별·소득 항목에는 빈 칸이 "자격 없음"으로 읽히지 않게 "직접 확인"을 붙인다', () => {
+    const withIncome = [...items, { key: 'income:0-50', label: '중위소득 50% 이하' }, { key: 'gender', label: '여성' }]
+    render(<Checklist items={withIncome} cond={cond} />)
+    expect(screen.getAllByText(/직접 확인/)).toHaveLength(2)
+  })
+})

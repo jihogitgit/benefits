@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { ConditionJoin } from '@/lib/benefits/queries'
-import { evaluateChecklist, summarize, type CheckItem, type CheckState } from '@/lib/benefits/checklist'
+import { evaluateChecklist, summarize, isUnjudgeable, type CheckItem, type CheckState } from '@/lib/benefits/checklist'
 import { readDiagnosis, isEmpty } from '@/lib/diagnosis/storage'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +52,10 @@ export default function Checklist({ items, cond }: { items: CheckItem[]; cond: C
               {/* 부분 겹침은 체크하지 않고 확인을 요구한다. 오늘은 나이 항목만 partial이 될 수 있다. */}
               {e.state === 'partial' && (
                 <span className="ml-1 text-xs text-amber-700">· {e.key === 'age' ? '나이 확인 필요' : '확인 필요'}</span>
+              )}
+              {/* 성별·소득은 진단에 입력이 없어 항상 unknown이다. 이유를 밝히지 않으면 빈 칸이 '자격 없음'으로 읽힌다. */}
+              {e.state === 'unknown' && isUnjudgeable(e.key) && (
+                <span className="ml-1 text-xs text-gray-500">· 직접 확인</span>
               )}
             </label>
           </li>

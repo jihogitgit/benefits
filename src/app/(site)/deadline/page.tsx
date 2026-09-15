@@ -15,6 +15,10 @@ export const metadata: Metadata = {
 
 export default async function DeadlinePage() {
   const now = new Date()
+  // limit 200은 현재 안전하다: deadline_type='period' AND status='open' 전체가 160건이라 절단이
+  // 구조적으로 불가능하다. 그 건수가 200을 넘는 순간 apply_end 오름차순 특성상 뒤쪽 그룹이 조용히
+  // 잘리고 아래 <h2>의 '{g.rows.length}개'가 사실과 다른 숫자를 보여준다. 그때는 총계를 따로 세어
+  // 제목에 쓰고 목록만 상위 N건으로 제한해야 한다(지역 허브 페이지가 같은 함정을 그렇게 처리한다).
   const rows = await listDeadlineSoon(45, 200)
   const groups = groupByWeek(rows, now)
   return (
