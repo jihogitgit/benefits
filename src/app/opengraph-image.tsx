@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { siteName, SITE_DESCRIPTION } from '@/lib/seo/site'
 
-export const alt = '지원금 포털'
+export const alt = '내몫 — 정부 지원금 조건별 조회'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 

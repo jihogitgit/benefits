@@ -13,7 +13,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       onClick={onClick}
       className={cn(
         'min-h-11 rounded-full border px-3.5 text-sm transition',
-        on ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-400',
+        on ? 'border-brand-600 bg-brand-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-brand-400',
       )}
     >
       {children}
@@ -79,9 +79,9 @@ export default function DiagnosisPanel() {
   }
 
   return (
-    <section className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-500 p-5 text-white shadow-md sm:p-7">
+    <section className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 p-5 text-white shadow-md sm:p-7">
       <h1 className="text-2xl font-extrabold sm:text-3xl">내가 받을 수 있는 지원금은?</h1>
-      <p className="mt-1 text-sm text-indigo-100">3가지만 고르면 바로 보여드립니다. 회원가입 없음, 정보는 내 브라우저에만 저장됩니다.</p>
+      <p className="mt-1 text-sm text-brand-100">3가지만 고르면 바로 보여드립니다. 회원가입 없음, 정보는 내 브라우저에만 저장됩니다.</p>
 
       <div className="mt-5 space-y-4 rounded-xl bg-white p-4 text-gray-900">
         <div>
@@ -116,7 +116,7 @@ export default function DiagnosisPanel() {
           ) : (
             <Link
               href="/my"
-              className="block rounded-xl bg-indigo-600 py-3.5 text-center text-base font-bold text-white hover:bg-indigo-700"
+              className="block rounded-xl bg-brand-600 py-3.5 text-center text-base font-bold text-white hover:bg-brand-700"
             >
               {restored ? '이어서 보기: ' : ''}
               {countFailed ? '내 지원금 보기 →' : total === null ? '내 지원금 찾는 중…' : `내 지원금 ${total.toLocaleString()}개 보기 →`}

@@ -2,6 +2,25 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/*
+ * 브랜드 색은 여기 한 곳에서만 정한다. 컴포넌트는 brand-* 유틸리티만 쓰므로
+ * 다른 색으로 바꾸려면 아래 8줄의 값만 갈아끼우면 된다.
+ *
+ * 현재 값은 Tailwind teal 스케일을 한 단계씩 어둡게 당겨 물린 것이다. teal-600(#0D9488)은
+ * 흰 배경 대비가 3.74:1로 WCAG AA(4.5:1)에 못 미쳐 본문·버튼에 쓸 수 없다. 그래서
+ * brand-600에 teal-700(5.47:1)을 물려, 기존 indigo-600 자리에 그대로 넣어도 기준을 지킨다.
+ */
+@theme {
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0f766e;
+  --color-brand-700: #115e59;
+  --color-brand-800: #134e4a;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

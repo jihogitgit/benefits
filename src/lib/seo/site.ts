@@ -1,5 +1,5 @@
 export function siteName(): string {
-  return process.env.SITE_NAME?.trim() || '지원금 포털'
+  return process.env.SITE_NAME?.trim() || '내몫'
 }
 
 // ?? 가 아니라 || 를 쓴다. 빈 문자열 env를 그대로 통과시키면 canonical·사이트맵·JSON-LD가

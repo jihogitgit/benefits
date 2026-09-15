@@ -61,7 +61,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
           <h2 className="mb-2 text-sm font-semibold text-gray-500">지역별로 보기</h2>
           <nav className="flex flex-wrap gap-2" aria-label="지역별로 보기">
             {regions.map((r) => (
-              <Link key={r.slug} href={`/${seg.path}/${r.slug}`} className="rounded-full border bg-white px-3 py-1.5 text-sm hover:border-indigo-400">
+              <Link key={r.slug} href={`/${seg.path}/${r.slug}`} className="rounded-full border bg-white px-3 py-1.5 text-sm hover:border-brand-400">
                 {r.name} <span className="text-gray-400">{((counts[r.slug] ?? 0) + (counts.ALL ?? 0)).toLocaleString()}</span>
               </Link>
             ))}
@@ -78,7 +78,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
       {total > rows.length && (
         <p className="mt-4 text-sm text-gray-500">
           마감이 가까운 {rows.length.toLocaleString()}개를 먼저 보여줍니다. 나머지는{' '}
-          <Link href="/" className="font-semibold text-indigo-700 hover:underline">조건 진단</Link>
+          <Link href="/" className="font-semibold text-brand-700 hover:underline">조건 진단</Link>
           으로 좁혀서 찾아보세요.
         </p>
       )}

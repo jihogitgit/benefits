@@ -26,7 +26,7 @@ export default async function HomePage() {
         <section className="mt-8">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="text-lg font-bold">마감 임박 (2주 이내)</h2>
-            <Link href="/deadline" className="text-sm text-indigo-700 hover:underline">전체 보기</Link>
+            <Link href="/deadline" className="text-sm text-brand-700 hover:underline">전체 보기</Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {soon.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
@@ -38,7 +38,7 @@ export default async function HomePage() {
         <h2 className="mb-3 text-lg font-bold">분야별로 보기</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {PUBLIC_SEGMENTS.map((s) => (
-            <Link key={s.slug} href={`/${s.path}`} className="rounded-xl border bg-white p-5 hover:border-indigo-300 hover:shadow-sm">
+            <Link key={s.slug} href={`/${s.path}`} className="rounded-xl border bg-white p-5 hover:border-brand-300 hover:shadow-sm">
               <h3 className="text-lg font-bold">{s.name} 지원금</h3>
               <p className="mt-1 text-sm text-gray-600">{s.description_md}</p>
             </Link>

@@ -42,7 +42,7 @@ export default function Checklist({ items, cond }: { items: CheckItem[]; cond: C
             <input
               id={`chk-${i}`}
               type="checkbox"
-              className="mt-1 h-4 w-4 accent-indigo-600"
+              className="mt-1 h-4 w-4 accent-brand-600"
               checked={e.state === 'pass'}
               onChange={() => toggle(i)}
             />
@@ -61,7 +61,7 @@ export default function Checklist({ items, cond }: { items: CheckItem[]; cond: C
           </li>
         ))}
       </ul>
-      <p className="mt-3 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800">{summarize(evaluated, diagnosisEmpty)}</p>
+      <p className="mt-3 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-800">{summarize(evaluated, diagnosisEmpty)}</p>
       <p className="mt-2 text-xs text-gray-500">
         <Link href="/" className="underline">홈에서 조건을 고르면</Link> 자동으로 채워집니다. 체크는 참고용이며 최종 자격은 공식 페이지에서 확인하세요.
       </p>

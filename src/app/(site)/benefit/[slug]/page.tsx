@@ -157,7 +157,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
       {b.apply_url && !closed && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 p-3 backdrop-blur lg:hidden">
-          <a href={b.apply_url} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-indigo-600 py-3 text-center font-bold text-white">
+          <a href={b.apply_url} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-brand-600 py-3 text-center font-bold text-white">
             공식 사이트에서 신청 →{dday !== null && dday >= 0 ? ` (D-${dday})` : ''}
           </a>
         </div>

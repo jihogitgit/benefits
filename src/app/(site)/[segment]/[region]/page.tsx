@@ -83,7 +83,7 @@ export default async function RegionHubPage({ params }: { params: Promise<{ segm
       {total > rows.length && (
         <p className="mt-4 text-sm text-gray-500">
           마감이 가까운 {rows.length.toLocaleString()}개를 먼저 보여줍니다. 나머지는{' '}
-          <Link href="/" className="font-semibold text-indigo-700 hover:underline">조건 진단</Link>
+          <Link href="/" className="font-semibold text-brand-700 hover:underline">조건 진단</Link>
           으로 좁혀서 찾아보세요.
         </p>
       )}

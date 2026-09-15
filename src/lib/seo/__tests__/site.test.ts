@@ -16,12 +16,12 @@ describe('site', () => {
     process.env.SITE_NAME = '   '
     expect(siteUrl()).toBe('http://localhost:3000')
     expect(absoluteUrl('/youth')).toBe('http://localhost:3000/youth')
-    expect(siteName()).toBe('지원금 포털')
+    expect(siteName()).toBe('내몫')
   })
 
   it('사이트명은 env, 없으면 기본값', () => {
     expect(siteName()).toBe('테스트포털')
     delete process.env.SITE_NAME
-    expect(siteName()).toBe('지원금 포털')
+    expect(siteName()).toBe('내몫')
   })
 })

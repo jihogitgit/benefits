@@ -92,7 +92,7 @@ export default function DiagnosisResults() {
         <p className="text-gray-600">아직 고른 조건이 없습니다.</p>
         <Link
           href="/"
-          className="mt-4 inline-block rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700"
+          className="mt-4 inline-block rounded-lg bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700"
         >
           조건 고르러 가기
         </Link>
@@ -111,7 +111,7 @@ export default function DiagnosisResults() {
         <p className="text-sm text-gray-600">
           <span className="font-semibold text-gray-900">{label(d)}</span> 조건 · {countText}
         </p>
-        <Link href="/" className="text-sm text-indigo-700 hover:underline">
+        <Link href="/" className="text-sm text-brand-700 hover:underline">
           조건 바꾸기
         </Link>
       </div>

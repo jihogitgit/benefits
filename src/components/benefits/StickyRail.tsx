@@ -9,12 +9,12 @@ export default function StickyRail({ applyUrl, sections }: { applyUrl: string | 
           <p className="mb-2 text-xs font-semibold text-gray-500">목차</p>
           <ul className="space-y-1.5">
             {sections.map((s) => (
-              <li key={s.id}><a href={`#${s.id}`} className="text-gray-700 hover:text-indigo-700">{s.label}</a></li>
+              <li key={s.id}><a href={`#${s.id}`} className="text-gray-700 hover:text-brand-700">{s.label}</a></li>
             ))}
           </ul>
         </nav>
         {applyUrl && (
-          <a href={applyUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-indigo-600 py-3 text-center font-bold text-white hover:bg-indigo-700">
+          <a href={applyUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-brand-600 py-3 text-center font-bold text-white hover:bg-brand-700">
             공식 사이트에서 신청 →
           </a>
         )}
