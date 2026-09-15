@@ -9,3 +9,6 @@ fixtures/**/*.raw.json
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# supabase CLI 캐시
+supabase/.temp/

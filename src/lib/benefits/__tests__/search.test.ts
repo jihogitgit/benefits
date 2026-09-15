@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseSearchParams, ageBandToRange, matchesConditions, matchScore, rankBenefits, cacheKeyFor } from '../search'
+import { parseSearchParams, ageBandToRange, matchesConditions, matchScore, rankBenefits, cacheKeyFor, titleHitBonus } from '../search'
 
 describe('parseSearchParams', () => {
   it('쿼리스트링을 검색 입력으로', () => {
     const p = parseSearchParams(new URLSearchParams('age=30s&situations=pregnancy,single&region=seoul&count=1'))
-    expect(p).toEqual({ ageBand: '30s', situations: ['pregnancy', 'single'], region: 'seoul', countOnly: true, limit: 50, offset: 0 })
+    expect(p).toEqual({ q: '', ageBand: '30s', situations: ['pregnancy', 'single'], region: 'seoul', countOnly: true, limit: 50, offset: 0 })
   })
   it('허용되지 않은 값은 버린다', () => {
     const p = parseSearchParams(new URLSearchParams('age=99s&situations=x,job_seeker&region=mars&limit=999&offset=-3'))
@@ -103,9 +103,39 @@ describe('rankBenefits', () => {
 })
 
 describe('cacheKeyFor', () => {
+  const base = { q: '', ageBand: '30s' as const, situations: ['single', 'pregnancy'], region: 'seoul', countOnly: false, limit: 50, offset: 0 }
   it('입력 순서와 무관하게 같은 키', () => {
-    const a = cacheKeyFor({ ageBand: '30s', situations: ['single', 'pregnancy'], region: 'seoul', countOnly: false, limit: 50, offset: 0 })
-    const b = cacheKeyFor({ ageBand: '30s', situations: ['pregnancy', 'single'], region: 'seoul', countOnly: false, limit: 50, offset: 0 })
+    const a = cacheKeyFor(base)
+    const b = cacheKeyFor({ ...base, situations: ['pregnancy', 'single'] })
     expect(a).toBe(b)
+  })
+  it('검색어가 다르면 키도 다르다', () => {
+    // 검색어를 키에 안 넣으면 캐시가 다른 검색어의 결과를 그대로 돌려준다.
+    expect(cacheKeyFor({ ...base, q: '월세' })).not.toBe(cacheKeyFor(base))
+    expect(cacheKeyFor({ ...base, q: '월세' })).not.toBe(cacheKeyFor({ ...base, q: '창업' }))
+  })
+})
+
+describe('titleHitBonus', () => {
+  it('모든 토큰이 제목에 있으면 가점, 하나라도 없으면 0', () => {
+    expect(titleHitBonus('청년월세 특별지원', ['청년', '월세'])).toBe(2)
+    expect(titleHitBonus('청년 창업 지원', ['청년', '월세'])).toBe(0)
+  })
+  it('검색어가 없으면 가점도 없다 (필터만 쓴 결과 순서를 흔들지 않는다)', () => {
+    expect(titleHitBonus('아무 제목', [])).toBe(0)
+  })
+  it('영문은 대소문자를 가리지 않는다', () => {
+    expect(titleHitBonus('K-Digital Training', ['k-digital'.replace('-', ''), 'training'])).toBe(0)
+    expect(titleHitBonus('K Digital Training', ['digital', 'TRAINING'])).toBe(2)
+  })
+})
+
+describe('검색어 랭킹', () => {
+  it('제목이 걸린 항목이 기관명만 걸린 항목보다 앞선다', () => {
+    const rows = [
+      { slug: 'b', deadline_type: 'always', apply_end: null, hasConditions: true, score: 0 + titleHitBonus('국세청 다른 지원', ['근로장려금']) },
+      { slug: 'a', deadline_type: 'always', apply_end: null, hasConditions: true, score: 0 + titleHitBonus('근로장려금', ['근로장려금']) },
+    ]
+    expect(rankBenefits(rows, new Date('2026-09-16')).map((r) => r.slug)).toEqual(['a', 'b'])
   })
 })

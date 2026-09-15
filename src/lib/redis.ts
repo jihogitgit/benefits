@@ -12,6 +12,10 @@ export const CACHE_KEYS = {
 
 export const CACHE_TTL = {
   search: 600, // 10분
+  // 검색어가 붙은 요청은 짧게 잡는다. 검색어는 자유 입력이라 키 공간이 무한하고,
+  // 10분씩 잡아두면 한 번 쓰이고 버려질 항목이 Redis를 채워 실제로 재사용되는
+  // 필터 조합 캐시를 밀어낸다.
+  searchKeyword: 60, // 1분
 } as const
 
 export async function getOrSet<T>(key: string, ttl: number, fetcher: () => Promise<T>): Promise<T> {

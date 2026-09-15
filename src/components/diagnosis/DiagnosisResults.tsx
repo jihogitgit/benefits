@@ -2,17 +2,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { SearchResultItem } from '@/lib/benefits/search'
+import { queryTokens } from '@/lib/benefits/query-text'
 import type { BenefitListRow } from '@/lib/benefits/queries'
 import type { DeadlineType, Segment } from '@/types/database'
-import { readDiagnosis, toSearchParams, isEmpty, type Diagnosis } from '@/lib/diagnosis/storage'
+import { readDiagnosis, writeDiagnosis, toSearchParams, isEmpty, type Diagnosis } from '@/lib/diagnosis/storage'
 import { AGE_OPTIONS, SITUATION_OPTIONS, REGION_OPTIONS } from '@/lib/diagnosis/options'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import BenefitList from '@/components/benefits/BenefitList'
+import SearchBox from '@/components/diagnosis/SearchBox'
 
 const PAGE = 50
 
 function label(d: Diagnosis): string {
   return [
+    // 검색은 앞 몇 단어만 쓴다. 입력 전체를 그대로 보여주면 결과에 반영되지 않은 단어까지
+    // 조건인 것처럼 읽힌다.
+    d.q ? `“${queryTokens(d.q).join(' ')}”` : null,
     AGE_OPTIONS.find((o) => o.value === d.ageBand)?.label,
     ...d.situations.map((s) => SITUATION_OPTIONS.find((o) => o.value === s)?.label),
     REGION_OPTIONS.find((o) => o.value === d.region)?.label,
@@ -79,6 +84,19 @@ export default function DiagnosisResults() {
     }
   }, [])
 
+  // 결과 화면에서 검색어만 바꿔 다시 찾기. 홈과 같은 저장소를 쓰므로 여기서 바꾼 검색어는
+  // 홈으로 돌아가도 그대로 남는다.
+  const setQuery = useCallback((q: string) => {
+    setD((prev) => (!prev || prev.q === q ? prev : { ...prev, q }))
+  }, [])
+
+  // 저장은 업데이터가 아니라 이펙트에서 한다. setState 업데이터는 순수해야 하며, 동시성 렌더링에서
+  // React가 버리는 렌더 중에도 호출될 수 있다. 그 안에서 localStorage를 쓰면 화면이 한 번도
+  // 채택하지 않은 검색어가 저장소에 남는다. DiagnosisPanel도 같은 방식으로 저장한다.
+  useEffect(() => {
+    if (d) writeDiagnosis(d)
+  }, [d])
+
   useEffect(() => {
     if (d && !isEmpty(d)) void load(d, 0)
   }, [d, load])
@@ -86,16 +104,31 @@ export default function DiagnosisResults() {
   // 첫 렌더와 빈 진단 안내의 높이를 맞춰 복원 직후 화면이 튀지 않게 한다.
   if (d === null) return <div className="py-16 text-center text-sm text-gray-500">불러오는 중…</div>
 
+  // 검색창은 빈 진단 분기보다 위에 둔다. 검색어만 넣은 상태에서 그것을 지우면 isEmpty가 되는데,
+  // 검색창이 아래 분기 안에 있으면 그 순간 입력칸까지 같이 사라져 다시 칠 수단이 없어진다.
+  const searchBox = (
+    <SearchBox
+      className="mb-4"
+      value={d.q}
+      onChange={setQuery}
+      label="지원금 이름으로 찾기"
+      placeholder="예: 국민연금, 장려금, 창업지원"
+    />
+  )
+
   if (isEmpty(d)) {
     return (
-      <div className="py-16 text-center">
-        <p className="text-gray-600">아직 고른 조건이 없습니다.</p>
-        <Link
-          href="/"
-          className="mt-4 inline-block rounded-lg bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700"
-        >
-          조건 고르러 가기
-        </Link>
+      <div>
+        {searchBox}
+        <div className="py-16 text-center">
+          <p className="text-gray-600">아직 고른 조건이 없습니다.</p>
+          <Link
+            href="/"
+            className="mt-4 inline-block rounded-lg bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700"
+          >
+            조건 고르러 가기
+          </Link>
+        </div>
       </div>
     )
   }
@@ -107,6 +140,8 @@ export default function DiagnosisResults() {
 
   return (
     <div>
+      {searchBox}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-600">
           <span className="font-semibold text-gray-900">{label(d)}</span> 조건 · {countText}
@@ -136,7 +171,9 @@ export default function DiagnosisResults() {
 
       {loaded && items.length === 0 && (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-          조건에 맞는 지원금이 없습니다. 조건을 줄여서 다시 찾아보세요.
+          {d.q
+            ? `“${d.q}”에 맞는 지원금이 없습니다. 검색어를 줄이거나 지워 보세요.`
+            : '조건에 맞는 지원금이 없습니다. 조건을 줄여서 다시 찾아보세요.'}
         </p>
       )}
 

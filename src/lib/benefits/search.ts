@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
+import { normalizeQuery, queryTokens } from './query-text'
 import { REGIONS } from '../../../data/regions'
 import { daysUntil } from './status'
 
@@ -11,6 +12,7 @@ const SITUATIONS = Object.keys(SITUATION_TO_CONDITIONS)
 const REGION_SLUGS = new Set(REGIONS.map((r) => r.slug))
 
 export interface SearchInput {
+  q: string
   ageBand: AgeBand | null
   situations: string[]
   region: string | null
@@ -24,6 +26,7 @@ export function parseSearchParams(sp: URLSearchParams): SearchInput {
   const age = sp.get('age')
   const region = sp.get('region')
   return {
+    q: normalizeQuery(sp.get('q')),
     ageBand: AGE_BANDS.includes(age as AgeBand) ? (age as AgeBand) : null,
     // 중복 제거: 같은 결과에 서로 다른 캐시 키가 생기는 것을 막는다
     situations: [
@@ -124,6 +127,17 @@ export function matchScore(c: CondLike | null, q: Criteria): number {
   return s
 }
 
+/**
+ * 검색어가 제목에 직접 들어간 항목을 기관명만 걸린 항목보다 앞세운다.
+ * '근로장려금'을 찾을 때 같은 기관(국세청)의 다른 지원금이 위로 오는 것을 막는다.
+ * 상황 일치(2점)와 같은 무게라 검색어와 조건이 함께 걸린 항목이 가장 위에 온다.
+ */
+export function titleHitBonus(title: string, tokens: string[]): number {
+  if (tokens.length === 0) return 0
+  const t = title.toLowerCase()
+  return tokens.every((k) => t.includes(k.toLowerCase())) ? 2 : 0
+}
+
 export interface Rankable {
   slug: string
   deadline_type: string
@@ -147,6 +161,7 @@ export function rankBenefits<T extends Rankable>(rows: T[], now: Date): T[] {
 
 export function cacheKeyFor(input: SearchInput): string {
   return [
+    input.q || '-',
     input.ageBand ?? '-',
     [...input.situations].sort().join('+') || '-',
     input.region ?? '-',
@@ -194,11 +209,20 @@ export async function searchBenefits(
   now = new Date(),
 ): Promise<{ total: number; items: SearchResultItem[] }> {
   const q: Criteria = { ageRange: ageBandToRange(input.ageBand), situations: input.situations, region: input.region }
+  const tokens = queryTokens(input.q)
 
   const data: Row[] = []
   for (let from = 0; ; from += PAGE) {
     let query = supabase.from('benefits').select(SELECT).eq('status', 'open').order('slug').range(from, from + PAGE - 1)
     if (q.region) query = query.in('region_code', [q.region, 'ALL'])
+    // 검색어는 조건 판정(JS)과 달리 DB에서 먼저 거른다. 전체 1만여 건을 끌어오지 않아도 되고,
+    // 토큰마다 or()를 한 번씩 걸면 PostgREST가 서로 AND로 묶어 '청년 월세'가 두 단어를 모두
+    // 가진 항목만 남긴다(or= 파라미터 반복이 AND라는 건 실측으로 확인했다).
+    //
+    // 요약까지 뒤지는 이유: 공식 명칭과 통용 명칭이 다른 경우가 많다. '근로장려금'은 실제 제목이
+    // '근로·자녀장려금'이라 제목·기관만 보면 0건이지만 요약에는 그대로 적혀 있다. 잡음은
+    // 실측으로 '청년' 349→392건 수준이고, 제목에 걸린 항목은 titleHitBonus가 위로 올린다.
+    for (const t of tokens) query = query.or(`title.ilike.%${t}%,agency.ilike.%${t}%,summary.ilike.%${t}%`)
     const { data: chunk, error } = await query
     if (error) throw error
     data.push(...((chunk ?? []) as unknown as Row[]))
@@ -223,7 +247,7 @@ export async function searchBenefits(
       agency: row.agency,
       hasConditions: !!cond,
       dday: daysUntil(row.apply_end, now),
-      score: matchScore(cond, q),
+      score: matchScore(cond, q) + titleHitBonus(row.title, tokens),
     }))
 
   const ranked = rankBenefits(matched, now)

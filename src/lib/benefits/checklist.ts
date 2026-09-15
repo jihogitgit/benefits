@@ -83,7 +83,14 @@ function situationCovers(situations: string[], kind: 'life' | 'household' | 'occ
 }
 
 /** 진단값으로 각 항목을 pass/fail/unknown으로 평가. 판정 근거가 없는 항목은 unknown. */
-export function evaluateChecklist(items: CheckItem[], cond: ConditionJoin | null, d: Diagnosis): EvaluatedItem[] {
+/**
+ * 체크리스트 판정에 실제로 쓰는 진단 필드.
+ * 검색어(q)는 어떤 조건도 판정하지 못하므로 일부러 받지 않는다. 전체 Diagnosis를 받으면
+ * 검색어를 조건처럼 쓰는 코드가 뒤에 섞여 들어와도 타입이 막아주지 못한다.
+ */
+export type DiagnosisFacts = Pick<Diagnosis, 'ageBand' | 'situations' | 'region'>
+
+export function evaluateChecklist(items: CheckItem[], cond: ConditionJoin | null, d: DiagnosisFacts): EvaluatedItem[] {
   return items.map((it) => {
     let state: CheckState = 'unknown'
     if (it.key === 'age' && cond && (cond.age_min !== null || cond.age_max !== null)) {

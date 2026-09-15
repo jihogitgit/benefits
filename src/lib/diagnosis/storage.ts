@@ -1,7 +1,10 @@
 import type { AgeBand } from '@/lib/benefits/age-bands'
+import { normalizeQuery } from '@/lib/benefits/query-text'
 import { VALID_AGE, VALID_SITUATION, VALID_REGION } from './options'
 
 export interface Diagnosis {
+  /** 자유 입력 검색어. 필터와 AND로 묶여 '고른 조건 안에서 다시 찾기'가 된다. 없으면 빈 문자열. */
+  q: string
   ageBand: AgeBand | null
   situations: string[]
   region: string | null
@@ -10,11 +13,11 @@ export interface Diagnosis {
 export const STORAGE_KEY = 'diagnosis'
 
 /** 읽기 전용 기본값. 호출자가 실수로 변형하지 못하게 동결한다. 새 객체가 필요하면 emptyDiagnosis(). */
-export const EMPTY: Diagnosis = Object.freeze({ ageBand: null, situations: [], region: null }) as Diagnosis
+export const EMPTY: Diagnosis = Object.freeze({ q: '', ageBand: null, situations: [], region: null }) as Diagnosis
 
 /** 매번 새 객체를 돌려준다. 호출자가 situations를 직접 변형해도 모듈 상태가 오염되지 않는다. */
 export function emptyDiagnosis(): Diagnosis {
-  return { ageBand: null, situations: [], region: null }
+  return { q: '', ageBand: null, situations: [], region: null }
 }
 
 function sanitize(raw: unknown): Diagnosis {
@@ -26,7 +29,9 @@ function sanitize(raw: unknown): Diagnosis {
     ? [...new Set(o.situations.filter((s): s is string => typeof s === 'string' && VALID_SITUATION.has(s)))]
     : []
   const region = typeof o.region === 'string' && VALID_REGION.has(o.region) ? o.region : null
-  return { ageBand, situations, region }
+  // 손으로 편집한 localStorage나 옛 저장본이 그대로 API 쿼리로 나가지 않도록 여기서 한 번 더 정규화한다.
+  const q = typeof o.q === 'string' ? normalizeQuery(o.q) : ''
+  return { q, ageBand, situations, region }
 }
 
 export function readDiagnosis(): Diagnosis {
@@ -48,6 +53,7 @@ export function writeDiagnosis(d: Diagnosis): void {
 
 export function toSearchParams(d: Diagnosis): URLSearchParams {
   const sp = new URLSearchParams()
+  if (d.q) sp.set('q', d.q)
   if (d.ageBand) sp.set('age', d.ageBand)
   if (d.situations.length) sp.set('situations', d.situations.join(','))
   if (d.region) sp.set('region', d.region)
@@ -55,5 +61,5 @@ export function toSearchParams(d: Diagnosis): URLSearchParams {
 }
 
 export function isEmpty(d: Diagnosis): boolean {
-  return !d.ageBand && d.situations.length === 0 && !d.region
+  return !d.q && !d.ageBand && d.situations.length === 0 && !d.region
 }

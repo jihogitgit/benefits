@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import SearchBox from '@/components/diagnosis/SearchBox'
 import { AGE_OPTIONS, SITUATION_OPTIONS, REGION_OPTIONS } from '@/lib/diagnosis/options'
 import { readDiagnosis, writeDiagnosis, toSearchParams, isEmpty, EMPTY, type Diagnosis } from '@/lib/diagnosis/storage'
 import { cn } from '@/lib/utils'
@@ -77,6 +78,11 @@ export default function DiagnosisPanel() {
     setRestored(false)
     setD((p) => ({ ...p, region: p.region === v ? null : v }))
   }
+  // SearchBox가 디바운스를 끝낸 뒤에만 부른다. 여기서 다시 지연을 줄 필요는 없다.
+  const setQuery = useCallback((q: string) => {
+    setRestored(false)
+    setD((p) => (p.q === q ? p : { ...p, q }))
+  }, [])
 
   return (
     <section className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 p-5 text-white shadow-md sm:p-7">
@@ -84,6 +90,12 @@ export default function DiagnosisPanel() {
       <p className="mt-1 text-sm text-brand-100">3가지만 고르면 바로 보여드립니다. 회원가입 없음, 정보는 내 브라우저에만 저장됩니다.</p>
 
       <div className="mt-5 space-y-4 rounded-xl bg-white p-4 text-gray-900">
+        <SearchBox
+          value={d.q}
+          onChange={setQuery}
+          label="지원금 이름으로 찾기"
+          placeholder="예: 근로장려금, 청년월세"
+        />
         <div>
           <p className="mb-2 text-xs font-semibold text-gray-500">나이</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="나이">
@@ -112,7 +124,7 @@ export default function DiagnosisPanel() {
         {/* 높이가 같은 컨테이너로 감싸 진단 복원 전후에 레이아웃이 튀지 않게 한다 */}
         <div className="grid min-h-[3.5rem] items-center pt-1">
           {isEmpty(d) ? (
-            <p className="text-center text-sm text-gray-500">조건을 골라 주세요. 하나만 골라도 됩니다.</p>
+            <p className="text-center text-sm text-gray-500">검색어를 넣거나 조건을 골라 주세요. 하나만 써도 됩니다.</p>
           ) : (
             <Link
               href="/my"

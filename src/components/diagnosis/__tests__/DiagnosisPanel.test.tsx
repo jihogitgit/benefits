@@ -25,7 +25,7 @@ describe('DiagnosisPanel', () => {
     expect(url.pathname).toBe('/api/benefits/search')
     expect(url.searchParams.get('count')).toBe('1')
     expect(url.searchParams.get('age')).toBe('30s')
-    expect(JSON.parse(localStorage.getItem('diagnosis')!)).toEqual({ ageBand: '30s', situations: ['pregnancy'], region: 'seoul' })
+    expect(JSON.parse(localStorage.getItem('diagnosis')!)).toEqual({ q: '', ageBand: '30s', situations: ['pregnancy'], region: 'seoul' })
     expect(screen.getByRole('link', { name: /내 지원금 27개 보기/ })).toHaveAttribute('href', '/my')
   })
 
@@ -38,7 +38,7 @@ describe('DiagnosisPanel', () => {
 
   it('아무것도 고르지 않으면 안내 문구', () => {
     render(<DiagnosisPanel />)
-    expect(screen.getByText(/조건을 골라 주세요/)).toBeInTheDocument()
+    expect(screen.getByText(/검색어를 넣거나 조건을 골라 주세요/)).toBeInTheDocument()
   })
 
   it('개수 조회가 실패하면 로딩 문구 대신 중립 문구를 보여준다', async () => {
@@ -47,6 +47,42 @@ describe('DiagnosisPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '30대' }))
     await waitFor(() => expect(screen.getByRole('link', { name: /내 지원금 보기/ })).toBeInTheDocument())
     expect(screen.queryByText(/찾는 중/)).not.toBeInTheDocument()
+  })
+
+  it('검색어만 입력해도 조회가 나가고 필터와 함께 실린다', async () => {
+    // 디바운스 자체는 SearchBox.test.tsx가 검증한다. 여기서는 패널이 검색어를 조건에 합쳐
+    // 조회·저장까지 이어가는지만 본다. blur로 확정해 타이머를 기다리지 않는다.
+    render(<DiagnosisPanel />)
+    const input = screen.getByLabelText('지원금 이름으로 찾기')
+    fireEvent.change(input, { target: { value: '청년 월세' } })
+    fireEvent.blur(input)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(new URL(fetchMock.mock.calls.at(-1)![0] as string, 'http://localhost').searchParams.get('q')).toBe('청년 월세')
+
+    fireEvent.click(screen.getByRole('button', { name: '30대' }))
+    await waitFor(() => {
+      const sp = new URL(fetchMock.mock.calls.at(-1)![0] as string, 'http://localhost').searchParams
+      expect(sp.get('q')).toBe('청년 월세')
+      expect(sp.get('age')).toBe('30s')
+    })
+    expect(JSON.parse(localStorage.getItem('diagnosis')!).q).toBe('청년 월세')
+  })
+
+  it('저장된 검색어를 입력칸에 복원한다', async () => {
+    localStorage.setItem('diagnosis', JSON.stringify({ q: '근로장려금', ageBand: null, situations: [], region: null }))
+    render(<DiagnosisPanel />)
+    await waitFor(() => expect(screen.getByLabelText('지원금 이름으로 찾기')).toHaveValue('근로장려금'))
+  })
+
+  it('지우기 버튼을 누르면 검색어가 빠진다', async () => {
+    render(<DiagnosisPanel />)
+    fireEvent.change(screen.getByLabelText('지원금 이름으로 찾기'), { target: { value: '월세' } })
+    fireEvent.blur(screen.getByLabelText('지원금 이름으로 찾기'))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByRole('button', { name: '검색어 지우기' }))
+    await waitFor(() => expect(screen.getByText(/검색어를 넣거나 조건을 골라 주세요/)).toBeInTheDocument())
   })
 
   it('같은 칩을 다시 누르면 해제된다', () => {

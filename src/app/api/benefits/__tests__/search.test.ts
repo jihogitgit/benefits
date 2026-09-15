@@ -10,8 +10,10 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn(() => ({})) })
 vi.mock('@/lib/redis', () => ({
   getOrSet: async (_k: string, _t: number, f: () => Promise<unknown>) => f(),
   CACHE_KEYS: { search: (h: string) => h },
-  CACHE_TTL: { search: 1 },
+  CACHE_TTL: { search: 1, searchKeyword: 1 },
 }))
+const rateLimitMock = vi.fn(async () => true)
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: (...a: unknown[]) => rateLimitMock(...(a as [])) }))
 
 import { GET } from '@/app/api/benefits/search/route'
 
@@ -29,5 +31,16 @@ describe('GET /api/benefits/search', () => {
     searchMock.mockRejectedValue(new Error('db'))
     const res = await GET(new NextRequest('http://localhost/api/benefits/search'))
     expect(res.status).toBe(500)
+  })
+
+  it('레이트 리밋에 걸리면 429를 돌려주고 검색은 실행하지 않는다', async () => {
+    // 검색어가 자유 입력이라 캐시 키 공간이 무한하다. 리밋이 없으면 q를 바꿔가며
+    // 전건 스캔과 Redis 쓰기를 무한히 유발할 수 있다.
+    searchMock.mockClear()
+    rateLimitMock.mockResolvedValueOnce(false)
+    const res = await GET(new NextRequest('http://localhost/api/benefits/search?q=월세'))
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('60')
+    expect(searchMock).not.toHaveBeenCalled()
   })
 })

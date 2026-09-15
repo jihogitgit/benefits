@@ -47,4 +47,39 @@ describe('DiagnosisResults', () => {
     expect(new URL(fetchMock.mock.calls[1][0] as string, 'http://localhost').searchParams.get('offset')).toBe('50')
     expect(screen.queryByRole('button', { name: /더 보기/ })).toBeNull()
   })
+
+  it('검색어를 지워도 검색창이 남는다 (막다른 길 방지)', async () => {
+    // 검색어만 넣은 상태에서 그것을 지우면 isEmpty가 된다. 검색창이 빈 진단 분기 안에 있으면
+    // 그 순간 입력칸까지 사라져 다시 칠 수단이 없어지고 홈으로 돌아가야만 한다.
+    localStorage.setItem('diagnosis', JSON.stringify({ q: '월세', ageBand: null, situations: [], region: null }))
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 1, items: [item('a')] })))
+    render(<DiagnosisResults />)
+    await waitFor(() => expect(screen.getByText(/총 1개/)).toBeInTheDocument())
+    expect(screen.getByLabelText('지원금 이름으로 찾기')).toHaveValue('월세')
+
+    fireEvent.click(screen.getByRole('button', { name: '검색어 지우기' }))
+
+    await waitFor(() => expect(screen.getByText(/아직 고른 조건이 없습니다/)).toBeInTheDocument())
+    expect(screen.getByLabelText('지원금 이름으로 찾기')).toBeInTheDocument()
+    expect(screen.getByLabelText('지원금 이름으로 찾기')).toHaveValue('')
+  })
+
+  it('결과 화면에서 검색어를 바꾸면 기존 필터를 유지한 채 다시 조회한다', async () => {
+    localStorage.setItem('diagnosis', JSON.stringify({ q: '', ageBand: '20s', situations: [], region: 'seoul' }))
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 1, items: [item('a')] })))
+    render(<DiagnosisResults />)
+    await waitFor(() => expect(screen.getByText(/총 1개/)).toBeInTheDocument())
+
+    const input = screen.getByLabelText('지원금 이름으로 찾기')
+    fireEvent.change(input, { target: { value: '월세' } })
+    fireEvent.blur(input)
+
+    await waitFor(() => {
+      const sp = new URL(fetchMock.mock.calls.at(-1)![0] as string, 'http://localhost').searchParams
+      expect(sp.get('q')).toBe('월세')
+      expect(sp.get('age')).toBe('20s')
+      expect(sp.get('region')).toBe('seoul')
+    })
+    expect(JSON.parse(localStorage.getItem('diagnosis')!).q).toBe('월세')
+  })
 })
