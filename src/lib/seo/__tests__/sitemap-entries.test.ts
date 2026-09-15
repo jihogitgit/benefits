@@ -14,10 +14,10 @@ describe('sitemap entries', () => {
     expect(e.map((x) => x.url)).toEqual(['https://example.com/benefit/a'])
     expect(e[0].lastModified).toEqual(new Date('2026-09-05T00:00:00Z'))
   })
-  it('세그먼트×지역은 항목 3개 이상 + 안내문 있는 것만', () => {
+  it('세그먼트×지역은 지역 전용 10건 이상 + 안내문 있는 것만', () => {
     const e = regionHubEntries(
-      [{ segmentPath: 'youth', regionSlug: 'seoul', count: 5 }, { segmentPath: 'youth', regionSlug: 'jeju', count: 2 }, { segmentPath: 'parenting', regionSlug: 'seoul', count: 9 }],
-      { seoul: '서울 안내', jeju: '제주 안내' },
+      [{ segmentPath: 'youth', regionSlug: 'seoul', localCount: 51 }, { segmentPath: 'youth', regionSlug: 'gwangju', localCount: 1 }, { segmentPath: 'parenting', regionSlug: 'seoul', localCount: 360 }],
+      { seoul: '서울 안내', gwangju: '광주 안내' },
     )
     expect(e.map((x) => x.url)).toEqual(['https://example.com/youth/seoul', 'https://example.com/parenting/seoul'])
   })
@@ -31,7 +31,7 @@ describe('sitemap entries', () => {
   })
   it('정적·지역 허브 항목은 lastmod를 신고하지 않는다 (매시간 갱신으로 보이면 신호가 무시된다)', () => {
     expect(staticEntries().every((e) => e.lastModified === undefined)).toBe(true)
-    const hubs = regionHubEntries([{ segmentPath: 'youth', regionSlug: 'seoul', count: 5 }], { seoul: '서울 안내' })
+    const hubs = regionHubEntries([{ segmentPath: 'youth', regionSlug: 'seoul', localCount: 51 }], { seoul: '서울 안내' })
     expect(hubs.every((e) => e.lastModified === undefined)).toBe(true)
   })
 })

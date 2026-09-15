@@ -36,9 +36,9 @@ export function benefitEntries(rows: BenefitSitemapRow[]): Entry[] {
 // new Date()를 쓰면 revalidate(1시간)마다 /privacy까지 "방금 바뀐" 것으로 신고하게 되고,
 // 검색엔진이 이 사이트의 lastmod 신호를 통째로 무시하면 상세 항목에 대해 source_updated_at·
 // reviewed_at으로 정확히 계산해 둔 lastmod까지 함께 버려진다. 없는 편이 부정확한 값보다 낫다.
-export function regionHubEntries(counts: { segmentPath: string; regionSlug: string; count: number }[], descriptions: Record<string, string | null>): Entry[] {
+export function regionHubEntries(counts: { segmentPath: string; regionSlug: string; localCount: number }[], descriptions: Record<string, string | null>): Entry[] {
   return counts
-    .filter((c) => regionHubIndexable({ count: c.count, description_md: descriptions[c.regionSlug] ?? null }))
+    .filter((c) => regionHubIndexable({ localCount: c.localCount, description_md: descriptions[c.regionSlug] ?? null }))
     .map((c) => ({ url: absoluteUrl(`/${c.segmentPath}/${c.regionSlug}`), changeFrequency: 'daily', priority: 0.7 }))
 }
 

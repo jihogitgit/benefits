@@ -25,11 +25,13 @@ async function hubSitemap(): Promise<MetadataRoute.Sitemap> {
   if (regionsRes.error) throw regionsRes.error
   const regions = (regionsRes.data ?? []) as { slug: string; description_md: string | null }[]
   const descriptions = Object.fromEntries(regions.map((r) => [r.slug, r.description_md]))
+  // 색인 판정은 '그 지역에만 있는' 건수로만 한다. 전국(ALL)분을 더하면 모든 지역이 통과해
+  // doorway page가 된다(index-policy.ts 참고). 페이지 제목의 총계와는 다른 숫자다.
   const counts = PUBLIC_SEGMENTS.flatMap((s, i) =>
     REGIONS.map((r) => ({
       segmentPath: s.path,
       regionSlug: r.slug,
-      count: (countsPerSegment[i][r.slug] ?? 0) + (countsPerSegment[i].ALL ?? 0),
+      localCount: countsPerSegment[i][r.slug] ?? 0,
     })),
   )
   return [...staticEntries(), ...regionHubEntries(counts, descriptions)]

@@ -78,12 +78,14 @@ export const getBenefitBySlug = unstable_cache(
 export interface ListOptions {
   region?: string | null
   limit?: number
+  /** true면 region_code가 정확히 region인 것만. false/미지정이면 전국(ALL)도 함께 본다. */
+  regionOnly?: boolean
 }
 
 export const listBySegment = unstable_cache(
   async (segment: Segment, opts: ListOptions): Promise<BenefitListRow[]> => {
     let q = createPublicClient().from('benefits').select(LIST_COLS).eq('status', 'open').contains('segments', [segment])
-    if (opts.region) q = q.in('region_code', [opts.region, 'ALL'])
+    if (opts.region) q = opts.regionOnly ? q.eq('region_code', opts.region) : q.in('region_code', [opts.region, 'ALL'])
     const { data, error } = await q.order('apply_end', { ascending: true, nullsFirst: false }).limit(opts.limit ?? 50)
     if (error) throw error
     return (data ?? []) as unknown as BenefitListRow[]
