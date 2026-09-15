@@ -37,7 +37,7 @@ async function load(segmentPath: string, regionSlug: string) {
   // countByRegion은 이미 페이징·캐시되어 있으므로 그것으로 실제 건수를 만든다.
   const localTotal = counts[reg.slug] ?? 0
   const nationalTotal = counts.ALL ?? 0
-  return { seg, reg, localRows, nationalRows, localTotal, nationalTotal, total: localTotal + nationalTotal, meta }
+  return { seg, reg, localRows, nationalRows, localTotal, nationalTotal, total: localTotal + nationalTotal, meta, counts }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ segment: string; region: string }> }): Promise<Metadata> {
@@ -59,8 +59,11 @@ export default async function RegionHubPage({ params }: { params: Promise<{ segm
   const { segment, region } = await params
   const data = await load(segment, region)
   if (!data) notFound()
-  const { seg, reg, localRows, nationalRows, localTotal, nationalTotal, total, meta } = data
+  const { seg, reg, localRows, nationalRows, localTotal, nationalTotal, total, meta, counts } = data
   const now = new Date()
+  // 색인되는 지역 허브 46개가 서로 연결되지 않으면 크롤러도 사용자도 매번 분야 허브를 거쳐야 한다.
+  // 건수 0인 지역은 빈 페이지로 가는 죽은 링크라 제외한다(분야 허브의 지역 칩과 같은 규칙).
+  const siblings = REGIONS.filter((r) => (counts[r.slug] ?? 0) > 0)
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -102,6 +105,25 @@ export default async function RegionHubPage({ params }: { params: Promise<{ segm
           </p>
         )}
       </section>
+
+      {siblings.length > 1 && (
+        <section className="mt-10">
+          <h2 className="mb-2 text-sm font-semibold text-gray-500">다른 지역 {seg.name} 지원금</h2>
+          <nav className="flex flex-wrap gap-2" aria-label={`다른 지역 ${seg.name} 지원금`}>
+            {siblings.map((r) =>
+              r.slug === reg.slug ? (
+                <span key={r.slug} aria-current="page" className="rounded-full border border-brand-600 bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-800">
+                  {r.name}
+                </span>
+              ) : (
+                <Link key={r.slug} href={`/${seg.path}/${r.slug}`} className="rounded-full border bg-white px-3 py-1.5 text-sm hover:border-brand-400">
+                  {r.name} <span className="text-gray-400">{(counts[r.slug] ?? 0).toLocaleString()}</span>
+                </Link>
+              ),
+            )}
+          </nav>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="mb-3 text-lg font-bold">

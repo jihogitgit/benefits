@@ -3,9 +3,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SEGMENT_BY_PATH, PUBLIC_SEGMENTS } from '../../../../data/segments'
 import { REGIONS } from '../../../../data/regions'
+import { SEGMENT_FAQ } from '../../../../data/segment-faq'
 import { listBySegment, countByRegion } from '@/lib/benefits/queries'
 import { hubTitle, hubDescription, kstYear } from '@/lib/seo/hub-meta'
-import { breadcrumbs, itemList } from '@/lib/seo/jsonld'
+import { breadcrumbs, itemList, faqPage } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
 import JsonLd from '@/components/JsonLd'
@@ -50,6 +51,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
         data={[
           breadcrumbs([{ name: '홈', path: '/' }, { name: seg.name, path: `/${seg.path}` }]),
           itemList(rows.slice(0, 20).map((r) => ({ name: r.title, path: `/benefit/${r.slug}` }))),
+          faqPage(SEGMENT_FAQ[seg.slug] ?? []),
         ]}
       />
       <nav className="text-xs text-gray-500" aria-label="현재 위치">홈 › {seg.name}</nav>
@@ -81,6 +83,20 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
           <Link href="/" className="font-semibold text-brand-700 hover:underline">조건 진단</Link>
           으로 좁혀서 찾아보세요.
         </p>
+      )}
+
+      {(SEGMENT_FAQ[seg.slug] ?? []).length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-3 text-lg font-bold">{seg.name} 지원금 자주 묻는 질문</h2>
+          <dl className="divide-y rounded-xl border bg-white">
+            {(SEGMENT_FAQ[seg.slug] ?? []).map((f) => (
+              <div key={f.q} className="p-4">
+                <dt className="font-semibold">Q. {f.q}</dt>
+                <dd className="mt-1 text-[15px] leading-7 text-gray-700">{f.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
     </div>
   )
