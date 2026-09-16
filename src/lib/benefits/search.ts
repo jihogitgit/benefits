@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { normalizeQuery, queryTokens } from './query-text'
+import { conditionFilters } from './condition-filter'
 import { REGIONS } from '../../../data/regions'
 import { daysUntil } from './status'
 
@@ -186,7 +187,31 @@ export interface SearchResultItem {
   score: number
 }
 
-interface Row {
+
+/**
+ * 랭킹에 필요한 최소 컬럼. 제목은 가점 계산에 쓰이므로 포함하고, 요약·금액 등 화면 전용 필드는
+ * 페이지가 정해진 뒤에 그 몇 건만 따로 가져온다(요약이 전송량의 대부분이었다).
+ * 타입을 string으로 넓힌 이유: supabase-js는 select 문자열을 타입 수준에서 파싱하는데
+ * '!inner' 문법에서 인스턴스화가 폭주한다(TS2589). 행 타입은 RankRow/FullRow로 직접 준다.
+ */
+const SELECT_RANK: string =
+  'slug, title, deadline_type, apply_end, benefit_conditions!inner(age_min, age_max, gender, life_stages, household_types, occupations, region_codes)'
+/** 조건 행이 없는 지원금용. !inner가 이들을 떨구므로 따로 조회해 합친다. */
+const SELECT_RANK_ORPHAN: string = 'slug, title, deadline_type, apply_end, benefit_conditions(benefit_id)'
+/** 실제로 화면에 나가는 페이지 분량에만 쓰는 전체 컬럼. */
+const SELECT_FULL: string = 'slug, title, summary, amount_text, deadline_type, apply_end, region_code, segments, agency'
+const PAGE = 1000 // Supabase 기본 최대 행 수. 넘기려면 .range()로 순회해야 한다.
+
+interface RankRow {
+  slug: string
+  /** 점수에 필요하다. 제목 가점을 정렬 뒤에 더하면 순위에 반영되지 않는다. */
+  title: string
+  deadline_type: string
+  apply_end: string | null
+  benefit_conditions?: CondLike | CondLike[] | null
+}
+
+interface FullRow {
   slug: string
   title: string
   summary: string | null
@@ -196,12 +221,92 @@ interface Row {
   region_code: string
   segments: string[]
   agency: string | null
-  benefit_conditions: CondLike | CondLike[] | null
 }
 
-const SELECT =
-  'slug, title, summary, amount_text, deadline_type, apply_end, region_code, segments, agency, benefit_conditions(age_min, age_max, gender, life_stages, household_types, occupations, region_codes)'
-const PAGE = 1000 // Supabase 기본 최대 행 수. 넘기려면 .range()로 순회해야 한다.
+/**
+ * 필터를 얹을 수 있는 쿼리 빌더의 최소 형태.
+ *
+ * supabase-js의 빌더 타입은 select 문자열을 타입 수준에서 파싱해 select마다 다른 타입이 되고,
+ * 여기에 제네릭을 얹으면 인스턴스화가 폭주한다(TS2589). 필요한 메서드만 구조적으로 선언하고
+ * 경계에서 한 번 캐스팅한다 — 행 타입은 RankRow/FullRow로 직접 주므로 잃는 검사가 없다.
+ * count는 head:true 조회에서만 채워진다.
+ */
+interface QueryBuilder extends PromiseLike<{ data: unknown[] | null; count?: number | null; error: unknown }> {
+  eq(column: string, value: unknown): QueryBuilder
+  in(column: string, values: readonly unknown[]): QueryBuilder
+  or(filters: string, options?: { referencedTable?: string }): QueryBuilder
+  is(column: string, value: null): QueryBuilder
+  order(column: string): QueryBuilder
+  range(from: number, to: number): QueryBuilder
+}
+
+/** supabase-js 빌더를 위 최소 형태로. 캐스팅을 이 함수 하나에 모아 둔다. */
+function q0(builder: unknown): QueryBuilder {
+  return builder as QueryBuilder
+}
+
+/**
+ * benefits 본표에 걸리는 조건: 공개 상태, 지역, 검색어.
+ * 조건표(benefit_conditions)에 걸리는 필터는 호출자가 conditionFilters로 따로 얹는다.
+ */
+function applyBaseFilters(query: QueryBuilder, q: Criteria, tokens: string[]): QueryBuilder {
+  let out = query.eq('status', 'open')
+  if (q.region) out = out.in('region_code', [q.region, 'ALL'])
+  // 토큰마다 or()를 한 번씩 걸면 PostgREST가 서로 AND로 묶어 '청년 월세'가 두 단어를 모두
+  // 가진 항목만 남긴다(or= 파라미터 반복이 AND라는 건 실측으로 확인했다).
+  //
+  // 요약까지 뒤지는 이유: 공식 명칭과 통용 명칭이 다른 경우가 많다. '근로장려금'은 실제 제목이
+  // '근로·자녀장려금'이라 제목·기관만 보면 0건이지만 요약에는 그대로 적혀 있다. 잡음은
+  // 실측으로 '청년' 349→392건 수준이고, 제목에 걸린 항목은 titleHitBonus가 위로 올린다.
+  for (const t of tokens) out = out.or(`title.ilike.%${t}%,agency.ilike.%${t}%,summary.ilike.%${t}%`)
+  return out
+}
+
+/** 조건표 필터를 얹는다. supabase-js는 .or() 호출을 서로 AND로 누적한다. */
+function applyConditionFilters(query: QueryBuilder, filters: string[]): QueryBuilder {
+  let out = query
+  for (const f of filters) out = out.or(f, { referencedTable: 'benefit_conditions' })
+  return out
+}
+
+async function runCount(query: QueryBuilder): Promise<number> {
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
+}
+
+async function runRows<T>(query: QueryBuilder): Promise<T[]> {
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as T[]
+}
+
+/** 조건 행이 있는 대상 수. 행은 한 건도 가져오지 않는다. */
+function countWithConditions(supabase: SupabaseClient, q: Criteria, tokens: string[], filters: string[]): Promise<number> {
+  const base = q0(supabase.from('benefits').select('slug, benefit_conditions!inner()', { count: 'exact', head: true }))
+  return runCount(applyConditionFilters(applyBaseFilters(base, q, tokens), filters))
+}
+
+/**
+ * 조건 행이 아예 없는 대상 수.
+ * 동기화가 supportConditions 응답이 없는 서비스는 조건 행을 쓰지 않으므로(gov24-sync의
+ * `if (!id || !c) continue`) 이런 행이 생길 수 있다. 조건이 없으면 무엇으로도 거를 수 없어
+ * 전부 통과시키는 것이 기존 판정이고, !inner는 이들을 떨구므로 따로 세서 합친다.
+ */
+function countOrphans(supabase: SupabaseClient, q: Criteria, tokens: string[]): Promise<number> {
+  const base = q0(supabase.from('benefits').select(SELECT_RANK_ORPHAN, { count: 'exact', head: true }))
+  return runCount(applyBaseFilters(base, q, tokens).is('benefit_conditions', null))
+}
+
+/** 총건수를 먼저 안 뒤 페이지를 동시에 받는다. 순차 순회는 왕복 횟수만큼 지연이 쌓인다. */
+async function fetchAllPages<T>(makeQuery: (from: number, to: number) => QueryBuilder, total: number): Promise<T[]> {
+  if (total === 0) return []
+  const pages = Math.ceil(total / PAGE)
+  const chunks = await Promise.all(
+    Array.from({ length: pages }, (_, i) => runRows<T>(makeQuery(i * PAGE, i * PAGE + PAGE - 1))),
+  )
+  return chunks.flat()
+}
 
 export async function searchBenefits(
   supabase: SupabaseClient,
@@ -210,46 +315,84 @@ export async function searchBenefits(
 ): Promise<{ total: number; items: SearchResultItem[] }> {
   const q: Criteria = { ageRange: ageBandToRange(input.ageBand), situations: input.situations, region: input.region }
   const tokens = queryTokens(input.q)
+  const filters = conditionFilters(q)
 
-  const data: Row[] = []
-  for (let from = 0; ; from += PAGE) {
-    let query = supabase.from('benefits').select(SELECT).eq('status', 'open').order('slug').range(from, from + PAGE - 1)
-    if (q.region) query = query.in('region_code', [q.region, 'ALL'])
-    // 검색어는 조건 판정(JS)과 달리 DB에서 먼저 거른다. 전체 1만여 건을 끌어오지 않아도 되고,
-    // 토큰마다 or()를 한 번씩 걸면 PostgREST가 서로 AND로 묶어 '청년 월세'가 두 단어를 모두
-    // 가진 항목만 남긴다(or= 파라미터 반복이 AND라는 건 실측으로 확인했다).
-    //
-    // 요약까지 뒤지는 이유: 공식 명칭과 통용 명칭이 다른 경우가 많다. '근로장려금'은 실제 제목이
-    // '근로·자녀장려금'이라 제목·기관만 보면 0건이지만 요약에는 그대로 적혀 있다. 잡음은
-    // 실측으로 '청년' 349→392건 수준이고, 제목에 걸린 항목은 titleHitBonus가 위로 올린다.
-    for (const t of tokens) query = query.or(`title.ilike.%${t}%,agency.ilike.%${t}%,summary.ilike.%${t}%`)
-    const { data: chunk, error } = await query
-    if (error) throw error
-    data.push(...((chunk ?? []) as unknown as Row[]))
-    if (!chunk || chunk.length < PAGE) break
-  }
+  const [nWith, nOrphan] = await Promise.all([
+    countWithConditions(supabase, q, tokens, filters),
+    countOrphans(supabase, q, tokens),
+  ])
+  const total = nWith + nOrphan
 
-  const matched = data
-    .map((r) => {
-      const cond = Array.isArray(r.benefit_conditions) ? (r.benefit_conditions[0] ?? null) : r.benefit_conditions
-      return { row: r, cond }
+  // 개수만 필요한 요청(홈의 CTA)은 여기서 끝난다. 예전에는 이 한 번에 전체 테이블을 끌어와
+  // 프로덕션에서 12~14초가 걸렸다.
+  if (input.countOnly) return { total, items: [] }
+
+  const [withCond, orphans] = await Promise.all([
+    fetchAllPages<RankRow>(
+      (from, to) =>
+        applyConditionFilters(
+          applyBaseFilters(q0(supabase.from('benefits').select(SELECT_RANK)), q, tokens),
+          filters,
+        ).order('slug').range(from, to),
+      nWith,
+    ),
+    fetchAllPages<RankRow>(
+      (from, to) =>
+        applyBaseFilters(q0(supabase.from('benefits').select(SELECT_RANK_ORPHAN)), q, tokens)
+          .is('benefit_conditions', null)
+          .order('slug')
+          .range(from, to),
+      nOrphan,
+    ),
+  ])
+
+  const ranked = rankBenefits(
+    [...withCond, ...orphans].map((r) => {
+      const cond = Array.isArray(r.benefit_conditions) ? (r.benefit_conditions[0] ?? null) : (r.benefit_conditions ?? null)
+      // 조건 행이 있는 쪽은 DB가 이미 걸렀으므로 여기서 다시 판정하지 않는다. 점수만 매긴다.
+      return {
+        slug: r.slug,
+        deadline_type: r.deadline_type,
+        apply_end: r.apply_end,
+        hasConditions: cond !== null,
+        // 가점을 여기서 함께 매긴다. 정렬이 이 점수로 이뤄지므로 나중에 더하면 순위가 바뀌지 않는다.
+        score: matchScore(cond, q) + titleHitBonus(r.title, tokens),
+      }
+    }),
+    now,
+  )
+
+  const page = ranked.slice(input.offset, input.offset + input.limit)
+  if (page.length === 0) return { total, items: [] }
+
+  // 화면에 나갈 몇 건만 전체 컬럼으로 가져온다. 순위를 매기려고 1만 건의 제목·요약까지
+  // 끌어오던 것이 전송량의 대부분이었다.
+  const full = await runRows<FullRow>(
+    q0(supabase.from('benefits').select(SELECT_FULL)).in(
+      'slug',
+      page.map((r) => r.slug),
+    ),
+  )
+  const bySlug = new Map(full.map((r) => [r.slug, r]))
+
+  const items: SearchResultItem[] = []
+  for (const r of page) {
+    const f = bySlug.get(r.slug)
+    if (!f) continue // 조회와 상세 사이에 사라진 행. 빠뜨릴지언정 빈 카드를 그리지는 않는다.
+    items.push({
+      slug: f.slug,
+      title: f.title,
+      summary: f.summary,
+      amount_text: f.amount_text,
+      deadline_type: f.deadline_type,
+      apply_end: f.apply_end,
+      region_code: f.region_code,
+      segments: f.segments,
+      agency: f.agency,
+      hasConditions: r.hasConditions,
+      dday: daysUntil(f.apply_end, now),
+      score: r.score,
     })
-    .filter(({ cond }) => !cond || matchesConditions(cond, q))
-    .map(({ row, cond }) => ({
-      slug: row.slug,
-      title: row.title,
-      summary: row.summary,
-      amount_text: row.amount_text,
-      deadline_type: row.deadline_type,
-      apply_end: row.apply_end,
-      region_code: row.region_code,
-      segments: row.segments,
-      agency: row.agency,
-      hasConditions: !!cond,
-      dday: daysUntil(row.apply_end, now),
-      score: matchScore(cond, q) + titleHitBonus(row.title, tokens),
-    }))
-
-  const ranked = rankBenefits(matched, now)
-  return { total: ranked.length, items: input.countOnly ? [] : ranked.slice(input.offset, input.offset + input.limit) }
+  }
+  return { total, items }
 }
