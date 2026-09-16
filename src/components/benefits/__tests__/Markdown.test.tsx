@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import Markdown from '../Markdown'
 
-describe('Markdown', () => {
+describe('Markdown — 기존 회귀 (덮어쓰기 전부터 있던 것)', () => {
   it('제목 바로 아래(빈 줄 없이) 이어지는 본문을 잃지 않는다', () => {
     render(<Markdown text={'## 신청 방법\n1. 정부24 접속\n2. 공동인증서 로그인'} />)
     expect(screen.getByRole('heading', { name: '신청 방법' })).toBeInTheDocument()
@@ -26,5 +26,85 @@ describe('Markdown', () => {
     expect(screen.getByRole('heading', { name: '제목' })).toBeInTheDocument()
     expect(screen.getByText('첫 단락')).toBeInTheDocument()
     expect(container.querySelectorAll('ul li')).toHaveLength(2)
+  })
+})
+
+describe('Markdown — 기존 블록', () => {
+  it('제목·목록·문단', () => {
+    render(<Markdown text={'# 큰제목\n## 작은제목\n\n- 가\n- 나\n\n1. 하나\n2. 둘\n\n그냥 문단'} />)
+    expect(screen.getByRole('heading', { level: 2, name: '큰제목' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: '작은제목' })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(4)
+    expect(screen.getByText('그냥 문단')).toBeInTheDocument()
+  })
+
+  it('제목 바로 아래 붙여 쓴 본문이 사라지지 않는다', () => {
+    render(<Markdown text={'## 제목\n본문이 붙어 있다'} />)
+    expect(screen.getByText('본문이 붙어 있다')).toBeInTheDocument()
+  })
+})
+
+describe('Markdown — 링크', () => {
+  it('내부 경로는 Link로, 새 창으로 열지 않는다', () => {
+    render(<Markdown text="[내 지원금 보기](/my?age=20s&situations=no_house)" />)
+    const a = screen.getByRole('link', { name: '내 지원금 보기' })
+    expect(a).toHaveAttribute('href', '/my?age=20s&situations=no_house')
+    expect(a).not.toHaveAttribute('target')
+  })
+
+  it('외부 링크는 새 창 + rel 보호', () => {
+    render(<Markdown text="[복지로](https://www.bokjiro.go.kr)" />)
+    const a = screen.getByRole('link', { name: '복지로' })
+    expect(a).toHaveAttribute('target', '_blank')
+    expect(a).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it('위험한 스킴은 링크로 만들지 않고 글자만 남긴다', () => {
+    // 초안 생성이 자동화되므로 검수자의 눈을 지나칠 수 있다. 문법 단계에서 막는다.
+    for (const bad of ['javascript:alert(1)', 'data:text/html,x', '//evil.com']) {
+      const { unmount } = render(<Markdown text={`[누르지마](${bad})`} />)
+      expect(screen.queryByRole('link')).toBeNull()
+      expect(screen.getByText(/누르지마/)).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('목록 안의 링크도 동작한다', () => {
+    render(<Markdown text={'- [가이드](/guide/x) 항목\n- 그냥 항목'} />)
+    expect(screen.getByRole('link', { name: '가이드' })).toHaveAttribute('href', '/guide/x')
+  })
+})
+
+describe('Markdown — 굵게', () => {
+  it('**굵게**를 strong으로', () => {
+    render(<Markdown text="이건 **중요한** 부분" />)
+    expect(screen.getByText('중요한').tagName).toBe('STRONG')
+  })
+
+  it('짝이 안 맞는 별표는 그대로 둔다', () => {
+    render(<Markdown text="가격은 **200만원" />)
+    expect(screen.getByText(/\*\*200만원/)).toBeInTheDocument()
+  })
+})
+
+describe('Markdown — 표', () => {
+  const table = '| 구분 | 금액 |\n| --- | --- |\n| 첫째 | 200만원 |\n| 둘째 이상 | 300만원 |'
+
+  it('헤더와 본문 행을 만든다', () => {
+    render(<Markdown text={table} />)
+    expect(screen.getByRole('columnheader', { name: '구분' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '300만원' })).toBeInTheDocument()
+    expect(screen.getAllByRole('row')).toHaveLength(3) // 헤더 1 + 본문 2
+  })
+
+  it('셀 안에서도 링크·굵게가 동작한다', () => {
+    render(<Markdown text={'| 제도 | 신청 |\n| --- | --- |\n| **부모급여** | [복지로](https://www.bokjiro.go.kr) |'} />)
+    expect(screen.getByText('부모급여').tagName).toBe('STRONG')
+    expect(screen.getByRole('link', { name: '복지로' })).toBeInTheDocument()
+  })
+
+  it('구분선이 없으면 표로 보지 않는다', () => {
+    render(<Markdown text={'| 이건 | 표가 아니다 |'} />)
+    expect(screen.queryByRole('table')).toBeNull()
   })
 })
