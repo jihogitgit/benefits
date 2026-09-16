@@ -23,6 +23,12 @@ function assertSafe(value: string): string {
   return value
 }
 
+/** 나이 경계도 같은 원칙으로 확인한다. NaN이 그대로 보간되면 PostgREST가 400을 내고 500으로 둔갑한다. */
+function assertInt(value: number): number {
+  if (!Number.isInteger(value)) throw new Error(`조건 필터에 쓸 수 없는 값: ${value}`)
+  return value
+}
+
 /**
  * Criteria를 benefit_conditions에 적용할 or() 필터 목록으로.
  * 반환된 각 문자열은 서로 AND로 묶여야 한다(supabase-js는 .or() 호출을 AND로 누적한다).
@@ -37,7 +43,7 @@ export function conditionFilters(q: Criteria): string[] {
     // 경계 없음으로 본다 — matchesConditions의 (age_max ?? 120) / (age_min ?? 0)과 같다.
     out.push(
       `and(age_min.is.null,age_max.is.null),` +
-        `and(or(age_max.is.null,age_max.gte.${lo}),or(age_min.is.null,age_min.lte.${hi}))`,
+        `and(or(age_max.is.null,age_max.gte.${assertInt(lo)}),or(age_min.is.null,age_min.lte.${assertInt(hi)}))`,
     )
   }
 

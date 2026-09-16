@@ -8,24 +8,44 @@
  *   npm run verify:search
  */
 import { createAdminClient } from '../src/lib/supabase/admin'
-import { searchBenefits, matchesConditions, ageBandToRange, type Criteria, type CondLike, type SearchInput } from '../src/lib/benefits/search'
+import {
+  searchBenefits,
+  matchesConditions,
+  matchScore,
+  rankBenefits,
+  titleHitBonus,
+  ageBandToRange,
+  type Criteria,
+  type CondLike,
+  type SearchInput,
+} from '../src/lib/benefits/search'
 import { queryTokens } from '../src/lib/benefits/query-text'
 import { AGE_BANDS } from '../src/lib/benefits/age-bands'
 
 const PAGE = 1000
 const SELECT =
-  'slug, title, summary, agency, benefit_conditions(age_min, age_max, gender, life_stages, household_types, occupations, region_codes)'
+  'slug, title, summary, agency, deadline_type, apply_end, benefit_conditions(age_min, age_max, gender, life_stages, household_types, occupations, region_codes)'
+/** 목록 비교에서 맞춰볼 상위 건수. 전량을 비교할 필요는 없고 앞쪽이 어긋나면 충분히 드러난다. */
+const TOP_N = 8
 
 interface LegacyRow {
   slug: string
   title: string
   summary: string | null
   agency: string | null
+  deadline_type: string
+  apply_end: string | null
   benefit_conditions: CondLike | CondLike[] | null
 }
 
+/** 총건수만이 아니라 상위 목록까지 비교한다. 총건수는 맞고 순서만 틀린 회귀를 실제로 겪었다. */
+interface Expected {
+  total: number
+  top: [string, number][]
+}
+
 /** 예전 구현 그대로: 전건을 끌어와 JS로 거른다. 비교 기준이므로 일부러 최적화하지 않는다. */
-async function legacyCount(supabase: ReturnType<typeof createAdminClient>, input: SearchInput): Promise<number> {
+async function legacy(supabase: ReturnType<typeof createAdminClient>, input: SearchInput, now: Date): Promise<Expected> {
   const q: Criteria = { ageRange: ageBandToRange(input.ageBand), situations: input.situations, region: input.region }
   const tokens = queryTokens(input.q)
   const rows: LegacyRow[] = []
@@ -38,10 +58,21 @@ async function legacyCount(supabase: ReturnType<typeof createAdminClient>, input
     rows.push(...((data ?? []) as unknown as LegacyRow[]))
     if (!data || data.length < PAGE) break
   }
-  return rows.filter((r) => {
-    const c = Array.isArray(r.benefit_conditions) ? (r.benefit_conditions[0] ?? null) : r.benefit_conditions
-    return !c || matchesConditions(c, q)
-  }).length
+  const matched = rows
+    .map((r) => ({ r, c: Array.isArray(r.benefit_conditions) ? (r.benefit_conditions[0] ?? null) : r.benefit_conditions }))
+    .filter(({ c }) => !c || matchesConditions(c, q))
+    .map(({ r, c }) => ({
+      slug: r.slug,
+      deadline_type: r.deadline_type,
+      apply_end: r.apply_end,
+      hasConditions: !!c,
+      score: matchScore(c, q) + titleHitBonus(r.title, tokens),
+    }))
+  const ranked = rankBenefits(matched, now)
+  return {
+    total: ranked.length,
+    top: ranked.slice(input.offset, input.offset + input.limit).slice(0, TOP_N).map((r) => [r.slug, r.score]),
+  }
 }
 
 const SITUATIONS = ['job_seeker', 'pregnancy', 'has_child', 'single', 'no_house', 'student', 'business']
@@ -49,7 +80,7 @@ const REGIONS = ['seoul', 'busan', 'jeonnam-gwangju']
 const QUERIES = ['', '국민연금', '청년 월세', '창업지원']
 
 function cases(): SearchInput[] {
-  const base = { countOnly: true, limit: 50, offset: 0 } as const
+  const base = { countOnly: false, limit: 50, offset: 0 } as const
   const out: SearchInput[] = []
   for (const ageBand of [null, ...AGE_BANDS]) out.push({ ...base, q: '', ageBand, situations: [], region: null })
   for (const s of SITUATIONS) out.push({ ...base, q: '', ageBand: null, situations: [s], region: null })
@@ -71,15 +102,26 @@ function label(i: SearchInput): string {
 
 async function main() {
   const supabase = createAdminClient()
+  const all = cases()
+  // 같은 시각을 넘겨야 D-day 정렬이 두 경로에서 갈라지지 않는다.
+  const now = new Date()
   let mismatches = 0
-  for (const input of cases()) {
-    const [now, before] = await Promise.all([searchBenefits(supabase, input), legacyCount(supabase, input)])
-    const ok = now.total === before
-    if (!ok) mismatches += 1
-    console.log(`${ok ? '  OK ' : 'DIFF '} ${label(input).padEnd(52)} new=${now.total} old=${before}`)
+  for (const input of all) {
+    const [got, want] = await Promise.all([searchBenefits(supabase, input, now), legacy(supabase, input, now)])
+    const top = got.items.slice(0, TOP_N).map((i) => [i.slug, i.score] as [string, number])
+    const totalOk = got.total === want.total
+    const topOk = JSON.stringify(top) === JSON.stringify(want.top)
+    if (!totalOk || !topOk) mismatches += 1
+    const mark = totalOk && topOk ? '  OK ' : 'DIFF '
+    console.log(`${mark} ${label(input).padEnd(52)} total ${got.total}/${want.total} · 상위${TOP_N} ${topOk ? '일치' : '불일치'}`)
+    if (!topOk) {
+      console.log(`        new: ${JSON.stringify(top.slice(0, 3))}`)
+      console.log(`        old: ${JSON.stringify(want.top.slice(0, 3))}`)
+    }
   }
-  console.log(mismatches === 0 ? `\n전 ${cases().length}건 일치` : `\n불일치 ${mismatches}건`)
-  process.exit(mismatches === 0 ? 0 : 1)
+  console.log(mismatches === 0 ? `\n전 ${all.length}건 일치` : `\n불일치 ${mismatches}건`)
+  // process.exit은 stdout이 파이프일 때 마지막 줄을 잘라먹는다. 종료 코드만 남긴다.
+  process.exitCode = mismatches === 0 ? 0 : 1
 }
 
 void main()

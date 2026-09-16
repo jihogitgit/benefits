@@ -195,14 +195,20 @@ export interface SearchResultItem {
  * '!inner' 문법에서 인스턴스화가 폭주한다(TS2589). 행 타입은 RankRow/FullRow로 직접 준다.
  */
 const SELECT_RANK: string =
-  'slug, title, deadline_type, apply_end, benefit_conditions!inner(age_min, age_max, gender, life_stages, household_types, occupations, region_codes)'
+  'id, slug, title, deadline_type, apply_end, benefit_conditions!inner(age_min, age_max, life_stages, household_types, occupations, region_codes)'
 /** 조건 행이 없는 지원금용. !inner가 이들을 떨구므로 따로 조회해 합친다. */
-const SELECT_RANK_ORPHAN: string = 'slug, title, deadline_type, apply_end, benefit_conditions(benefit_id)'
+const SELECT_RANK_ORPHAN: string = 'id, slug, title, deadline_type, apply_end, benefit_conditions(benefit_id)'
 /** 실제로 화면에 나가는 페이지 분량에만 쓰는 전체 컬럼. */
-const SELECT_FULL: string = 'slug, title, summary, amount_text, deadline_type, apply_end, region_code, segments, agency'
+const SELECT_FULL: string = 'id, slug, title, summary, amount_text, deadline_type, apply_end, region_code, segments, agency'
 const PAGE = 1000 // Supabase 기본 최대 행 수. 넘기려면 .range()로 순회해야 한다.
 
 interface RankRow {
+  /**
+   * 전체 컬럼을 되받을 때 쓰는 키. slug를 쓰면 안 된다 — slug는 한글을 보존하고(최대 60자)
+   * 퍼센트 인코딩에서 한 글자가 9문자가 되어, limit 70 이상에서 in() 쿼리스트링이
+   * undici의 헤더 한도를 넘겨 UND_ERR_HEADERS_OVERFLOW로 터졌다(실측). uuid는 36자 ASCII로 고정이다.
+   */
+  id: string
   slug: string
   /** 점수에 필요하다. 제목 가점을 정렬 뒤에 더하면 순위에 반영되지 않는다. */
   title: string
@@ -212,6 +218,7 @@ interface RankRow {
 }
 
 interface FullRow {
+  id: string
   slug: string
   title: string
   summary: string | null
@@ -269,21 +276,26 @@ function applyConditionFilters(query: QueryBuilder, filters: string[]): QueryBui
   return out
 }
 
+/** PostgrestError는 Error 인스턴스가 아니라 스택이 없다. 감싸야 로그에서 어디서 났는지 보인다. */
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(`PostgREST: ${JSON.stringify(error)}`)
+}
+
 async function runCount(query: QueryBuilder): Promise<number> {
   const { count, error } = await query
-  if (error) throw error
+  if (error) throw toError(error)
   return count ?? 0
 }
 
 async function runRows<T>(query: QueryBuilder): Promise<T[]> {
   const { data, error } = await query
-  if (error) throw error
+  if (error) throw toError(error)
   return (data ?? []) as unknown as T[]
 }
 
 /** 조건 행이 있는 대상 수. 행은 한 건도 가져오지 않는다. */
 function countWithConditions(supabase: SupabaseClient, q: Criteria, tokens: string[], filters: string[]): Promise<number> {
-  const base = q0(supabase.from('benefits').select('slug, benefit_conditions!inner()', { count: 'exact', head: true }))
+  const base = q0(supabase.from('benefits').select('slug, benefit_conditions!inner(benefit_id)', { count: 'exact', head: true }))
   return runCount(applyConditionFilters(applyBaseFilters(base, q, tokens), filters))
 }
 
@@ -298,14 +310,33 @@ function countOrphans(supabase: SupabaseClient, q: Criteria, tokens: string[]): 
   return runCount(applyBaseFilters(base, q, tokens).is('benefit_conditions', null))
 }
 
-/** 총건수를 먼저 안 뒤 페이지를 동시에 받는다. 순차 순회는 왕복 횟수만큼 지연이 쌓인다. */
+/**
+ * 한 번에 띄울 수 있는 페이지 조회 수. 상한이 없으면 데이터가 늘수록 동시 요청도 같이 늘어
+ * 요청 하나가 PostgREST 커넥션 풀을 통째로 물 수 있다. 6이면 11페이지가 두 라운드라
+ * 순차 대비 이득은 거의 그대로 남는다.
+ */
+const MAX_CONCURRENT_PAGES = 6
+
+/** 총건수를 먼저 안 뒤 페이지를 나눠 동시에 받는다. 순차 순회는 왕복 횟수만큼 지연이 쌓인다. */
 async function fetchAllPages<T>(makeQuery: (from: number, to: number) => QueryBuilder, total: number): Promise<T[]> {
   if (total === 0) return []
   const pages = Math.ceil(total / PAGE)
-  const chunks = await Promise.all(
-    Array.from({ length: pages }, (_, i) => runRows<T>(makeQuery(i * PAGE, i * PAGE + PAGE - 1))),
-  )
-  return chunks.flat()
+  const out: T[] = []
+  for (let i = 0; i < pages; i += MAX_CONCURRENT_PAGES) {
+    const batch = Array.from({ length: Math.min(MAX_CONCURRENT_PAGES, pages - i) }, (_, k) => {
+      const from = (i + k) * PAGE
+      return runRows<T>(makeQuery(from, from + PAGE - 1))
+    })
+    for (const chunk of await Promise.all(batch)) out.push(...chunk)
+  }
+  // total은 카운트 조회 시점 값이라, 그 사이 동기화가 행을 넣으면 마지막 페이지가 잘린다.
+  // 예전 순차 순회의 '짧은 페이지가 나오면 종료' 불변식을 꼬리로 되살린다. 보통 한 번도 안 돈다.
+  for (let i = pages; out.length >= i * PAGE; i++) {
+    const extra = await runRows<T>(makeQuery(i * PAGE, i * PAGE + PAGE - 1))
+    if (extra.length === 0) break
+    out.push(...extra)
+  }
+  return out
 }
 
 export async function searchBenefits(
@@ -326,6 +357,10 @@ export async function searchBenefits(
   // 개수만 필요한 요청(홈의 CTA)은 여기서 끝난다. 예전에는 이 한 번에 전체 테이블을 끌어와
   // 프로덕션에서 12~14초가 걸렸다.
   if (input.countOnly) return { total, items: [] }
+
+  // 범위를 벗어난 offset으로 전체 랭킹 조회를 수행하고 빈 슬라이스를 내놓는 헛수고를 막는다.
+  // offset은 상한이 없고 캐시 키에도 들어가서, 바꿔가며 부르면 캐시를 매번 빗나간다.
+  if (input.offset >= total) return { total, items: [] }
 
   const [withCond, orphans] = await Promise.all([
     fetchAllPages<RankRow>(
@@ -351,6 +386,7 @@ export async function searchBenefits(
       const cond = Array.isArray(r.benefit_conditions) ? (r.benefit_conditions[0] ?? null) : (r.benefit_conditions ?? null)
       // 조건 행이 있는 쪽은 DB가 이미 걸렀으므로 여기서 다시 판정하지 않는다. 점수만 매긴다.
       return {
+        id: r.id,
         slug: r.slug,
         deadline_type: r.deadline_type,
         apply_end: r.apply_end,
@@ -362,22 +398,28 @@ export async function searchBenefits(
     now,
   )
 
+  // 여기서부터 total은 카운트 쿼리 값이 아니라 실제로 순위를 매긴 건수를 쓴다. 두 값이 다른
+  // 쿼리에서 오면 'N건'이라 써놓고 목록은 비어 있는, 예전 코드에는 없던 상태가 만들어진다.
+  const rankedTotal = ranked.length
   const page = ranked.slice(input.offset, input.offset + input.limit)
-  if (page.length === 0) return { total, items: [] }
+  if (page.length === 0) return { total: rankedTotal, items: [] }
 
   // 화면에 나갈 몇 건만 전체 컬럼으로 가져온다. 순위를 매기려고 1만 건의 제목·요약까지
   // 끌어오던 것이 전송량의 대부분이었다.
   const full = await runRows<FullRow>(
-    q0(supabase.from('benefits').select(SELECT_FULL)).in(
-      'slug',
-      page.map((r) => r.slug),
-    ),
+    q0(supabase.from('benefits').select(SELECT_FULL))
+      // 랭킹 조회와 이 조회 사이에 동기화가 status를 바꾼 행은 내보내지 않는다.
+      .eq('status', 'open')
+      .in(
+        'id',
+        page.map((r) => r.id),
+      ),
   )
-  const bySlug = new Map(full.map((r) => [r.slug, r]))
+  const byId = new Map(full.map((r) => [r.id, r]))
 
   const items: SearchResultItem[] = []
   for (const r of page) {
-    const f = bySlug.get(r.slug)
+    const f = byId.get(r.id)
     if (!f) continue // 조회와 상세 사이에 사라진 행. 빠뜨릴지언정 빈 카드를 그리지는 않는다.
     items.push({
       slug: f.slug,
@@ -394,5 +436,5 @@ export async function searchBenefits(
       score: r.score,
     })
   }
-  return { total, items }
+  return { total: rankedTotal, items }
 }

@@ -16,43 +16,60 @@ interface Calls {
   selects: string[]
   /** head:true가 아닌(=행을 실제로 가져오는) 조회 수 */
   rowFetches: number
+  /** 쿼리 하나하나의 성격. '어떤 쿼리에 어떤 필터가 붙었나'를 봐야 잡히는 버그가 있다. */
+  queries: { orphan: boolean; conditionOr: number; baseOr: number }[]
 }
 
 const COND = { age_min: null, age_max: null, gender: 'any', life_stages: [], household_types: [], occupations: [], region_codes: [] }
 const row = (slug: string, title: string, agency: string | null = null, cond: unknown = COND) => ({
+  // id는 slug가 아니라 uuid다. 전체 컬럼 재조회를 slug로 하면 한글 인코딩 때문에
+  // limit 70 이상에서 헤더 한도를 넘겨 터진다(실측). 그 회귀를 아래 테스트가 지킨다.
+  id: `id-${slug}`,
   slug, title, summary: null, amount_text: null, deadline_type: 'always',
   apply_end: null, region_code: 'ALL', segments: [], agency, benefit_conditions: cond,
 })
+/** 조건 행이 없는 지원금. !inner가 떨구므로 따로 조회해 합쳐야 한다. */
+const orphanRow = (slug: string, title: string) => ({ ...row(slug, title), benefit_conditions: null })
 
-function fakeSupabase(rows: ReturnType<typeof row>[]) {
-  const calls: Calls = { baseOr: [], conditionOr: [], in: [], selects: [], rowFetches: 0 }
+function fakeSupabase(rows: ReturnType<typeof row>[], orphans: ReturnType<typeof row>[] = []) {
+  const calls: Calls = { baseOr: [], conditionOr: [], in: [], selects: [], rowFetches: 0, queries: [] }
 
   function builder(select: string, head: boolean) {
     let orphanQuery = false
-    let slugFilter: readonly unknown[] | null = null
+    let idFilter: readonly unknown[] | null = null
+    const seen = { orphan: false, conditionOr: 0, baseOr: 0 }
+    calls.queries.push(seen)
     const self = {
       eq: () => self,
       in: (col: string, vals: readonly unknown[]) => {
         calls.in.push([col, vals])
-        if (col === 'slug') slugFilter = vals
+        if (col === 'id') idFilter = vals
         return self
       },
       or: (f: string, o?: { referencedTable?: string }) => {
-        ;(o?.referencedTable ? calls.conditionOr : calls.baseOr).push(f)
+        if (o?.referencedTable) {
+          calls.conditionOr.push(f)
+          seen.conditionOr += 1
+        } else {
+          calls.baseOr.push(f)
+          seen.baseOr += 1
+        }
         return self
       },
       is: () => {
         orphanQuery = true
+        seen.orphan = true
         return self
       },
       order: () => self,
       range: () => self,
       then: (resolve: (v: { data: unknown[] | null; count: number | null; error: null }) => unknown) => {
-        // 조건 행이 없는 지원금은 이 테스트 데이터에 없다 — 0건으로 답한다.
-        if (orphanQuery) return Promise.resolve({ data: [], count: 0, error: null }).then(resolve)
-        if (head) return Promise.resolve({ data: null, count: rows.length, error: null }).then(resolve)
+        const source = orphanQuery ? orphans : rows
+        if (head) return Promise.resolve({ data: null, count: source.length, error: null }).then(resolve)
         calls.rowFetches += 1
-        const picked = slugFilter ? rows.filter((r) => (slugFilter as unknown[]).includes(r.slug)) : rows
+        // 전체 컬럼 재조회는 조건 유무와 무관하게 전체에서 id로 집어온다.
+        const pool = idFilter ? [...rows, ...orphans] : source
+        const picked = idFilter ? pool.filter((r) => (idFilter as unknown[]).includes(r.id)) : pool
         return Promise.resolve({ data: picked, count: null, error: null }).then(resolve)
       },
     }
@@ -174,8 +191,9 @@ describe('searchBenefits — 제목 가점과 페이지', () => {
     const { total, items } = await searchBenefits(client, input({ q: '청년', offset: 1, limit: 1 }))
     expect(total).toBe(3)
     expect(items.map((i) => i.slug)).toEqual(['b'])
-    // 전체 컬럼 조회는 그 한 건만 slug로 집어온다
-    expect(calls.in).toContainEqual(['slug', ['b']])
+    // 전체 컬럼 조회는 그 한 건만 id로 집어온다. slug로 하면 한글 인코딩 때문에 URL이 터진다.
+    expect(calls.in).toContainEqual(['id', ['id-b']])
+    expect(calls.in.some(([col]) => col === 'slug')).toBe(false)
   })
 
   it('제목 가점이 정렬에 반영된다 (점수를 매긴 뒤에 더하면 순위가 안 바뀐다)', async () => {
@@ -190,5 +208,56 @@ describe('searchBenefits — 제목 가점과 페이지', () => {
       ['a', 2], // 제목 일치 2
       ['b', 1], // 지역 일치 1
     ])
+  })
+
+  it('랭킹용 조회가 title을 함께 가져온다', () => {
+    // 가점은 정렬 단계에서 계산되므로 select에 title이 없으면 조용히 undefined가 되고,
+    // 총건수는 맞아서 다른 테스트가 전부 통과한다. select 문자열 자체를 고정해 둔다.
+    const { client, calls } = fakeSupabase([row('a', '청년 지원')])
+    return searchBenefits(client, input({ q: '청년' })).then(() => {
+      expect(calls.selects.some((s) => s.includes('!inner') && s.includes('title'))).toBe(true)
+    })
+  })
+
+  it('범위를 벗어난 offset은 행을 가져오지 않는다', async () => {
+    // offset에 상한이 없고 캐시 키에도 들어간다. 헛되이 전체 랭킹을 조회하면
+    // offset을 바꿔가며 부르는 것만으로 커넥션을 물 수 있다.
+    const { client, calls } = fakeSupabase([row('a', 'x'), row('b', 'y')])
+    const { total, items } = await searchBenefits(client, input({ offset: 500 }))
+    expect(total).toBe(2)
+    expect(items).toEqual([])
+    expect(calls.rowFetches).toBe(0)
+  })
+})
+
+describe('searchBenefits — 조건 행이 없는 지원금(orphan)', () => {
+  it('총건수에 합산된다', async () => {
+    const { client } = fakeSupabase([row('a', 'x'), row('b', 'y')], [orphanRow('c', 'z')])
+    const { total } = await searchBenefits(client, input({ countOnly: true }))
+    expect(total).toBe(3)
+  })
+
+  it('hasConditions=false로 표시되고 조건 있는 항목보다 뒤로 간다', async () => {
+    // rankBenefits는 조건 없는 항목을 group 2로 보내 '조건 확인 필요' 묶음으로 돌린다.
+    const { client } = fakeSupabase([row('b', '나중 제목')], [orphanRow('a', '먼저 제목')])
+    const { items } = await searchBenefits(client, input())
+    expect(items.map((i) => [i.slug, i.hasConditions])).toEqual([
+      ['b', true],
+      ['a', false],
+    ])
+  })
+
+  it('조건 필터는 orphan 조회에 걸지 않고, 본표 필터는 양쪽에 걸린다', async () => {
+    // 조건이 없으면 조건으로는 무엇도 거를 수 없다(기존 판정: !cond면 무조건 통과).
+    // 반대로 지역·검색어는 본표 컬럼이라 orphan에도 적용되어야 한다.
+    const { client, calls } = fakeSupabase([], [orphanRow('a', '청년 지원')])
+    await searchBenefits(client, input({ ageBand: '30s', region: 'seoul', q: '청년' }))
+
+    const orphanQueries = calls.queries.filter((q) => q.orphan)
+    const condQueries = calls.queries.filter((q) => !q.orphan)
+    expect(orphanQueries.length).toBeGreaterThan(0)
+    expect(orphanQueries.every((q) => q.conditionOr === 0)).toBe(true)
+    expect(orphanQueries.every((q) => q.baseOr > 0)).toBe(true)
+    expect(condQueries.some((q) => q.conditionOr > 0)).toBe(true)
   })
 })
