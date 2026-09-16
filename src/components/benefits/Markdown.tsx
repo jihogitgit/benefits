@@ -3,12 +3,13 @@ import { Fragment } from 'react'
 
 /**
  * 검수 콘텐츠용 최소 마크다운.
- * 블록: #/## 제목, - 목록, 1. 목록, | 표 |, 빈 줄 단락.
+ * 블록: #/## 제목, - 목록, 1. 목록, | 표 |, > 인용, 빈 줄 단락.
  * 인라인: **굵게**, [텍스트](주소). 그 외 HTML은 처리하지 않는다(텍스트로 출력).
  *
  * 링크를 지원하는 이유: 가이드 글이 진단 결과(/my?age=20s&situations=no_house)와 출처로
  * 이어지지 못하면 독자가 글에서 막힌다. 표는 금액 분해처럼 문장으로 풀면 오히려 읽기 힘든
- * 내용을 위한 것이다.
+ * 내용을 위한 것이다. 인용은 제도 안내문의 문구를 글쓴이 요약과 구분해 그대로 보여주기
+ * 위한 것이다 — 이 구분이 없으면 원문 표현인지 우리 해석인지 독자가 알 수 없다.
  */
 
 /**
@@ -104,6 +105,17 @@ export default function Markdown({ text }: { text: string }) {
           )
         }
 
+        if (lines.every((l) => /^\s*>\s?/.test(l)))
+          return (
+            <blockquote key={i} className="border-l-4 border-gray-300 pl-4 text-gray-600">
+              {lines.map((l, j) => (
+                <Fragment key={j}>
+                  {j > 0 && ' '}
+                  {inline(l.replace(/^\s*>\s?/, ''), `${i}-${j}`)}
+                </Fragment>
+              ))}
+            </blockquote>
+          )
         if (lines.every((l) => /^\s*[-*•]\s+/.test(l)))
           return <ul key={i} className="list-disc space-y-1 pl-5">{lines.map((l, j) => <li key={j}>{inline(l.replace(/^\s*[-*•]\s+/, ''), `${i}-${j}`)}</li>)}</ul>
         if (lines.every((l) => /^\s*\d+[.)]\s+/.test(l)))

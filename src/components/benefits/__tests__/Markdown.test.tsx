@@ -108,3 +108,37 @@ describe('Markdown — 표', () => {
     expect(screen.queryByRole('table')).toBeNull()
   })
 })
+
+describe('Markdown — 인용', () => {
+  it('> 로 시작하는 블록을 blockquote로 만든다', () => {
+    const { container } = render(<Markdown text={'> 18~34세만 참여 가능'} />)
+    const bq = container.querySelector('blockquote')
+    expect(bq).not.toBeNull()
+    expect(bq!.textContent).toBe('18~34세만 참여 가능')
+  })
+
+  it('여러 줄 인용을 한 덩어리로 합친다', () => {
+    const { container } = render(<Markdown text={'> 첫 줄\n> 둘째 줄'} />)
+    expect(container.querySelectorAll('blockquote')).toHaveLength(1)
+    expect(container.querySelector('blockquote')!.textContent).toBe('첫 줄 둘째 줄')
+  })
+
+  it('인용 안에서도 링크·굵게가 동작한다', () => {
+    render(<Markdown text={'> **21점** 이상 [안내](https://www.gov.kr)'} />)
+    expect(screen.getByText('21점').tagName).toBe('STRONG')
+    expect(screen.getByRole('link', { name: '안내' })).toBeInTheDocument()
+  })
+
+  // 한 줄이라도 >가 아니면 인용이 아니다. 표의 셀 안에서 쓰인 부등호나
+  // 본문 중간의 화살표(→ 대신 >)가 통째로 인용으로 빨려 들어가는 것을 막는다.
+  it('일부 줄만 >면 인용으로 보지 않는다', () => {
+    const { container } = render(<Markdown text={'> 인용\n평범한 줄'} />)
+    expect(container.querySelector('blockquote')).toBeNull()
+  })
+
+  it('목록보다 먼저 판정하지 않아 - 목록은 그대로 목록이다', () => {
+    const { container } = render(<Markdown text={'- 하나\n- 둘'} />)
+    expect(container.querySelector('blockquote')).toBeNull()
+    expect(container.querySelectorAll('li')).toHaveLength(2)
+  })
+})
