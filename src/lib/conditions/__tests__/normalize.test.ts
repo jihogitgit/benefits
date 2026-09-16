@@ -47,3 +47,61 @@ describe('normalizeConditions', () => {
     expect(r.unknownCodes).toEqual(['JA9999'])
   })
 })
+
+describe('normalizeConditions — 가구유형 코드 정렬 (JA0410~JA0414 밀림 수정)', () => {
+  // 원천 데이터 역산 결과: JA0411이 다자녀, JA0412가 무주택, JA0413이 신규전입이다.
+  // 예전 코드맵은 한 칸씩 당겨 있어 다자녀 지원금 104건이 '무주택'으로 분류됐고,
+  // 진단에서 무주택을 고르면 다자녀·출산 지원금이 상위를 채웠다.
+  it('JA0411은 다자녀다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0411: 'Y' }).household_types).toEqual(['multi_child'])
+  })
+
+  it('JA0412는 무주택이다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0412: 'Y' }).household_types).toEqual(['no_house'])
+  })
+
+  it('JA0413은 신규전입이다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0413: 'Y' }).household_types).toEqual(['new_resident'])
+  })
+
+  // 무주택을 고른 사용자에게 다자녀 지원금이 가지 않아야 한다 — 이 회귀가 실제로 있었다
+  it('다자녀 코드만 켠 행은 무주택으로 분류되지 않는다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0411: 'Y' }).household_types).not.toContain('no_house')
+  })
+
+  it('JA0410은 가구유형으로 쓰지 않는다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0410: 'Y' }).household_types).toEqual([])
+  })
+})
+
+describe('normalizeConditions — 제한 없음 임계값(2/3)', () => {
+  const J4 = ['JA0401', 'JA0402', 'JA0403', 'JA0404', 'JA0410', 'JA0411', 'JA0412', 'JA0413', 'JA0414']
+  const on = (codes: string[]) => Object.fromEntries(codes.map((c) => [c, 'Y']))
+
+  // 9개 중 7~8개만 켠 행이 원천에 131건 있다. 이걸 조건으로 읽으면 어떤 상황을 골라도
+  // 매칭돼 점수 만점을 받고 모든 진단의 최상단을 차지한다.
+  it('9개 중 7개가 켜지면 제한 없음으로 본다', () => {
+    const r = normalizeConditions({ 서비스ID: 'a', ...on(J4.slice(0, 7)) })
+    expect(r.household_types).toEqual([])
+  })
+
+  it('9개 중 6개(2/3)가 켜지면 제한 없음으로 본다', () => {
+    const r = normalizeConditions({ 서비스ID: 'a', ...on(J4.slice(0, 6)) })
+    expect(r.household_types).toEqual([])
+  })
+
+  // 진짜로 좁게 지정한 행은 그대로 남아야 한다. 임계값을 너무 낮추면 조건이 통째로 사라진다
+  it('9개 중 5개까지는 조건으로 남긴다', () => {
+    const r = normalizeConditions({ 서비스ID: 'a', ...on(['JA0401', 'JA0402', 'JA0403', 'JA0411', 'JA0412']) })
+    expect(r.household_types.sort()).toEqual(['defector', 'multi_child', 'multicultural', 'no_house', 'single_parent'])
+  })
+
+  it('한두 개만 켠 흔한 경우는 영향받지 않는다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0403: 'Y' }).household_types).toEqual(['single_parent'])
+  })
+
+  // 성별은 코드가 2개뿐이라 2/3 올림이 2다. 한쪽만 켜면 그대로 그 성별이어야 한다
+  it('성별은 한쪽만 켜면 여전히 그 성별이다', () => {
+    expect(normalizeConditions({ 서비스ID: 'a', JA0101: 'Y' }).gender).toBe('male')
+  })
+})

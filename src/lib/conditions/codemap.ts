@@ -48,11 +48,19 @@ export const CODEMAP: Record<string, Mapping> = {
   JA0402: { kind: 'household', value: 'defector' }, // 북한이탈주민
   JA0403: { kind: 'household', value: 'single_parent' }, // 한부모/조손
   JA0404: { kind: 'household', value: 'single' }, // 1인가구
-  JA0410: { kind: 'household', value: 'multi_child' }, // 다자녀
-  JA0411: { kind: 'household', value: 'no_house' }, // 무주택세대
-  JA0412: { kind: 'household', value: 'new_resident' }, // 신규전입
-  JA0413: { kind: 'household', value: 'extended' }, // 확대가족
-  JA0414: { kind: 'ignore' }, // 해당사항 없음
+  // JA0410~JA0414는 원래 한 칸씩 밀려 있었다. 원천 데이터에서 역산해 바로잡았다
+  // (JA04 그룹이 전부 Y가 아닌 1,470건을 표본으로, 제목이 명확한 지원금이 어떤 코드를 켜는지 확인):
+  //   JA0411 → 제목에 '다자녀/셋째' 있는 8건이 100% 켬
+  //   JA0412 → '무주택/월세' 1건이 100% 켬
+  //   JA0413 → '귀농/귀촌/전입' 5건 중 4건(80%)이 켬
+  // 밀림 때문에 다자녀 지원금 104건이 '무주택'으로 분류돼 있었고, 진단에서 무주택을 고른
+  // 사용자에게 다자녀·출산 지원금이 상위로 올라왔다.
+  JA0410: { kind: 'ignore' }, // 정체 불명. 희소 표본 500건에 가구유형 키워드가 없고
+                              // 대상 문구가 '사회적 약자(연령·장애·빈곤 등)' 쪽이라 가구유형으로 쓰지 않는다
+  JA0411: { kind: 'household', value: 'multi_child' }, // 다자녀
+  JA0412: { kind: 'household', value: 'no_house' }, // 무주택세대
+  JA0413: { kind: 'household', value: 'new_resident' }, // 신규전입
+  JA0414: { kind: 'household', value: 'extended' }, // 확대가족(밀림 패턴상 여기가 맞다. 진단 상황에는 쓰이지 않는다)
   // 사업자 유형
   JA1101: { kind: 'occupation', value: 'small_biz' }, // 중소기업/소상공인
   JA1102: { kind: 'ignore' }, // 사회복지시설

@@ -55,12 +55,22 @@ export function normalizeConditions(item: SupportConditionItem): NormalizedCondi
   let male = false
   let female = false
 
-  // 그룹(JA01, JA02, JA03, JA04, JA11, JA12, JA21, JA22)의 알려진 코드가 전부 'Y'면
+  // 그룹(JA01, JA02, JA03, JA04, JA11, JA12, JA21, JA22)의 알려진 코드가 대부분 'Y'면
   // "해당 축에 제한 없음"을 뜻한다(실데이터 규약). 그 그룹은 조건으로 넣지 않는다.
+  //
+  // 예전에는 '전부 Y'일 때만 제한 없음으로 봤다. 그런데 가구유형(JA04) 9개 중 7~8개만 켠 행이
+  // 원천 5,000건에 131건 있고, 이걸 "이 7~8개 유형이 대상"으로 읽으면 어떤 상황을 골라도
+  // 매칭돼 점수 만점을 받는다. 실제로 '6.25 참전유공자 위문금'이 가구유형 7개를 달고 있어
+  // 20대·무주택 진단의 최상단에 올라왔다. 소수를 뺀 것은 대상을 좁히려는 표기가 아니라
+  // 그냥 덜 채운 표기에 가깝다.
+  //
+  // 2/3을 기준으로 삼는다. JA04(9개)는 6개, JA01(성별 2개)은 2개라 종전과 같고,
+  // 진짜로 좁게 지정한 행(대부분 1~3개)은 그대로 조건으로 남는다.
   const codes = Object.keys(item).filter((k) => k.startsWith('JA') && k !== AGE_MIN_CODE && k !== AGE_MAX_CODE)
   const unrestricted = new Set<string>()
   for (const [g, known] of GROUP_CODES) {
-    if (known.every((c) => isOn(item[c]))) unrestricted.add(g)
+    const onCount = known.filter((c) => isOn(item[c])).length
+    if (onCount >= Math.ceil((known.length * 2) / 3)) unrestricted.add(g)
   }
 
   for (const code of codes) {
