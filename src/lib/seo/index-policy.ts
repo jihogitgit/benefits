@@ -17,6 +17,15 @@ export function hubIndexable(): boolean {
 }
 
 /**
+ * 가이드는 발행된 것만 색인한다.
+ * /guide/[slug] 페이지가 published_at이 없으면 notFound()를 내므로, 이 기준이 어긋나면
+ * 사이트맵이 404를 신고하게 된다. 페이지와 사이트맵이 같은 함수를 보게 여기에 둔다.
+ */
+export function guideIndexable(g: { published_at: string | null }): boolean {
+  return !!g.published_at
+}
+
+/**
  * 세그먼트×지역 페이지의 색인 임계값. 세는 대상은 **그 지역에만 있는** 지원금이다.
  *
  * 전국(ALL) 공통분을 더해서 세면 안 된다. 청년 183·출산육아 473·소상공인 478건이 모든 지역

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { benefitEntries, regionHubEntries, staticEntries, sitemapPaths } from '../sitemap-entries'
+import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths } from '../sitemap-entries'
 
 beforeEach(() => { process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com' })
 
@@ -39,5 +39,27 @@ describe('sitemap entries', () => {
 describe('sitemapPaths', () => {
   it('정적/지역 허브 1개 + 공개 세그먼트 3개 = 4개 경로', () => {
     expect(sitemapPaths()).toEqual(['/sitemap/0.xml', '/sitemap/1.xml', '/sitemap/2.xml', '/sitemap/3.xml'])
+  })
+})
+
+describe('guideEntries', () => {
+  it('발행된 가이드만 싣는다', () => {
+    // /guide/[slug]는 published_at이 없으면 notFound()를 낸다. 이 기준이 어긋나면
+    // 사이트맵이 404를 신고하게 된다.
+    const rows = [
+      { slug: 'a', published_at: '2026-09-01T00:00:00Z' },
+      { slug: 'b', published_at: null },
+    ]
+    const entries = guideEntries(rows)
+    expect(entries.map((e) => e.url)).toEqual(['https://example.com/guide/a'])
+  })
+
+  it('published_at을 lastmod로 쓴다', () => {
+    const [e] = guideEntries([{ slug: 'a', published_at: '2026-09-01T00:00:00Z' }])
+    expect(e.lastModified).toEqual(new Date('2026-09-01T00:00:00Z'))
+  })
+
+  it('가이드가 없으면 빈 배열', () => {
+    expect(guideEntries([])).toEqual([])
   })
 })

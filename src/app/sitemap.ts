@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/server'
-import { countByRegion } from '@/lib/benefits/queries'
-import { benefitEntries, regionHubEntries, staticEntries, SITEMAP_IDS, type BenefitSitemapRow } from '@/lib/seo/sitemap-entries'
+import { countByRegion, listPublishedGuides } from '@/lib/benefits/queries'
+import { benefitEntries, guideEntries, regionHubEntries, staticEntries, SITEMAP_IDS, type BenefitSitemapRow } from '@/lib/seo/sitemap-entries'
 import { PUBLIC_SEGMENTS } from '../../data/segments'
 import { REGIONS } from '../../data/regions'
 
@@ -9,7 +9,7 @@ export const revalidate = 3600
 
 const ROWS_PER_PAGE = 1000 // Supabase 단일 응답 기본 최대 행 수
 
-// id 0: 정적+지역 허브, id 1..3: 세그먼트별 상세(색인 가능한 것만)
+// id 0: 정적 + 가이드 + 지역 허브, id 1..3: 세그먼트별 상세(색인 가능한 것만)
 export async function generateSitemaps() {
   return SITEMAP_IDS.map((id) => ({ id }))
 }
@@ -18,9 +18,10 @@ async function hubSitemap(): Promise<MetadataRoute.Sitemap> {
   // 건수는 countByRegion으로만 구한다. benefits를 직접 훑으면 Supabase의 1000행 상한에 조용히
   // 잘려(실데이터 10,947건) 지역 허브가 색인 기준 미달로 오판된다. countByRegion은 range 페이징과
   // 캐시를 이미 갖고 있고, 지역 허브 페이지의 제목 건수와 같은 식(지역 + 전국)을 쓴다.
-  const [regionsRes, countsPerSegment] = await Promise.all([
+  const [regionsRes, countsPerSegment, guides] = await Promise.all([
     createPublicClient().from('regions').select('slug, description_md'),
     Promise.all(PUBLIC_SEGMENTS.map((s) => countByRegion(s.slug))),
+    listPublishedGuides(),
   ])
   if (regionsRes.error) throw regionsRes.error
   const regions = (regionsRes.data ?? []) as { slug: string; description_md: string | null }[]
@@ -34,7 +35,7 @@ async function hubSitemap(): Promise<MetadataRoute.Sitemap> {
       localCount: countsPerSegment[i][r.slug] ?? 0,
     })),
   )
-  return [...staticEntries(), ...regionHubEntries(counts, descriptions)]
+  return [...staticEntries(), ...guideEntries(guides), ...regionHubEntries(counts, descriptions)]
 }
 
 async function segmentSitemap(segment: string): Promise<MetadataRoute.Sitemap> {

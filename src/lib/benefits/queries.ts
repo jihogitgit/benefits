@@ -220,6 +220,21 @@ export interface GuideRow {
   published_at: string | null
 }
 
+/** 사이트맵용 발행 가이드 목록. 색인 판정은 넘겨받는 쪽(guideEntries)이 한다. */
+export const listPublishedGuides = unstable_cache(
+  async (): Promise<{ slug: string; published_at: string | null }[]> => {
+    const { data, error } = await createPublicClient()
+      .from('guides')
+      .select('slug, published_at')
+      .not('published_at', 'is', null)
+      .order('slug')
+    if (error) throw error
+    return data ?? []
+  },
+  ['guides-published'],
+  { tags: ['guides'], revalidate: 86400 },
+)
+
 export const getGuide = unstable_cache(
   async (slug: string): Promise<GuideRow | null> => {
     const { data, error } = await createPublicClient().from('guides').select('slug, title, body_md, segment, published_at').eq('slug', slug).maybeSingle()

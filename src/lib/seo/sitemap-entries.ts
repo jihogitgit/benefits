@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { absoluteUrl } from './site'
-import { benefitIndexable, regionHubIndexable } from './index-policy'
+import { benefitIndexable, guideIndexable, regionHubIndexable } from './index-policy'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 
 type Entry = MetadataRoute.Sitemap[number]
@@ -40,6 +40,24 @@ export function regionHubEntries(counts: { segmentPath: string; regionSlug: stri
   return counts
     .filter((c) => regionHubIndexable({ localCount: c.localCount, description_md: descriptions[c.regionSlug] ?? null }))
     .map((c) => ({ url: absoluteUrl(`/${c.segmentPath}/${c.regionSlug}`), changeFrequency: 'daily', priority: 0.7 }))
+}
+
+export interface GuideSitemapRow {
+  slug: string
+  published_at: string | null
+}
+
+/**
+ * 발행된 가이드. 정적·허브 항목과 달리 published_at이라는 실제 시각이 있으므로 lastmod를 싣는다
+ * (부정확한 lastmod를 쓰지 않는 이유는 아래 주석 참고).
+ */
+export function guideEntries(rows: GuideSitemapRow[]): Entry[] {
+  return rows.filter(guideIndexable).map((g) => ({
+    url: absoluteUrl(`/guide/${g.slug}`),
+    lastModified: new Date(g.published_at as string),
+    changeFrequency: 'monthly',
+    priority: 0.6,
+  }))
 }
 
 export function staticEntries(): Entry[] {
