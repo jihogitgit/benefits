@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { readDiagnosis, writeDiagnosis, toSearchParams, isEmpty, EMPTY, emptyDiagnosis, type Diagnosis } from '../storage'
+import { readDiagnosis, writeDiagnosis, toSearchParams, fromSearchParams, isEmpty, EMPTY, emptyDiagnosis, type Diagnosis } from '../storage'
 
 describe('diagnosis storage', () => {
   beforeEach(() => localStorage.clear())
@@ -59,5 +59,24 @@ describe('diagnosis storage', () => {
   it('중복 상황은 하나로 합친다', () => {
     localStorage.setItem('diagnosis', JSON.stringify({ ageBand: null, situations: ['single', 'single', 'job_seeker'], region: null }))
     expect(readDiagnosis().situations).toEqual(['single', 'job_seeker'])
+  })
+})
+
+describe('fromSearchParams', () => {
+  it('쿼리스트링을 진단값으로 (toSearchParams의 역방향)', () => {
+    const d: Diagnosis = { q: '월세', ageBand: '20s', situations: ['no_house', 'single'], region: 'seoul' }
+    expect(fromSearchParams(toSearchParams(d))).toEqual(d)
+  })
+  it('허용되지 않은 값은 버린다', () => {
+    const d = fromSearchParams(new URLSearchParams('age=99s&situations=x,single&region=mars&q=%25%2C%29'))
+    expect(d).toEqual({ q: '', ageBand: null, situations: ['single'], region: null })
+  })
+  it('빈 쿼리스트링은 빈 진단', () => {
+    expect(isEmpty(fromSearchParams(new URLSearchParams('')))).toBe(true)
+  })
+  it('일부만 있어도 된다 (가이드가 거는 링크 형태)', () => {
+    expect(fromSearchParams(new URLSearchParams('age=20s&situations=no_house'))).toEqual({
+      q: '', ageBand: '20s', situations: ['no_house'], region: null,
+    })
   })
 })

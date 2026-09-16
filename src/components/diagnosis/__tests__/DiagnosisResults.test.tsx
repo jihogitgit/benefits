@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import DiagnosisResults from '../DiagnosisResults'
 
+// useSearchParams를 테스트마다 바꿔 끼운다.
+let searchParams = new URLSearchParams('')
+vi.mock('next/navigation', () => ({ useSearchParams: () => searchParams }))
+
 const item = (slug: string, extra = {}) => ({
   slug, title: `제목 ${slug}`, summary: null, amount_text: '10만원', deadline_type: 'always', apply_end: null,
   region_code: 'ALL', segments: ['youth'], agency: null, hasConditions: true, dday: null, score: 0, ...extra,
@@ -11,6 +15,7 @@ describe('DiagnosisResults', () => {
   const fetchMock = vi.fn()
   beforeEach(() => {
     localStorage.clear()
+    searchParams = new URLSearchParams('')
     // fetchMock은 describe 스코프에서 공유된다. 초기화하지 않으면 앞 테스트의 호출이
     // mock.calls 인덱스를 밀어 뒤 테스트의 단언이 엉뚱한 호출을 본다.
     fetchMock.mockReset()
@@ -82,4 +87,46 @@ describe('DiagnosisResults', () => {
     })
     expect(JSON.parse(localStorage.getItem('diagnosis')!).q).toBe('월세')
   })
+
+describe('URL 파라미터로 들어온 경우', () => {
+  it('URL 조건이 저장된 조건을 이긴다', async () => {
+    // 가이드 글이 거는 링크로 들어왔는데 옛 조건을 보여주면 링크가 약속한 것과 다른 화면이 뜬다.
+    localStorage.setItem('diagnosis', JSON.stringify({ q: '', ageBand: '50s+', situations: [], region: 'busan' }))
+    searchParams = new URLSearchParams('age=20s&situations=no_house')
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 1, items: [item('a')] })))
+    render(<DiagnosisResults />)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const sp = new URL(fetchMock.mock.calls.at(-1)![0] as string, 'http://localhost').searchParams
+    expect(sp.get('age')).toBe('20s')
+    expect(sp.get('situations')).toBe('no_house')
+    expect(sp.get('region')).toBeNull()
+  })
+
+  it('URL 조건을 저장까지 한다 (조건 바꾸기로 홈에 가면 이어진다)', async () => {
+    searchParams = new URLSearchParams('age=20s&situations=no_house')
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 1, items: [item('a')] })))
+    render(<DiagnosisResults />)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(JSON.parse(localStorage.getItem('diagnosis')!)).toEqual({
+      q: '', ageBand: '20s', situations: ['no_house'], region: null,
+    })
+  })
+
+  it('URL이 비어 있으면 저장된 조건을 쓴다', async () => {
+    localStorage.setItem('diagnosis', JSON.stringify({ q: '', ageBand: '30s', situations: [], region: 'seoul' }))
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ total: 1, items: [item('a')] })))
+    render(<DiagnosisResults />)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const sp = new URL(fetchMock.mock.calls.at(-1)![0] as string, 'http://localhost').searchParams
+    expect(sp.get('age')).toBe('30s')
+    expect(sp.get('region')).toBe('seoul')
+  })
+
+  it('허용되지 않은 URL 값은 무시하고 저장분으로 떨어지지 않는다', async () => {
+    searchParams = new URLSearchParams('age=99s&region=mars')
+    render(<DiagnosisResults />)
+    await waitFor(() => expect(screen.getByText(/아직 고른 조건이 없습니다/)).toBeInTheDocument())
+  })
+})
 })

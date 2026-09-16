@@ -60,6 +60,22 @@ export function toSearchParams(d: Diagnosis): URLSearchParams {
   return sp
 }
 
+/**
+ * 쿼리스트링을 진단값으로. toSearchParams의 역방향이며 같은 허용목록(sanitize)을 거친다.
+ *
+ * 가이드 글에서 "무주택 20대 지원금 2,637건 보기" 같은 링크를 걸려면 조건이 URL에 실려야 한다.
+ * 진단값이 localStorage에만 있으면 그런 링크를 만들 수 없고, 독자를 홈으로 보내 조건을 다시
+ * 고르게 해야 한다.
+ */
+export function fromSearchParams(sp: URLSearchParams): Diagnosis {
+  return sanitize({
+    q: sp.get('q') ?? '',
+    ageBand: sp.get('age'),
+    situations: (sp.get('situations') ?? '').split(',').map((x) => x.trim()).filter(Boolean),
+    region: sp.get('region'),
+  })
+}
+
 export function isEmpty(d: Diagnosis): boolean {
   return !d.q && !d.ageBand && d.situations.length === 0 && !d.region
 }

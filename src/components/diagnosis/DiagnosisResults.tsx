@@ -1,11 +1,12 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import type { SearchResultItem } from '@/lib/benefits/search'
 import { queryTokens } from '@/lib/benefits/query-text'
 import type { BenefitListRow } from '@/lib/benefits/queries'
 import type { DeadlineType, Segment } from '@/types/database'
-import { readDiagnosis, writeDiagnosis, toSearchParams, isEmpty, type Diagnosis } from '@/lib/diagnosis/storage'
+import { readDiagnosis, writeDiagnosis, fromSearchParams, toSearchParams, isEmpty, type Diagnosis } from '@/lib/diagnosis/storage'
 import { AGE_OPTIONS, SITUATION_OPTIONS, REGION_OPTIONS } from '@/lib/diagnosis/options'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import BenefitList from '@/components/benefits/BenefitList'
@@ -51,11 +52,22 @@ export default function DiagnosisResults() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const params = useSearchParams()
 
   // 서버에서는 readDiagnosis()가 항상 빈 값을 주므로 렌더 중에 읽으면 hydration 불일치가 난다.
+  //
+  // URL에 조건이 실려 있으면 그것을 쓴다. 가이드 글이 거는 링크(/my?age=20s&situations=no_house)로
+  // 들어온 사람에게 저장된 옛 조건을 보여주면, 링크가 약속한 것과 다른 화면이 뜬다.
+  // 저장까지 해 두어야 '조건 바꾸기'로 홈에 갔을 때 칩이 그 상태로 이어진다.
   useEffect(() => {
+    const fromUrl = fromSearchParams(new URLSearchParams(params.toString()))
+    if (!isEmpty(fromUrl)) {
+      writeDiagnosis(fromUrl)
+      setD(fromUrl)
+      return
+    }
     setD(readDiagnosis())
-  }, [])
+  }, [params])
 
   // 언마운트 시 진행 중인 요청 취소. 취소된 응답으로는 상태를 갱신하지 않는다.
   useEffect(() => () => abortRef.current?.abort(), [])
