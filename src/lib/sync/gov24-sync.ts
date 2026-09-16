@@ -33,6 +33,24 @@ export function errorMessage(err: unknown): string {
  * 보조금24 전체 목록·조건을 받아 변경분만 upsert하고, 마감·소멸 상태를 갱신한다.
  * 결과는 sync_runs에 항상 기록된다(성공·중단·예외 모두).
  */
+/**
+ * 원천에 섞여 들어오는 시연·테스트 레코드인지.
+ *
+ * 행정안전부의 '온라인 신청 시연 테스트(운영)'가 status=open으로 올라와 검색과 진단 결과에
+ * 그대로 노출되고 있었다(summary가 "내용요약", 지원내용이 "신청 테스트 입니다.test").
+ *
+ * 제목만 보고 거르지 않는다. '시연'이 들어간 정상 사업이 나중에 생길 수 있어서, 제목 신호와
+ * 본문 플레이스홀더 신호가 함께 있을 때만 버린다. 현재 데이터에서 이 조건에 걸리는 것은
+ * 위 한 건뿐이다.
+ */
+export function isPlaceholder(item: { 서비스명?: string | null; 서비스목적요약?: string | null; 지원내용?: string | null }): boolean {
+  const title = item.서비스명 ?? ''
+  if (!/테스트|시연/.test(title)) return false
+  const summary = (item.서비스목적요약 ?? '').trim()
+  const amount = item.지원내용 ?? ''
+  return summary === '내용요약' || /\btest\b/i.test(amount)
+}
+
 export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
   const now = deps.now ?? new Date()
   const log = deps.log ?? (() => {})
@@ -86,6 +104,10 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
     for (const item of list) {
       if (!item.서비스명?.trim()) {
         result.failed++
+        continue
+      }
+      if (isPlaceholder(item)) {
+        result.skipped++
         continue
       }
       const prev = existing.get(item.서비스ID)

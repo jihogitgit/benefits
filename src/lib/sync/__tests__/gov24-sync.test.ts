@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { runGov24Sync } from '../gov24-sync'
+import { runGov24Sync, isPlaceholder } from '../gov24-sync'
 import type { BenefitsRepo, ExistingVersion } from '../types'
 import type { ServiceListItem, SupportConditionItem } from '@/lib/api/gov24-schema'
 import type { BenefitRow, ConditionRow, SyncRunRow } from '@/types/database'
@@ -158,5 +158,28 @@ describe('runGov24Sync', () => {
       }),
     ).rejects.toThrow('HTTP 500')
     expect(calls.runs[0].error).toMatch(/HTTP 500/)
+  })
+})
+
+describe('isPlaceholder — 시연·테스트 레코드 거르기', () => {
+  it('제목과 본문 신호가 함께 있으면 버린다', () => {
+    expect(isPlaceholder({ 서비스명: '온라인 신청 시연 테스트(운영)', 서비스목적요약: '내용요약', 지원내용: '신청 테스트 입니다.test' })).toBe(true)
+  })
+
+  it('지원내용에 test만 있어도 제목 신호가 있으면 버린다', () => {
+    expect(isPlaceholder({ 서비스명: '신청 테스트', 서비스목적요약: '정상 요약', 지원내용: '이것은 test 입니다' })).toBe(true)
+  })
+
+  // 제목만으로 버리면 '시연'이 들어간 정상 사업까지 날아간다
+  it('제목에 시연이 있어도 본문이 정상이면 남긴다', () => {
+    expect(isPlaceholder({ 서비스명: '농기계 시연회 참가 지원', 서비스목적요약: '농기계 시연회 참가비를 지원합니다', 지원내용: '참가비 전액' })).toBe(false)
+  })
+
+  it('본문이 플레이스홀더여도 제목이 정상이면 남긴다', () => {
+    expect(isPlaceholder({ 서비스명: '청년월세 지원', 서비스목적요약: '내용요약', 지원내용: '월 20만원' })).toBe(false)
+  })
+
+  it('필드가 없어도 터지지 않는다', () => {
+    expect(isPlaceholder({})).toBe(false)
   })
 })
