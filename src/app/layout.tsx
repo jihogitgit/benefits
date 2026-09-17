@@ -30,8 +30,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="min-h-screen bg-background text-foreground antialiased">
+        {/*
+          next/script가 아니라 평범한 script 태그를 쓴다. strategy="afterInteractive"는 HTML에
+          preload 링크만 남기고 실제 태그는 하이드레이션 이후 JS로 주입하는데, 그러면 HTML만 읽는
+          크롤러에는 스니펫이 아예 없는 것으로 보인다(애드센스 코드 스니펫 방식 사이트 확인이 이래서
+          실패했다). React 19는 async가 붙은 script를 head로 올리고 중복도 제거하므로, 구글이 준
+          스니펫과 같은 모양이 서버 렌더 HTML에 그대로 박힌다. 광고 로드도 하이드레이션을 기다리지
+          않는다.
+        */}
         {adsense && (
-          <Script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense}`} crossOrigin="anonymous" strategy="afterInteractive" />
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense}`}
+            crossOrigin="anonymous"
+          />
         )}
         {gaId && (
           <>
