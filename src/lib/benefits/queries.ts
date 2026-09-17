@@ -3,6 +3,7 @@ import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
 import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -74,7 +75,7 @@ export const getBenefitBySlug = unstable_cache(
     return { ...d, benefit_conditions: one(d.benefit_conditions), benefit_articles: one(d.benefit_articles) }
   },
   ['benefit-by-slug'],
-  { tags: ['benefits:all'], revalidate: 21600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
 )
 
 export interface ListOptions {
@@ -93,7 +94,7 @@ export const listBySegment = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['list-by-segment'],
-  { tags: ['benefits:all'], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
 )
 
 /**
@@ -147,7 +148,7 @@ export const listWithArticles = unstable_cache(
     return out
   },
   ['list-with-articles'],
-  { tags: ['benefits:all'], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
 )
 
 export const listDeadlineSoon = unstable_cache(
@@ -172,7 +173,7 @@ export const listDeadlineSoon = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['deadline-soon'],
-  { tags: ['benefits:home'], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
 )
 
 export const listRecentlyUpdated = unstable_cache(
@@ -190,7 +191,7 @@ export const listRecentlyUpdated = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['recently-updated'],
-  { tags: ['benefits:home'], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
 )
 
 export const countByRegion = unstable_cache(
@@ -216,7 +217,7 @@ export const countByRegion = unstable_cache(
     return counts
   },
   ['count-by-region'],
-  { tags: ['benefits:all'], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
 )
 
 export const listRelated = unstable_cache(
@@ -234,7 +235,7 @@ export const listRelated = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['related'],
-  { tags: ['benefits:all'], revalidate: 21600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
 )
 
 export const getRegionMeta = unstable_cache(
@@ -244,7 +245,7 @@ export const getRegionMeta = unstable_cache(
     return data
   },
   ['region-meta'],
-  { tags: ['regions'], revalidate: 86400 },
+  { tags: [CACHE_TAGS.regions], revalidate: 86400 },
 )
 
 export const getLastSyncAt = unstable_cache(
@@ -265,7 +266,7 @@ export const getLastSyncAt = unstable_cache(
     return data?.finished_at ?? null
   },
   ['last-sync'],
-  { tags: ['benefits:home'], revalidate: 600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: 600 },
 )
 
 export interface GuideRow {
@@ -288,7 +289,7 @@ export const listPublishedGuides = unstable_cache(
     return data ?? []
   },
   ['guides-published'],
-  { tags: ['guides'], revalidate: 86400 },
+  { tags: [CACHE_TAGS.guides], revalidate: 86400 },
 )
 
 export const getGuide = unstable_cache(
@@ -298,5 +299,5 @@ export const getGuide = unstable_cache(
     return data
   },
   ['guide'],
-  { tags: ['guides'], revalidate: 86400 },
+  { tags: [CACHE_TAGS.guides], revalidate: 86400 },
 )

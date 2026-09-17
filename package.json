@@ -12,7 +12,8 @@
     "sync:gov24": "tsx --env-file=.env.local scripts/sync-gov24.ts",
     "seed:static": "tsx --env-file=.env.local scripts/seed-static.ts",
     "fixtures:capture": "tsx --env-file=.env.local scripts/capture-fixtures.ts",
-    "verify:search": "tsx --env-file=.env.local scripts/verify-search-parity.ts"
+    "verify:search": "tsx --env-file=.env.local scripts/verify-search-parity.ts",
+    "revalidate": "tsx --env-file=.env.local scripts/revalidate.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

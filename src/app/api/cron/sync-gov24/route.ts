@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseRepo } from '@/lib/sync/supabase-repo'
@@ -32,8 +33,8 @@ export async function GET(request: Request) {
     // (10,947건 전부 변경으로 잡힌 적이 있다)에서는 만 번 넘는 호출이 되어 maxDuration 60초를 위협한다.
     // 조회 함수는 모두 benefits:all 또는 benefits:home 태그를 달고 있으므로 이 두 개면 전부 덮는다.
     if (result.changed > 0 || result.closed > 0 || result.removed > 0) {
-      revalidateTag('benefits:home')
-      revalidateTag('benefits:all') // unstable_cache 조회 함수(상세·목록·집계)
+      revalidateTag(CACHE_TAGS.benefitsHome)
+      revalidateTag(CACHE_TAGS.benefitsAll) // unstable_cache 조회 함수(상세·목록·집계)
     }
 
     return NextResponse.json({ ...result, changedSlugs: result.changedSlugs.length })
