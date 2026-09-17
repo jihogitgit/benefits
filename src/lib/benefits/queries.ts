@@ -292,6 +292,38 @@ export const listPublishedGuides = unstable_cache(
   { tags: [CACHE_TAGS.guides], revalidate: 86400 },
 )
 
+export interface GuideListRow {
+  slug: string
+  title: string
+  segment: string | null
+  published_at: string
+}
+
+/**
+ * 목록 페이지용 발행 가이드.
+ *
+ * listPublishedGuides(사이트맵용)는 slug와 published_at만 뽑는다. 목록에는 제목과 분야가
+ * 필요해 별도로 둔다 — 사이트맵 쿼리에 컬럼을 더하면 1만 건 규모 사이트맵이 매번 쓰지도
+ * 않는 본문 인접 컬럼을 끌어온다.
+ *
+ * 최신순이다. published_at이 같은 날짜에 몰리면 순서가 요청마다 흔들려 목록이 이유 없이
+ * 재배열되므로 slug로 한 번 더 고정한다.
+ */
+export const listGuides = unstable_cache(
+  async (): Promise<GuideListRow[]> => {
+    const { data, error } = await createPublicClient()
+      .from('guides')
+      .select('slug, title, segment, published_at')
+      .not('published_at', 'is', null)
+      .order('published_at', { ascending: false })
+      .order('slug', { ascending: true })
+    if (error) throw error
+    return (data ?? []) as GuideListRow[]
+  },
+  ['guides-list'],
+  { tags: [CACHE_TAGS.guides], revalidate: 86400 },
+)
+
 export const getGuide = unstable_cache(
   async (slug: string): Promise<GuideRow | null> => {
     const { data, error } = await createPublicClient().from('guides').select('slug, title, body_md, segment, published_at').eq('slug', slug).maybeSingle()

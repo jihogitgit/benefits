@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { SEGMENT_BY_PATH, PUBLIC_SEGMENTS } from '../../../../data/segments'
 import { REGIONS } from '../../../../data/regions'
 import { SEGMENT_FAQ } from '../../../../data/segment-faq'
-import { listBySegment, countByRegion, listWithArticles } from '@/lib/benefits/queries'
+import { listBySegment, countByRegion, listWithArticles, listGuides } from '@/lib/benefits/queries'
 import { hubTitle, hubDescription, kstYear } from '@/lib/seo/hub-meta'
 import { breadcrumbs, itemList, faqPage } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
@@ -40,10 +40,11 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
   if (!seg || seg.slug === 'other') notFound()
 
   const now = new Date()
-  const [rows, counts, explained] = await Promise.all([
+  const [rows, counts, explained, allGuides] = await Promise.all([
     listBySegment(seg.slug, { limit: 40 }),
     countByRegion(seg.slug),
     listWithArticles(seg.slug, 8),
+    listGuides(),
   ])
   const total = totalOf(counts)
   // 소관기관명이 통합 표기된 지역(예: 광주)은 실데이터 건수가 0에 가깝다. 0건인 지역 칩은
@@ -55,6 +56,9 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
   const explainedSlugs = new Set(explained.map((e) => e.slug))
   const deadlineRows = rows.filter((r) => !explainedSlugs.has(r.slug))
   const faqItems = SEGMENT_FAQ[seg.slug] ?? []
+  // 이 분야 가이드. 가이드는 목록 페이지도 없고 허브에서 가리키는 것도 없어 사이트맵에만
+  // 존재하는 고아였다 — 본문이 가장 충실한 자산인데 크롤러가 도달할 경로가 없었다.
+  const guides = allGuides.filter((g) => g.segment === seg.slug)
   // 렌더되는 섹션만 목차에 올린다. 허브도 상세와 같은 문제가 있었다 — 자주 묻는 질문이
   // 페이지 맨 아래에 있는데 위에서 가리키는 것이 없어 모바일에서는 존재 자체가 안 보였다.
   const sections = [
@@ -62,6 +66,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
     ...(explained.length ? [{ id: 'explained', label: '자세히 정리한 지원금' }] : []),
     // deadlineRows는 explained에 이미 나온 것을 뺀 나머지라 0건이 될 수 있다.
     ...(deadlineRows.length ? [{ id: 'deadline', label: '마감 임박 순' }] : []),
+    ...(guides.length ? [{ id: 'guides', label: '가이드' }] : []),
     ...(faqItems.length ? [{ id: 'faq', label: '자주 묻는 질문' }] : []),
   ]
 
@@ -120,6 +125,25 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
           <Link href="/" className="font-semibold text-brand-700 hover:underline">조건 진단</Link>
           으로 좁혀서 찾아보세요.
         </p>
+      )}
+
+      {guides.length > 0 && (
+        <section id="guides" className="mt-10">
+          <h2 className="mb-1 text-lg font-bold">가이드</h2>
+          <p className="mb-3 text-sm text-gray-500">한 제도만 봐서는 알 수 없는 것들을 정리했습니다.</p>
+          <ul className="divide-y border-y">
+            {guides.map((g) => (
+              <li key={g.slug}>
+                <Link href={`/guide/${g.slug}`} className="block py-3 text-sm font-medium text-gray-900 hover:text-brand-700">
+                  {g.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3">
+            <Link href="/guide" className="text-sm font-medium text-brand-700 hover:underline">가이드 전체 보기 →</Link>
+          </p>
+        </section>
       )}
 
       {faqItems.length > 0 && (

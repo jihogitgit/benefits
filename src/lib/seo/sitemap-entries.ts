@@ -64,6 +64,7 @@ export function staticEntries(): Entry[] {
   return [
     { url: absoluteUrl('/'), changeFrequency: 'daily', priority: 1.0 },
     ...PUBLIC_SEGMENTS.map((s) => ({ url: absoluteUrl(`/${s.path}`), changeFrequency: 'daily' as const, priority: 0.9 })),
+    { url: absoluteUrl('/guide'), changeFrequency: 'weekly', priority: 0.8 },
     { url: absoluteUrl('/deadline'), changeFrequency: 'daily', priority: 0.8 },
     { url: absoluteUrl('/about'), changeFrequency: 'yearly', priority: 0.3 },
     { url: absoluteUrl('/contact'), changeFrequency: 'yearly', priority: 0.2 },

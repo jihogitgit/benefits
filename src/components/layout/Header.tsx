@@ -17,6 +17,9 @@ export default function Header() {
               {s.name}
             </Link>
           ))}
+          <Link href="/guide" className="hidden text-gray-700 hover:text-brand-700 sm:inline">
+            가이드
+          </Link>
           <Link href="/deadline" className="hidden text-gray-700 hover:text-brand-700 sm:inline">
             마감 임박
           </Link>

@@ -26,6 +26,9 @@ describe('sitemap entries', () => {
     expect(urls).toContain('https://example.com/')
     expect(urls).toContain('https://example.com/small-biz')
     expect(urls).toContain('https://example.com/deadline')
+    // /guide 목록이 빠져 있었다. 가이드 상세 3편은 사이트맵에 있었지만 목록 페이지는 404였고
+    // 홈·허브 어디에도 링크가 없어, 사이트에서 본문이 가장 충실한 페이지들이 고아였다.
+    expect(urls).toContain('https://example.com/guide')
     expect(urls).toContain('https://example.com/about')
     expect(urls.some((u) => u.endsWith('/my'))).toBe(false)
   })

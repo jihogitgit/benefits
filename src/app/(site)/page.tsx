@@ -4,7 +4,7 @@ import { Fragment } from 'react'
 import DiagnosisPanel from '@/components/diagnosis/DiagnosisPanel'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import AdPlacement from '@/components/benefits/AdPlacement'
-import { listDeadlineSoon, listRecentlyUpdated, getLastSyncAt, listWithArticles } from '@/lib/benefits/queries'
+import { listDeadlineSoon, listRecentlyUpdated, getLastSyncAt, listWithArticles, listGuides } from '@/lib/benefits/queries'
 import { formatKstDate } from '@/lib/benefits/format'
 import { absoluteUrl } from '@/lib/seo/site'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
@@ -21,11 +21,12 @@ export default async function HomePage() {
   // listDeadlineSoon/listRecentlyUpdated는 현재 시각을 인자로 받지 않는다(unstable_cache 키 오염 방지).
   // D-day 표시용 기준 시각만 여기서 한 번 만들어 카드에 내려준다.
   const now = new Date()
-  const [soon, recent, lastSync, explained] = await Promise.all([
+  const [soon, recent, lastSync, explained, guides] = await Promise.all([
     listDeadlineSoon(14, 8),
     listRecentlyUpdated(48, 8),
     getLastSyncAt(),
     listWithArticles(null, 6),
+    listGuides(),
   ])
 
   return (
@@ -46,6 +47,26 @@ export default async function HomePage() {
               <Link href={`/benefit/${r.slug}`} className="text-brand-700 hover:underline">{r.title}</Link>
             </Fragment>
           ))}
+        </p>
+      )}
+
+      {/* 가이드도 같은 고아 문제를 겪고 있었다. 목록 페이지가 아예 없어 404였고, 홈·허브
+          어디에도 링크가 없어 사이트맵에만 존재했다. 해설 링크와 같은 방식으로 한 줄 둔다. */}
+      {guides.length > 0 && (
+        <p className="mt-3 text-sm leading-7 text-gray-600">
+          <span className="font-semibold text-gray-900">가이드</span>{' '}
+          {guides.slice(0, 4).map((g, i) => (
+            <Fragment key={g.slug}>
+              {i > 0 && <span className="px-1 text-gray-300">·</span>}
+              <Link href={`/guide/${g.slug}`} className="text-brand-700 hover:underline">{g.title}</Link>
+            </Fragment>
+          ))}
+          {guides.length > 4 && (
+            <>
+              <span className="px-1 text-gray-300">·</span>
+              <Link href="/guide" className="text-brand-700 hover:underline">전체 보기</Link>
+            </>
+          )}
         </p>
       )}
 
