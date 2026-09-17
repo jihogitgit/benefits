@@ -153,3 +153,19 @@
 .prose p, .prose li { line-height: 1.75; color: #374151; }
 .prose ul { list-style: disc; padding-left: 1.25rem; }
 .prose a { color: #4338ca; text-decoration: underline; }
+
+/* 목차(SectionNav·StickyRail)가 가리키는 섹션들. sticky 헤더(h-14)가 앵커 이동 후 제목을
+   덮지 않도록 여백을 준다. 요소마다 클래스를 붙이면 새 섹션을 추가할 때 빠뜨리기 쉬워
+   가리키는 대상 목록을 한 곳에 모아 둔다. */
+#summary,
+#check,
+#explainer,
+#original,
+#steps,
+#faq,
+#related,
+#regions,
+#explained,
+#deadline {
+  scroll-margin-top: 4.5rem;
+}

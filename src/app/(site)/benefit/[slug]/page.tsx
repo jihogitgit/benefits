@@ -16,6 +16,7 @@ import SummaryGrid from '@/components/benefits/SummaryGrid'
 import Checklist from '@/components/benefits/Checklist'
 import Markdown from '@/components/benefits/Markdown'
 import StickyRail from '@/components/benefits/StickyRail'
+import SectionNav from '@/components/benefits/SectionNav'
 import SourceFooter from '@/components/benefits/SourceFooter'
 import AdPlacement from '@/components/benefits/AdPlacement'
 import BenefitCard from '@/components/benefits/BenefitCard'
@@ -63,7 +64,8 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
     ...(article?.explainer_md ? [{ id: 'explainer', label: '해설' }] : [{ id: 'original', label: '원문 안내' }]),
     ...(article?.steps_md ? [{ id: 'steps', label: '신청 순서' }] : []),
     ...(faq.length ? [{ id: 'faq', label: '자주 묻는 질문' }] : []),
-    { id: 'related', label: '함께 받는 지원금' },
+    // related가 비면 섹션은 제목만 남는다. 목차 칩이 빈 자리를 가리키지 않게 같은 조건으로 건다.
+    ...(related.length ? [{ id: 'related', label: '함께 받는 지원금' }] : []),
   ]
 
   return (
@@ -87,6 +89,9 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
             {seg.slug !== 'other' && <span>· {seg.name}</span>}
             {article?.review_status === 'stale' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">내용 확인 중</span>}
           </div>
+
+          {/* 첫 화면에서 이 글에 무엇이 들어있는지 보이게 한다. PC는 우측 StickyRail이 같은 역할을 한다. */}
+          <SectionNav sections={sections} />
 
           {closed && (
             <div className="mt-4 rounded-xl border border-gray-300 bg-gray-50 p-4 text-sm text-gray-700">
@@ -141,12 +146,14 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
           <AdPlacement slot="detail-2" />
 
+          {related.length > 0 && (
           <section id="related" className="mt-2">
             <h2 className="mb-3 text-lg font-bold">함께 받을 수 있는 지원금</h2>
             <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
               {related.map((r) => <div key={r.slug} className="w-[78%] shrink-0 snap-start sm:w-auto"><BenefitCard row={r} now={now} /></div>)}
             </div>
           </section>
+          )}
 
           <SourceFooter agency={b.agency} syncedAt={b.synced_at} sourceUpdatedAt={b.source_updated_at} applyUrl={b.apply_url} />
         </article>
