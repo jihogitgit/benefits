@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import AdSlot from '@/components/ads/AdSlot'
+import { ADSENSE_CLIENT } from '@/lib/adsense'
 
 export type AdPlacementSlot = 'home' | 'list' | 'detail-1' | 'detail-2' | 'rail'
 
@@ -26,7 +27,7 @@ function AdFrame({ isRail, children }: { isRail: boolean; children: ReactNode })
 /** 광고 위치별 단일 진입점. 승인 전에는 애드핏, 승인 후 env로 애드센스 전환. 높이를 예약해 CLS를 막는다. */
 export default function AdPlacement({ slot }: { slot: AdPlacementSlot }) {
   const isRail = slot === 'rail'
-  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+  const adsenseClient = ADSENSE_CLIENT
   const adsenseSlot = ADSENSE_SLOT[slot]
 
   // 클라이언트·슬롯이 모두 있어야 애드센스를 태운다. 하나라도 없으면 빈 박스를 예약하지 않고 애드핏으로 폴백.
