@@ -38,19 +38,28 @@
 
 | 경로 | 내용 | 색인 |
 |---|---|---|
-| `/` | 조건 진단 + 마감 임박 + 분야 | O |
+| `/` | 조건 진단 + 마감 임박 + 분야 + 해설 링크 한 줄 | O |
 | `/my` | 진단 결과 (localStorage 기반) | X |
 | `/youth` `/parenting` `/small-biz` | 세그먼트 허브 | O |
 | `/{segment}/{region}` | 세그먼트×지역 (항목 3개 이상 + 지역 안내문 있을 때만) | 조건부 |
 | `/benefit/{slug}` | 상세 (검수 게재된 해설이 있을 때만) | 조건부 |
 | `/deadline` | 마감 캘린더 | O |
 | `/guide/{slug}` | 가이드 | O |
+| `/sitemap.xml` | 사이트맵 인덱스 | — |
 
 색인 규칙은 `src/lib/seo/index-policy.ts` 한 곳에서 결정하고 페이지 robots 메타와 사이트맵이 모두 따른다.
 
 사이트맵은 `generateSitemaps`로 분할되며 실제 경로는 `/sitemap/0.xml`(정적 + 지역 허브)과
-`/sitemap/1~3.xml`(공개 세그먼트별 상세)이다. **`/sitemap.xml` 인덱스는 Next가 만들지 않으므로**
-`robots.txt`는 분할 파일을 전부 나열한다(`sitemapPaths()`가 두 곳의 단일 출처다).
+`/sitemap/1~3.xml`(공개 세그먼트별 상세)이다. **`generateSitemaps`는 인덱스를 만들지 않으므로**
+`/sitemap.xml`은 `src/app/sitemap.xml/route.ts`가 직접 연다(검색엔진 등록 도구가 기본값으로
+가정하는 경로라 한 번만 제출하면 된다). `robots.txt`는 인덱스와 분할 파일을 함께 나열한다 —
+인덱스를 따라가지 않는 크롤러도 있기 때문이다. `sitemapPaths()`가 세 곳의 단일 출처다.
+
+해설이 게재된 지원금은 허브의 "마감 임박 순" 정렬(`apply_end` 오름차순)에서 맨 뒤로 밀린다
+(대부분 상시 접수라 `apply_end`가 null). 그대로 두면 본문이 가장 충실한 페이지가 내부 링크
+0인 고아 페이지가 되므로, `listWithArticles()`가 이들을 따로 뽑아 홈 한 줄과 허브 상단
+"자세히 정리한 지원금"에 링크한다. 이 함수는 `benefit_articles`를 부모로 조회한다 —
+정렬 기준(`reviewed_at`)이 해설 쪽 열이라 그래야 `LIMIT`이 색인 대상 집합에만 걸린다.
 
 ## 광고
 

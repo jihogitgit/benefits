@@ -5,11 +5,20 @@ export interface ArticleFlags {
   indexable: boolean
 }
 
+/**
+ * 색인을 유지하는 검수 상태. published 후 원천이 바뀐 stale도 포함한다
+ * (페이지에 "내용 확인 중" 배지가 붙고 색인은 그대로 둔다).
+ *
+ * 상수로 뽑아 둔 이유: 이 목록을 SQL where절에도 그대로 넘겨야 하기 때문이다.
+ * 판정을 JS에서만 하면 DB가 LIMIT을 색인 대상이 아닌 행에까지 써버려, 초안이 쌓였을 때
+ * 발행분이 조용히 잘려나간다(queries.ts의 listWithArticles 참고).
+ */
+export const INDEXABLE_REVIEW_STATUSES = ['published', 'stale'] as const
+
 export function benefitIndexable(b: { status: string; article: ArticleFlags | null }): boolean {
   if (b.status !== 'open') return false
   if (!b.article) return false
-  // published 후 원천이 바뀐 stale은 색인을 유지한다(페이지에 "내용 확인 중" 배지)
-  return b.article.indexable && (b.article.review_status === 'published' || b.article.review_status === 'stale')
+  return b.article.indexable && (INDEXABLE_REVIEW_STATUSES as readonly string[]).includes(b.article.review_status)
 }
 
 export function hubIndexable(): boolean {

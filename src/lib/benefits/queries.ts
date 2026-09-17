@@ -1,6 +1,8 @@
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
+import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
+import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -91,6 +93,60 @@ export const listBySegment = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['list-by-segment'],
+  { tags: ['benefits:all'], revalidate: 3600 },
+)
+
+/**
+ * 해설이 붙어 색인 대상이 된 지원금.
+ *
+ * 허브의 "마감 임박 순" 목록과는 다른 축이다. 해설을 쓴 제도는 대부분 상시 접수라
+ * apply_end가 null이고, listBySegment는 nullsFirst:false로 정렬하므로 이들이 855건 중
+ * 맨 끝으로 밀려 목록에 영영 나오지 않는다. 그 결과 사이트에서 본문이 가장 충실한 페이지가
+ * 내부 링크 0인 고아 페이지가 되고, 검색엔진은 사이트맵으로 찾아와도 색인을 미룬다
+ * (실제로 Search Console에 "크롤링됨 - 현재 색인이 생성되지 않음"으로 잡혔다).
+ *
+ * benefits가 아니라 benefit_articles를 부모로 조회한다. 정렬 기준인 reviewed_at이 해설 쪽
+ * 열이라 benefits를 부모로 두면 SQL로 정렬할 수 없고, 그러면 LIMIT이 임의의 행을 자른 뒤
+ * JS에서 정렬하게 된다 — 초안이 쌓이면 발행분이 통째로 잘려 이 섹션이 조용히 비고,
+ * 고치려던 고아 페이지 문제가 오류 하나 없이 그대로 돌아온다. review_status는 기본값이
+ * draft이고 초안 생성이 자동화되어 있으므로 초안이 다수가 되는 것이 정상 상태다.
+ *
+ * 색인 기준은 index-policy가 단독으로 정한다. SQL 필터는 그 상수를 그대로 넘기고,
+ * benefitIndexable을 뒤에서 한 번 더 통과시켜 기준이 갈라질 여지를 남기지 않는다.
+ * 기준이 갈라지면 사이트맵에 없는 페이지로 링크가 가거나(색인 낭비) 그 반대가 된다.
+ *
+ * @param segment null이면 공개 세그먼트 전체(홈용). 공개 세그먼트로 한정하는 이유는
+ *   세그먼트 사이트맵이 PUBLIC_SEGMENTS만 내기 때문이다. 'other'나 빈 segments를 가진
+ *   지원금을 홈에서 링크하면 어느 사이트맵에도 없는 페이지를 홈에서만 가리키게 된다.
+ */
+export const listWithArticles = unstable_cache(
+  async (segment: Segment | null, limit = 12): Promise<BenefitListRow[]> => {
+    let q = createPublicClient()
+      .from('benefit_articles')
+      // status는 benefitIndexable이 다시 보므로 함께 읽는다
+      .select(`review_status, indexable, benefits!inner(${LIST_COLS}, status)`)
+      .eq('indexable', true)
+      .in('review_status', INDEXABLE_REVIEW_STATUSES as unknown as string[])
+      .eq('benefits.status', 'open')
+    q = segment
+      ? q.contains('benefits.segments', [segment])
+      : q.overlaps('benefits.segments', PUBLIC_SEGMENTS.map((s) => s.slug))
+    const { data, error } = await q
+      // 최근 검수 순. 동률일 때 순서가 재생성마다 뒤집히지 않도록 PK로 한 번 더 고정한다.
+      .order('reviewed_at', { ascending: false, nullsFirst: false })
+      .order('benefit_id', { ascending: true })
+      .limit(limit)
+    if (error) throw error
+    type Row = { review_status: ReviewStatus; indexable: boolean; benefits: Parent | Parent[] | null }
+    type Parent = BenefitListRow & { status: BenefitStatus }
+    const out: BenefitListRow[] = []
+    for (const r of (data ?? []) as unknown as Row[]) {
+      const b = one(r.benefits)
+      if (b && benefitIndexable({ status: b.status, article: { review_status: r.review_status, indexable: r.indexable } })) out.push(b)
+    }
+    return out
+  },
+  ['list-with-articles'],
   { tags: ['benefits:all'], revalidate: 3600 },
 )
 

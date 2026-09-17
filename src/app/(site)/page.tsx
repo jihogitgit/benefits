@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Fragment } from 'react'
 import DiagnosisPanel from '@/components/diagnosis/DiagnosisPanel'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import AdPlacement from '@/components/benefits/AdPlacement'
-import { listDeadlineSoon, listRecentlyUpdated, getLastSyncAt } from '@/lib/benefits/queries'
+import { listDeadlineSoon, listRecentlyUpdated, getLastSyncAt, listWithArticles } from '@/lib/benefits/queries'
 import { formatKstDate } from '@/lib/benefits/format'
 import { absoluteUrl } from '@/lib/seo/site'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
@@ -20,13 +21,33 @@ export default async function HomePage() {
   // listDeadlineSoon/listRecentlyUpdated는 현재 시각을 인자로 받지 않는다(unstable_cache 키 오염 방지).
   // D-day 표시용 기준 시각만 여기서 한 번 만들어 카드에 내려준다.
   const now = new Date()
-  const [soon, recent, lastSync] = await Promise.all([listDeadlineSoon(14, 8), listRecentlyUpdated(48, 8), getLastSyncAt()])
+  const [soon, recent, lastSync, explained] = await Promise.all([
+    listDeadlineSoon(14, 8),
+    listRecentlyUpdated(48, 8),
+    getLastSyncAt(),
+    listWithArticles(null, 6),
+  ])
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
       <DiagnosisPanel />
 
       <AdPlacement slot="home" />
+
+      {/* 홈에서 해설 페이지로 가는 유일한 경로. 카드 대신 한 줄로 두어 진단 CTA를 밀지 않으면서,
+          사이트에서 가장 권위가 높은 홈에서 상세로 직접 링크가 가게 한다. 이 링크가 없으면
+          해설 페이지는 사이트맵에만 존재하는 고아 페이지가 된다(listWithArticles 주석 참고). */}
+      {explained.length > 0 && (
+        <p className="mt-6 text-sm leading-7 text-gray-600">
+          <span className="font-semibold text-gray-900">자세히 정리한 지원금</span>{' '}
+          {explained.map((r, i) => (
+            <Fragment key={r.slug}>
+              {i > 0 && <span className="px-1 text-gray-300">·</span>}
+              <Link href={`/benefit/${r.slug}`} className="text-brand-700 hover:underline">{r.title}</Link>
+            </Fragment>
+          ))}
+        </p>
+      )}
 
       {/* 기간형 공고는 614건뿐이라 2주 이내가 0건인 시기가 실제로 생긴다. 제목만 남은 빈 섹션은
           내용 없는 페이지로 보이므로 항목이 있을 때만 렌더한다. */}
