@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import { siteName } from '@/lib/seo/site'
+import LogoMark from '@/components/brand/Logo'
 
 export default function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="text-lg font-bold text-brand-700">
+        <Link href="/" className="flex items-center gap-1.5 text-lg font-bold text-brand-700">
+          <LogoMark className="h-6 w-6 shrink-0" />
           {siteName()}
         </Link>
         <nav className="flex items-center gap-3 text-sm font-medium sm:gap-5">

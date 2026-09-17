@@ -13,7 +13,8 @@
     "seed:static": "tsx --env-file=.env.local scripts/seed-static.ts",
     "fixtures:capture": "tsx --env-file=.env.local scripts/capture-fixtures.ts",
     "verify:search": "tsx --env-file=.env.local scripts/verify-search-parity.ts",
-    "revalidate": "tsx --env-file=.env.local scripts/revalidate.ts"
+    "revalidate": "tsx --env-file=.env.local scripts/revalidate.ts",
+    "gen:icons": "tsx scripts/gen-icons.tsx"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
