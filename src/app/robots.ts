@@ -12,7 +12,9 @@ export default function robots(): MetadataRoute.Robots {
       // 색인에서 확실히 빼려면 크롤을 허용해 noindex를 읽히는 쪽이 맞다(/my 페이지가 noindex를 낸다).
       disallow: ['/api/', '/admin/'],
     },
-    // /sitemap.xml 인덱스는 존재하지 않는다(generateSitemaps는 분할 파일만 낸다). 분할 파일을 전부 적는다.
-    sitemap: sitemapPaths().map(absoluteUrl),
+    // 인덱스(/sitemap.xml, app/sitemap.xml/route.ts가 낸다)를 먼저 적고 분할 파일도 그대로 남긴다.
+    // 인덱스만 적으면 사이트맵 인덱스를 따라가지 않는 크롤러가 한 건도 못 받는다. 중복 신고는
+    // 사이트맵 규격상 문제가 없다(같은 URL이 여러 사이트맵에 있어도 된다).
+    sitemap: [absoluteUrl('/sitemap.xml'), ...sitemapPaths().map(absoluteUrl)],
   }
 }
