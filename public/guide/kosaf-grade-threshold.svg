@@ -6,7 +6,9 @@
          조건부는 밀도(사선)로, 금액 차이는 명도로 갈라 둔다. -->
     <pattern id="conditional" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
       <rect width="6" height="6" fill="#ffffff"/>
-      <line x1="0" y1="0" x2="0" y2="6" stroke="#0f766e" stroke-width="2.2"/>
+      <!-- 타일 가운데에 둔다. x=0이면 선 굵기의 절반이 타일 밖으로 나가 잘리고,
+           왼쪽 타일이 그 자리를 메워 주지도 않아 의도한 2.2px가 1.1px로 나온다. -->
+      <line x1="3" y1="0" x2="3" y2="6" stroke="#0f766e" stroke-width="2.2"/>
     </pattern>
   </defs>
   <rect width="480" height="276" fill="#ffffff"/>
