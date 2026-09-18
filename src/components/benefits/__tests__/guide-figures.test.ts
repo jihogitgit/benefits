@@ -30,6 +30,39 @@ describe('그림 목록', () => {
     const svg = readFileSync(join(DIR, name), 'utf8')
     expect(svg).not.toMatch(/<script|<foreignObject|\son[a-z]+=|xlink:href|href="http/i)
   })
+
+  /**
+   * 범례를 단 그림은 막대에 쓴 색을 전부 범례에 두어야 한다.
+   *
+   * 상환 비교 그림에서 아래 행만 다른 색으로 칠해 놓고 범례에 그 줄을 넣지 않은 일이 있었다.
+   * 범례를 대조하는 독자는 그 색을 찾지 못해 설명되지 않은 제3의 범주로 읽는다 — 색이
+   * 범주와 행 정체를 동시에 나르는데 범례는 그중 하나만 설명하는 꼴이다.
+   *
+   * 색의 '뜻'은 묻지 않는다. 묻는 것은 "설명되지 않은 기호가 있는가" 하나이므로 집합
+   * 포함만 보면 되고, 범례 문자열을 읽을 필요가 없다. 범례가 없는 그림은 건너뛴다 —
+   * 그런 그림은 색을 축 위치·라벨·각주로 설명하므로 범례가 할 주장이 없다.
+   */
+  it.each(Object.keys(GUIDE_FIGURES))('%s: 막대에 쓴 색이 범례에 다 있다', (name) => {
+    const svg = readFileSync(join(DIR, name), 'utf8')
+    const swatches = new Set<string>()
+    const marks = new Set<string>()
+    for (const tag of svg.match(/<rect\b[^>]*>/g) ?? []) {
+      const fill = /fill="(#[0-9a-f]{6})"/i.exec(tag)?.[1]
+      const w = Number(/\bwidth="([\d.]+)"/.exec(tag)?.[1])
+      const h = Number(/\bheight="([\d.]+)"/.exec(tag)?.[1])
+      if (!fill || fill === '#ffffff' || !w || !h) continue
+      // 범례 견본은 한 변 16px 이하의 정사각형이다. 그보다 크거나 찌그러진 것은 데이터다.
+      if (w === h && w <= 16) swatches.add(fill)
+      else marks.add(fill)
+    }
+    for (const fill of svg.match(/<path\b[^>]*fill="#[0-9a-f]{6}"/gi) ?? []) {
+      const c = /fill="(#[0-9a-f]{6})"/i.exec(fill)![1]
+      if (c !== '#ffffff') marks.add(c)
+    }
+    if (swatches.size === 0) return
+    const unexplained = [...marks].filter((c) => !swatches.has(c))
+    expect(unexplained, `${name}의 ${unexplained.join(', ')}가 범례에 없다`).toEqual([])
+  })
 })
 
 describe('resolveFigure', () => {
