@@ -15,9 +15,6 @@ import { YOUNGEST_BAND_FLOOR } from './age-bands'
  * 필요 없고, 혹시 모를 회귀를 막으려고 assertSafe로 한 번 더 확인한다.
  */
 
-/** 상황 조건이 하나도 없는 행. matchesConditions의 hasSituationCond === false 와 같다. */
-const NO_SITUATION_COND = 'and(life_stages.eq.{},household_types.eq.{},occupations.eq.{})'
-
 /** PostgREST 필터 문법을 깨뜨릴 수 있는 문자가 값에 섞이지 않았는지. 들어오면 버그다. */
 function assertSafe(value: string): string {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error(`조건 필터에 쓸 수 없는 값: ${value}`)
@@ -29,6 +26,17 @@ function assertInt(value: number): number {
   if (!Number.isInteger(value)) throw new Error(`조건 필터에 쓸 수 없는 값: ${value}`)
   return value
 }
+
+/**
+ * 상황 조건이 하나도 없는 행. matchesConditions의 hasSituationCond === false 와 같다.
+ *
+ * 세 축이 다 비어도 대상 나이가 아이면 상황이 있는 것으로 본다(search.ts의 isChildTarget).
+ * 그래서 나이 상한 조건이 함께 붙는다 — 빠지면 영유아 사업이 아무 상황에나 통과해
+ * SQL 총건수와 JS 목록이 갈라진다.
+ */
+const NO_SITUATION_COND =
+  'and(life_stages.eq.{},household_types.eq.{},occupations.eq.{},' +
+  `or(age_max.is.null,age_max.gte.${assertInt(YOUNGEST_BAND_FLOOR)}))`
 
 /**
  * Criteria를 benefit_conditions에 적용할 or() 필터 목록으로.
@@ -71,6 +79,8 @@ export function conditionFilters(q: Criteria): string[] {
     // 매핑이 하나도 없으면 후자가 성립할 수 없으므로 앞 조건만 남는다 —
     // matchesConditions가 그 경우 상황 조건이 있는 행을 전부 거르는 것과 같다.
     const parts = [NO_SITUATION_COND]
+    // 대상이 아이인 행은 '아이를 키우고 있다'에 걸린다. situationHit의 첫 줄과 같은 판정이다.
+    if (q.situations.includes('has_child')) parts.push(`age_max.lt.${assertInt(YOUNGEST_BAND_FLOOR)}`)
     if (life.size) parts.push(`life_stages.ov.{${[...life].join(',')}}`)
     if (household.size) parts.push(`household_types.ov.{${[...household].join(',')}}`)
     if (occupation.size) parts.push(`occupations.ov.{${[...occupation].join(',')}}`)

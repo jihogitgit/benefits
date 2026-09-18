@@ -107,6 +107,51 @@ describe('matchScore', () => {
   })
 })
 
+describe('대상이 아이인 행', () => {
+  const base = { age_min: null, age_max: null, gender: 'any' as const, life_stages: [], household_types: [], occupations: [], region_codes: [] }
+  // 원천이 생애주기 코드를 주지 않아 세 축이 다 빈 영유아 사업. 첫만남이용권이 0~1세다.
+  const infant = { ...base, age_min: 0, age_max: 1 }
+  const child = { ...base, age_min: 0, age_max: 7 }   // 아동수당
+  const hasChild = { ageRange: null, situations: ['has_child'], region: null }
+  const jobSeeker = { ageRange: null, situations: ['job_seeker'], region: null }
+
+  it('아이를 키운다고 고르면 상황 점수를 받는다', () => {
+    expect(matchScore(infant, hasChild)).toBe(2)
+    expect(matchScore(child, hasChild)).toBe(2)
+  })
+
+  // 첫만남이용권이 구직 검색에 섞여 나오던 것을 막는다. 예전에는 상황 축이 비어 있어
+  // '전 국민 대상'으로 통과했다.
+  it('상관없는 상황에서는 걸러진다', () => {
+    expect(matchesConditions(infant, jobSeeker)).toBe(false)
+    expect(matchScore(infant, jobSeeker)).toBe(0)
+  })
+
+  it('아이를 키운다고 고르면 통과한다', () => {
+    expect(matchesConditions(infant, hasChild)).toBe(true)
+  })
+
+  // 임신 중은 넣지 않았다. 아직 아이가 없는 사람까지 넓히는 것은 대상 나이가 말해주는 범위를 넘는다.
+  it('임신 중만 골랐을 때는 나이만으로 걸리지 않는다', () => {
+    const pregnancy = { ageRange: null, situations: ['pregnancy'], region: null }
+    expect(matchScore(infant, pregnancy)).toBe(0)
+    expect(matchesConditions(infant, pregnancy)).toBe(false)
+  })
+
+  // 원천이 생애주기를 준 행은 그대로 그 코드로 걸린다. 나이 추론이 덮어쓰지 않는다.
+  it('원천이 준 생애주기가 있으면 그것으로도 걸린다', () => {
+    const withCode = { ...infant, life_stages: ['birth'] }
+    expect(matchScore(withCode, { ageRange: null, situations: ['pregnancy'], region: null })).toBe(2)
+  })
+
+  // 경계값. 10세 이상은 신청자 나이로 읽히므로 아이 대상 추론을 하지 않는다.
+  it('상한이 10 이상이면 신청자 나이로 읽어 추론하지 않는다', () => {
+    expect(matchScore({ ...base, age_min: 0, age_max: 10 }, hasChild)).toBe(0)
+    expect(matchScore({ ...base, age_min: 0, age_max: 9 }, hasChild)).toBe(2)
+    expect(matchScore({ ...base, age_min: null, age_max: null }, hasChild)).toBe(0)
+  })
+})
+
 describe('rankBenefits', () => {
   it('마감 임박 → 상시 → 조건 확인 필요 순', () => {
     const rows = [

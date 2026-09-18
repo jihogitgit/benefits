@@ -141,7 +141,7 @@ describe('searchBenefits — 검색어 필터', () => {
     expect(uniq).toContain(
       'and(age_min.is.null,age_max.is.null),age_max.lt.10,and(or(age_max.is.null,age_max.gte.30),or(age_min.is.null,age_min.lte.39))',
     )
-    expect(uniq).toContain('and(life_stages.eq.{},household_types.eq.{},occupations.eq.{}),occupations.ov.{job_seeker}')
+    expect(uniq).toContain('and(life_stages.eq.{},household_types.eq.{},occupations.eq.{},or(age_max.is.null,age_max.gte.10)),occupations.ov.{job_seeker}')
   })
 })
 

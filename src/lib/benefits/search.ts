@@ -105,13 +105,31 @@ function ageOverlaps(c: CondLike, range: [number, number]): boolean {
   return (c.age_max ?? AGE_MAX) >= range[0] && (c.age_min ?? 0) <= range[1]
 }
 
+/**
+ * 대상이 아이인 행. 상한이 가장 어린 밴드 밑이면 그 나이는 신청자가 아니라 아이의 나이다.
+ *
+ * 원천은 생애주기 코드를 따로 주지 않는 경우가 많다 — 아동수당은 JA03 그룹을 열일곱 개나 켜
+ * 2/3 규칙이 '제한 없음'으로 읽고, 가정양육수당·영유아보육료는 JA0322('해당사항 없음')뿐이다.
+ * 그래서 이 행들은 상황 축이 통째로 비어 '전 국민 대상'으로 취급됐고, 아이를 키운다고 고른
+ * 사용자에게도 점수 0으로 맨 아래에 깔렸다. 첫만남이용권·기저귀·신생아 검사비가 그렇다.
+ *
+ * 없는 의미를 만들어 넣는 것이 아니라 원천이 준 대상 나이를 되읽는 것이다. tagSegments도
+ * 같은 근거로 parenting 세그먼트를 붙인다(segments/rules.ts의 childByAge).
+ */
+function isChildTarget(c: CondLike): boolean {
+  return c.age_max !== null && c.age_max < YOUNGEST_BAND_FLOOR
+}
+
 /** 상황 조건(생애주기·가구·직업)이 하나라도 등록돼 있는지. 없으면 '전 국민 대상'이라 상황으로 판정할 수 없다. */
 function hasSituationCond(c: CondLike): boolean {
-  return c.life_stages.length + c.household_types.length + c.occupations.length > 0
+  return c.life_stages.length + c.household_types.length + c.occupations.length > 0 || isChildTarget(c)
 }
 
 /** 사용자가 고른 상황 중 하나라도 조건 행이 실제로 만족하는지. 통과 판정과 점수가 같은 기준을 쓰도록 공유한다. */
 function situationHit(c: CondLike, situations: string[]): boolean {
+  // 대상이 아이인 행은 '아이를 키우고 있다'에 걸린다. 임신 중은 넣지 않는다 —
+  // 아직 아이가 없는 사람에게까지 넓히는 것은 대상 나이가 말해주는 범위를 넘는다.
+  if (isChildTarget(c) && situations.includes('has_child')) return true
   return situations
     .map((s) => SITUATION_TO_CONDITIONS[s])
     .filter(Boolean)
