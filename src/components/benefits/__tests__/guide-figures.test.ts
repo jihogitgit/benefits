@@ -41,23 +41,31 @@ describe('그림 목록', () => {
    * 색의 '뜻'은 묻지 않는다. 묻는 것은 "설명되지 않은 기호가 있는가" 하나이므로 집합
    * 포함만 보면 되고, 범례 문자열을 읽을 필요가 없다. 범례가 없는 그림은 건너뛴다 —
    * 그런 그림은 색을 축 위치·라벨·각주로 설명하므로 범례가 할 주장이 없다.
+   *
+   * 칠에는 url(#…) 패턴도 센다. 규약이 '조건부는 사선'을 권하므로 범례를 단 그림에 사선
+   * 칸이 생기는 것은 시간문제인데, 16진수만 보면 그 사선은 범례에 없어도 검사가 침묵한다.
+   * 규약이 만들어 낼 위반을 규약 옆의 검사가 못 잡는 것이 가장 나쁘다.
+   *
+   * 견본은 13×13으로만 본다. 느슨하게 잡으면(예: 한 변 16px 이하) 데이터 마크가 견본으로
+   * 오분류돼 그 색이 '설명된 것'으로 처리되고 검사가 조용히 통과한다. 반대 방향 오분류는
+   * 테스트가 소리내어 실패하니 고칠 수 있다 — 애매하면 데이터로 본다.
    */
   it.each(Object.keys(GUIDE_FIGURES))('%s: 막대에 쓴 색이 범례에 다 있다', (name) => {
     const svg = readFileSync(join(DIR, name), 'utf8')
+    const PAINT = /fill="(#[0-9a-f]{6}|url\(#[^)"]+\))"/i
     const swatches = new Set<string>()
     const marks = new Set<string>()
     for (const tag of svg.match(/<rect\b[^>]*>/g) ?? []) {
-      const fill = /fill="(#[0-9a-f]{6})"/i.exec(tag)?.[1]
+      const fill = PAINT.exec(tag)?.[1]
       const w = Number(/\bwidth="([\d.]+)"/.exec(tag)?.[1])
       const h = Number(/\bheight="([\d.]+)"/.exec(tag)?.[1])
       if (!fill || fill === '#ffffff' || !w || !h) continue
-      // 범례 견본은 한 변 16px 이하의 정사각형이다. 그보다 크거나 찌그러진 것은 데이터다.
-      if (w === h && w <= 16) swatches.add(fill)
+      if (w === 13 && h === 13) swatches.add(fill)
       else marks.add(fill)
     }
-    for (const fill of svg.match(/<path\b[^>]*fill="#[0-9a-f]{6}"/gi) ?? []) {
-      const c = /fill="(#[0-9a-f]{6})"/i.exec(fill)![1]
-      if (c !== '#ffffff') marks.add(c)
+    for (const tag of svg.match(/<path\b[^>]*>/g) ?? []) {
+      const fill = PAINT.exec(tag)?.[1]
+      if (fill && fill !== '#ffffff') marks.add(fill)
     }
     if (swatches.size === 0) return
     const unexplained = [...marks].filter((c) => !swatches.has(c))

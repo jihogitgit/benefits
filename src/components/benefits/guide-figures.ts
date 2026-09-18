@@ -24,7 +24,9 @@
  * 3. 막대에 쓴 색은 전부 범례에 있어야 한다. 범례에 없는 색은 독자에게 설명되지 않은
  *    제3의 범주가 된다. 행을 가르는 일은 라벨·총액·막대 길이가 한다 — 색을 더 동원하면
  *    색이 범주와 행 정체를 동시에 나르게 되고, 범례는 그중 하나만 설명한다.
- *    범례를 단 그림은 __tests__/guide-figures.test.ts가 이 포함 관계를 지킨다.
+ *    범례를 단 그림은 __tests__/guide-figures.test.ts가 이 포함 관계를 지킨다 —
+ *    범례 견본은 13×13 정사각형으로 두고(그 크기로만 견본을 알아본다), 사선 칠도
+ *    url(#…) 그대로 센다.
  */
 export const GUIDE_FIGURES: Record<string, { width: number; height: number }> = {
   'birth-deadlines.svg': { width: 480, height: 272 },
