@@ -59,3 +59,27 @@ describe('SourceFooter', () => {
     expect(screen.getByText(/180일 넘게 대조하지 않았습니다/)).toBeTruthy()
   })
 })
+
+describe('손으로 채운 행의 날짜 표기', () => {
+  it('근거 문서에 없는 시각을 만들어 붙이지 않는다', () => {
+    at('2026-09-19T09:00:00+09:00')
+    render(
+      <SourceFooter
+        source={CURATED_SOURCE}
+        agency="보건복지부"
+        syncedAt="2026-09-18T00:00:00+09:00"
+        sourceUpdatedAt="2026-03-25T00:00:00+00:00"
+        applyUrl={null}
+      />,
+    )
+    expect(document.body.textContent).toContain('근거 문서 수정 2026.03.25')
+    expect(document.body.textContent).toContain('근거 문서와 마지막 대조 2026.09.18')
+    expect(document.body.textContent).not.toMatch(/\d{2}:\d{2}/)
+  })
+
+  it('보조금24 행은 동기화 시각을 분까지 그대로 보여준다', () => {
+    at('2026-09-18T09:00:00+09:00')
+    render(<SourceFooter source="gov24" agency={null} syncedAt="2026-09-18T06:34:52+00:00" sourceUpdatedAt={null} applyUrl={null} />)
+    expect(document.body.textContent).toContain('최종 확인 2026.09.18 15:34')
+  })
+})

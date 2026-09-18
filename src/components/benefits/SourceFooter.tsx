@@ -1,4 +1,4 @@
-import { formatKstDate } from '@/lib/benefits/format'
+import { formatKstDate, formatKstDay } from '@/lib/benefits/format'
 import { CURATED_SOURCE, CURATED_STALE_DAYS } from '../../../data/curated-benefits'
 
 export interface Evidence {
@@ -40,7 +40,7 @@ export default function SourceFooter({
       {curated ? (
         <p>
           출처: {agency ?? '소관 부처'} 공개 자료를 사람이 직접 옮겼습니다. 보조금24 오픈API에는 이 제도가 없습니다.
-          {sourceUpdatedAt ? ` · 근거 문서 수정 ${formatKstDate(sourceUpdatedAt)}` : ''}
+          {sourceUpdatedAt ? ` · 근거 문서 수정 ${formatKstDay(sourceUpdatedAt)}` : ''}
         </p>
       ) : (
         <p>
@@ -50,7 +50,7 @@ export default function SourceFooter({
       )}
 
       <p className={stale ? 'mt-1 text-gray-400' : 'mt-1'}>
-        {curated ? '근거 문서와 마지막 대조' : '최종 확인'} {formatKstDate(syncedAt)}
+        {curated ? '근거 문서와 마지막 대조' : '최종 확인'} {curated ? formatKstDay(syncedAt) : formatKstDate(syncedAt)}
         {stale
           ? curated
             ? ` · ${CURATED_STALE_DAYS}일 넘게 대조하지 않았습니다. 공식 페이지에서 확인하세요.`

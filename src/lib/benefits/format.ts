@@ -40,3 +40,12 @@ export function formatKstDate(iso: string): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getUTCFullYear()}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`
 }
+
+/**
+ * 날짜만. 원문이 날짜까지만 주는 값에 쓴다.
+ * 손으로 채운 행의 근거 문서 수정일과 대조일이 그렇다 — 시각이 없는 값을 formatKstDate로
+ * 찍으면 자정을 변환한 "09:00"이 나와서, 문서에 없는 시각을 있는 것처럼 보이게 한다.
+ */
+export function formatKstDay(iso: string): string {
+  return formatKstDate(iso).slice(0, 10)
+}
