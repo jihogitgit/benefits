@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 216" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="216" fill="#ffffff"/>
+  <text x="20" y="28" font-size="13.5" fill="#6b7280">부모가 모두 쓸 때 그 달에 더 받는 금액 (만원)</text>
+  <line x1="60" y1="170" x2="106" y2="170" stroke="#d1d5db" stroke-width="2.5"/>
+  <text x="83.0" y="163" text-anchor="middle" font-size="13" fill="#9ca3af">0</text>
+  <line x1="120" y1="170" x2="166" y2="170" stroke="#d1d5db" stroke-width="2.5"/>
+  <text x="143.0" y="163" text-anchor="middle" font-size="13" fill="#9ca3af">0</text>
+  <rect x="180" y="146.0" width="46" height="24.0" fill="#0f766e"/>
+  <text x="203.0" y="139.0" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">50</text>
+  <rect x="240" y="98.0" width="46" height="72.0" fill="#0f766e"/>
+  <text x="263.0" y="91.0" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">150</text>
+  <rect x="300" y="74.0" width="46" height="96.0" fill="#0f766e"/>
+  <text x="323.0" y="67.0" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">200</text>
+  <rect x="360" y="50.0" width="46" height="120.0" fill="#0f766e"/>
+  <text x="383.0" y="43.0" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">250</text>
+  <line x1="52" y1="170" x2="460" y2="170" stroke="#9ca3af" stroke-width="1"/>
+  <text x="83.0" y="189" text-anchor="middle" font-size="12.5" fill="#6b7280">1</text>
+  <text x="143.0" y="189" text-anchor="middle" font-size="12.5" fill="#6b7280">2</text>
+  <text x="203.0" y="189" text-anchor="middle" font-size="12.5" fill="#6b7280">3</text>
+  <text x="263.0" y="189" text-anchor="middle" font-size="12.5" fill="#6b7280">4</text>
+  <text x="323.0" y="189" text-anchor="middle" font-size="12.5" fill="#6b7280">5</text>
+  <text x="383.0" y="189" text-anchor="middle" font-size="12.5" fill="#6b7280">6</text>
+  <text x="240" y="208" text-anchor="middle" font-size="12" fill="#9ca3af">육아휴직 사용 개월</text>
+</svg>

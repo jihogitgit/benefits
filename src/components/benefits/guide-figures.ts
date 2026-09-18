@@ -14,10 +14,16 @@
  * 이 표와 public/guide의 실제 파일이 어긋나지 않는지는 __tests__/guide-figures.test.ts가 지킨다.
  */
 export const GUIDE_FIGURES: Record<string, { width: number; height: number }> = {
+  'birth-deadlines.svg': { width: 480, height: 272 },
+  'birth-parental-leave-gap.svg': { width: 480, height: 216 },
+  'kosaf-grade-threshold.svg': { width: 480, height: 230 },
+  'kosaf-income-brackets.svg': { width: 480, height: 192 },
+  'rent-income-bands.svg': { width: 480, height: 200 },
+  'rent-income-deduction.svg': { width: 480, height: 205 },
+  'smallbiz-interest-timing.svg': { width: 480, height: 250 },
+  'smallbiz-repayment-choice.svg': { width: 480, height: 215 },
   'youth-challenge-350.svg': { width: 480, height: 180 },
   'youth-challenge-courses.svg': { width: 480, height: 270 },
-  'rent-income-deduction.svg': { width: 480, height: 205 },
-  'rent-income-bands.svg': { width: 480, height: 200 },
 }
 
 /** 본문에 적힌 주소가 실린 그림을 가리키는지. 아니면 null. */

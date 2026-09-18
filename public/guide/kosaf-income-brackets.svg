@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 192" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="192" fill="#ffffff"/>
+
+  <path d="M40 46 V40 H430.0 V46" fill="none" stroke="#0f766e" stroke-width="1.5"/>
+  <text x="235.0" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#0f766e">9구간 이하 — Ⅰ유형 대상</text>
+
+  <!-- 9구간도 대상이다. 금액만 가장 작아 조금 옅게 칠한다 -->
+  <rect x="40" y="58" width="260.0" height="32" fill="#0f766e"/>
+  <rect x="300.0" y="58" width="130.0" height="32" fill="#14b8a6"/>
+  <rect x="430.0" y="58" width="32" height="32" fill="#e5e7eb"/>
+  <path d="M462 58 L474 74 L462 90 Z" fill="#e5e7eb"/>
+  <text x="170.0" y="80" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">1~8구간</text>
+  <text x="365.0" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">9구간</text>
+
+  <line x1="40" y1="96" x2="430.0" y2="96" stroke="#9ca3af" stroke-width="1"/>
+  <g stroke="#9ca3af" stroke-width="1">
+    <line x1="40" y1="96" x2="40" y2="101"/>
+    <line x1="235.0" y1="96" x2="235.0" y2="101"/>
+    <line x1="300.0" y1="96" x2="300.0" y2="101"/>
+    <line x1="430.0" y1="96" x2="430.0" y2="101"/>
+  </g>
+  <text x="40" y="116" text-anchor="middle" font-size="12" fill="#6b7280">0</text>
+  <text x="235.0" y="116" text-anchor="middle" font-size="12" fill="#6b7280">974만</text>
+  <text x="300.0" y="116" text-anchor="middle" font-size="12" fill="#6b7280">1,298만</text>
+  <text x="430.0" y="116" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">1,948만</text>
+
+  <line x1="20" y1="136" x2="460" y2="136" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="240" y="156" text-anchor="middle" font-size="12.5" fill="#374151">1,948만원을 넘으면 10구간이 되고, 10구간은 상한이 없습니다(화살표).</text>
+  <text x="240" y="176" text-anchor="middle" font-size="12.5" fill="#374151">가로축은 월 소득인정액 — 월급이 아니라 소득과 재산을 환산해 합친 가구 단위 값입니다.</text>
+</svg>

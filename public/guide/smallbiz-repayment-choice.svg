@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 215" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="215" fill="#ffffff"/>
+  <text x="20" y="26" font-size="13.5" fill="#6b7280">경상북도 소상공인육성자금 · 3,000만원 · 연 5.5% 가정</text>
+
+  <text x="20" y="56" font-size="14" font-weight="700" fill="#111827">5년 (2년 거치 3년 월 균분)</text>
+  <text x="460" y="56" text-anchor="end" font-size="14" font-weight="700" fill="#111827">이자 584만원</text>
+  <rect x="20" y="64" width="247.5" height="30" fill="#0f766e"/>
+  <rect x="267.5" y="64" width="64.0" height="30" fill="#fbbf24"/>
+  <text x="143.7" y="84" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">464만원</text>
+
+  <text x="20" y="120" font-size="14" font-weight="700" fill="#111827">2년 만기일시 (5년까지 연장됐을 때)</text>
+  <text x="460" y="120" text-anchor="end" font-size="14" font-weight="700" fill="#111827">이자 825만원</text>
+  <rect x="20" y="128" width="376.0" height="30" fill="#b45309"/>
+  <rect x="396.0" y="128" width="64.0" height="30" fill="#fbbf24"/>
+  <text x="208.0" y="148" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">705만원</text>
+
+  <rect x="20"  y="178" width="13" height="13" fill="#0f766e"/>
+  <text x="40"  y="189" font-size="13" fill="#374151">내가 내는 몫</text>
+  <rect x="250" y="178" width="13" height="13" fill="#fbbf24"/>
+  <text x="270" y="189" font-size="13" fill="#374151">이차보전 (2% · 2년 고정)</text>
+</svg>

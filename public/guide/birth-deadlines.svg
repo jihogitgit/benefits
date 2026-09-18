@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 272" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="272" fill="#ffffff"/>
+
+  <line x1="220.0" y1="34" x2="220.0" y2="176" stroke="#111827" stroke-width="1.5"/>
+  <text x="220.0" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">출생일</text>
+
+  <text x="20" y="58" font-size="13.5" font-weight="700" fill="#b45309">산모·신생아 건강관리</text>
+  <!-- 왼쪽 조각만 출산예정일 기준이다. 실제 출생일이 예정일과 어긋나면 이 조각의
+       길이와 왼쪽 끝이 함께 움직이므로 확정선으로 그리지 않고 옅게 둔다. -->
+  <rect x="60.0" y="66" width="160.0" height="24" fill="#fcd34d"/>
+  <rect x="220.0" y="66" width="120.0" height="24" fill="#b45309"/>
+  <text x="140.0" y="83" text-anchor="middle" font-size="12" font-weight="700" fill="#78350f">예정일 40일 전부터</text>
+  <text x="280.0" y="83" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">30일</text>
+
+  <text x="20" y="112" font-size="13.5" font-weight="700" fill="#0f766e">부모급여 · 아동수당 · 양육수당 · 기저귀</text>
+  <rect x="220.0" y="120" width="240.0" height="24" fill="#0f766e"/>
+  <text x="340.0" y="137" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">60일</text>
+
+  <text x="20" y="166" font-size="13.5" font-weight="700" fill="#14b8a6">첫만남이용권</text>
+  <rect x="220.0" y="174" width="240.0" height="24" fill="#14b8a6"/>
+  <path d="M460 174 L472 186 L460 198 Z" fill="#14b8a6"/>
+  <text x="230.0" y="191" font-size="12.5" font-weight="700" fill="#ffffff">2년 — 축 밖으로 이어짐</text>
+
+  <line x1="60" y1="210" x2="460" y2="210" stroke="#9ca3af" stroke-width="1"/>
+  <g stroke="#9ca3af" stroke-width="1">
+    <line x1="60.0" y1="210" x2="60.0" y2="215"/>
+    <line x1="220.0" y1="210" x2="220.0" y2="215"/>
+    <line x1="340.0" y1="210" x2="340.0" y2="215"/>
+    <line x1="460.0" y1="210" x2="460.0" y2="215"/>
+  </g>
+  <text x="60.0" y="230" text-anchor="middle" font-size="12" fill="#6b7280">-40일</text>
+  <text x="220.0" y="230" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">0</text>
+  <text x="340.0" y="230" text-anchor="middle" font-size="12" fill="#6b7280">30일</text>
+  <text x="460.0" y="230" text-anchor="middle" font-size="12" fill="#6b7280">60일</text>
+  <text x="240" y="250" text-anchor="middle" font-size="12" fill="#9ca3af">옅은 조각만 출산예정일 기준이라, 실제 출생일이 어긋나면 길이도 왼쪽 끝도 움직입니다.</text>
+  <text x="240" y="266" text-anchor="middle" font-size="12" fill="#9ca3af">나머지 막대와 오른쪽 끝은 전부 출생일 기준입니다.</text>
+</svg>
