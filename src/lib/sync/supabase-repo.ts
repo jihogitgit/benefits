@@ -24,6 +24,17 @@ export function createSupabaseRepo(supabase: SupabaseClient): BenefitsRepo {
   return {
     getExisting,
 
+    async allSlugs() {
+      const out = new Set<string>()
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase.from('benefits').select('slug').range(from, from + PAGE - 1)
+        if (error) throw error
+        for (const r of data ?? []) out.add(r.slug as string)
+        if (!data || data.length < PAGE) break
+      }
+      return out
+    },
+
     async upsertBenefits(rows: BenefitRow[]) {
       const { data, error } = await supabase.from('benefits').upsert(rows, { onConflict: 'source,source_id' }).select('id, source_id')
       if (error) throw error
@@ -35,10 +46,11 @@ export function createSupabaseRepo(supabase: SupabaseClient): BenefitsRepo {
       if (error) throw error
     },
 
-    async closeExpired(todayKst: string) {
+    async closeExpired(source: string, todayKst: string) {
       const { data, error } = await supabase
         .from('benefits')
         .update({ status: 'closed' })
+        .eq('source', source)
         .eq('status', 'open')
         .eq('deadline_type', 'period')
         .lt('apply_end', todayKst)

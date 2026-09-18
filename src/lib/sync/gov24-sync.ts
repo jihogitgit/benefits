@@ -94,7 +94,7 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
     }
 
     const existing = await deps.repo.getExisting(GOV24_SOURCE)
-    const usedSlugs = new Set([...existing.values()].map((e) => e.slug))
+    const usedSlugs = await deps.repo.allSlugs()
     const condBySource = new Map<string, ReturnType<typeof normalizeConditions>>()
     for (const c of condItems) condBySource.set(c.서비스ID, normalizeConditions(c))
 
@@ -150,7 +150,7 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
       log(`upserted ${result.upserted}/${changedRows.length}`)
     }
 
-    result.closed = await deps.repo.closeExpired(kstDateString(now))
+    result.closed = await deps.repo.closeExpired(GOV24_SOURCE, kstDateString(now))
     result.removed = await deps.repo.markRemoved(GOV24_SOURCE, list.map((i) => i.서비스ID))
 
     run.upserted = result.upserted

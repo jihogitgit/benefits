@@ -1,5 +1,7 @@
 import type { ConditionRow, Segment } from '../src/types/database'
 
+export { CURATED_SOURCE, CURATED_STALE_DAYS } from '../src/lib/benefits/curated'
+
 /**
  * 보조금24 API에 없어서 손으로 채운 제도.
  *
@@ -18,11 +20,6 @@ import type { ConditionRow, Segment } from '../src/types/database'
  * 그래서 checked_at을 레코드가 직접 들고, 상세 페이지 하단이 오래된 확인일을 스스로
  * 드러내게 했다. 늘리지 마라 — 원천에 생기면 여기서 지우는 것이 정상 경로다.
  */
-export const CURATED_SOURCE = 'curated'
-
-/** 확인일이 이만큼 지나면 상세 페이지가 스스로 "직접 확인해라"라고 말한다. */
-export const CURATED_STALE_DAYS = 180
-
 export interface CuratedBenefit {
   source_id: string
   slug: string
@@ -62,14 +59,13 @@ export const CURATED_BENEFITS: CuratedBenefit[] = [
       ' - 0세: 부모급여 100만원 − 영유아 기본보육료 58만 4천원 = 현금 41만 6천원',
       ' - 1세: 부모급여 50만원 − 영유아 기본보육료 51만 5천원 = 현금 없음',
       '',
-      '○ 종일제 아이돌봄 서비스를 이용하는 경우 정부지원금이 부모급여보다 적으면 그 차액을 현금으로 지원',
+      '○ 현금 또는 바우처(보육료 또는 종일제 돌봄)로 받는다. 어린이집·종일제 아이돌봄을 이용하면 해당 서비스를 별도로 신청해야 한다.',
     ].join('\n'),
     target_text: '○ 2세 미만(0~23개월)의 아동',
     criteria_text: [
       '○ 2세 미만(0~23개월)의 아동',
       '',
-      '○ 아동의 출생일을 포함해 60일 이내에 신청하면 출생월부터 소급해 지급한다.',
-      '  60일이 지나 신청하면 신청월분부터 지급되고, 지나간 달은 받을 수 없다.',
+      '○ 출생일로부터 60일 이내에 신청하면 출생월부터 소급해 지급한다.',
     ].join('\n'),
     apply_method: '온라인신청||방문신청',
     // 정부24 서비스 페이지(135200000143)는 삭제 상태라 링크할 곳이 없다. 실제로 신청이 되는 곳을 건다.
@@ -85,13 +81,15 @@ export const CURATED_BENEFITS: CuratedBenefit[] = [
       { label: '정책브리핑 「2026년 부모급여, 이렇게 지원합니다」', url: 'https://www.korea.kr/multi/visualNewsView.do?newsId=148957936' },
     ],
     conditions: {
-      // 아동 나이다. 같은 제도를 올린 보은군 레코드(0~2)와 맞춘다 — 23개월 아동이
-      // 만 나이 반올림 때문에 진단에서 빠지는 쪽이 더 나쁘다.
-      age_min: 0,
-      age_max: 2,
+      // 이 사이트의 나이 축은 '신청자 나이'다(진단 선택지가 10대~50대 이상).
+      // 처음에 아동 나이 0~2를 넣었더니 모든 나이대에서 탈락해 진단 전 구간에서 사라졌다.
+      // 부모급여는 부모 나이를 보지 않으므로 null이 맞다. 아동의 월령은 life_stages가 진다 —
+      // 같은 인구를 다루는 첫만남이용권도 life_stages ['pregnancy','birth']로 모델링돼 있다.
+      age_min: null,
+      age_max: null,
       gender: 'any',
       income_bands: [],
-      life_stages: [],
+      life_stages: ['birth'],
       household_types: [],
       occupations: [],
       region_codes: [],

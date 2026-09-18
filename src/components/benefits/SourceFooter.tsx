@@ -1,5 +1,5 @@
 import { formatKstDate, formatKstDay } from '@/lib/benefits/format'
-import { CURATED_SOURCE, CURATED_STALE_DAYS } from '../../../data/curated-benefits'
+import { CURATED_SOURCE, CURATED_STALE_DAYS } from '@/lib/benefits/curated'
 
 export interface Evidence {
   label: string

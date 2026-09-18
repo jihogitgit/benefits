@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import SourceFooter from '../SourceFooter'
-import { CURATED_SOURCE } from '../../../../data/curated-benefits'
+import { CURATED_SOURCE, CURATED_STALE_DAYS } from '@/lib/benefits/curated'
 
 const FRESH = '2026-09-17T00:00:00+09:00'
 const OLD = '2025-01-01T00:00:00+09:00'
@@ -81,5 +81,29 @@ describe('손으로 채운 행의 날짜 표기', () => {
     at('2026-09-18T09:00:00+09:00')
     render(<SourceFooter source="gov24" agency={null} syncedAt="2026-09-18T06:34:52+00:00" sourceUpdatedAt={null} applyUrl={null} />)
     expect(document.body.textContent).toContain('최종 확인 2026.09.18 15:34')
+  })
+})
+
+describe('손으로 채운 행의 경계', () => {
+  const BASE = '2026-01-01T00:00:00+09:00'
+  const plusDays = (n: number) => new Date(new Date(BASE).getTime() + n * 86_400_000).toISOString()
+
+  it('마지막 날까지는 경고하지 않는다', () => {
+    at(plusDays(CURATED_STALE_DAYS))
+    render(<SourceFooter source={CURATED_SOURCE} agency={null} syncedAt={BASE} sourceUpdatedAt={null} applyUrl={null} />)
+    expect(document.body.textContent).not.toContain('공식 페이지에서 확인하세요')
+  })
+
+  it('하루만 더 지나면 경고한다', () => {
+    at(plusDays(CURATED_STALE_DAYS + 1))
+    render(<SourceFooter source={CURATED_SOURCE} agency={null} syncedAt={BASE} sourceUpdatedAt={null} applyUrl={null} />)
+    expect(screen.getByText(new RegExp(`${CURATED_STALE_DAYS}일 넘게 대조하지 않았습니다`))).toBeTruthy()
+  })
+
+  it('근거를 못 넣은 행이어도 보조금24를 사칭하지 않는다', () => {
+    at('2026-01-02T00:00:00+09:00')
+    render(<SourceFooter source={CURATED_SOURCE} agency="보건복지부" syncedAt={BASE} sourceUpdatedAt={null} applyUrl="https://x.example/" />)
+    expect(document.body.textContent).not.toContain('출처: 행정안전부 보조금24')
+    expect(screen.queryByRole('link')).toBeNull()
   })
 })

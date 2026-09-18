@@ -29,10 +29,16 @@ function item(id: string, title: string, updated: string | null, extra: Partial<
   }
 }
 
-function fakeRepo(existing: Record<string, ExistingVersion> = {}, lastFetched: number | null = null) {
+function fakeRepo(
+  existing: Record<string, ExistingVersion> = {},
+  lastFetched: number | null = null,
+  /** gov24 밖에서 이미 쓰고 있는 슬러그. 손으로 채운 행이 이름을 선점한 상황을 재현한다. */
+  foreignSlugs: string[] = [],
+) {
   const calls = { benefits: [] as BenefitRow[], conditions: [] as ConditionRow[], runs: [] as SyncRunRow[], removedKeep: [] as string[] }
   const repo: BenefitsRepo = {
     getExisting: vi.fn(async () => new Map(Object.entries(existing))),
+    allSlugs: vi.fn(async () => new Set([...Object.values(existing).map((e) => e.slug), ...foreignSlugs])),
     upsertBenefits: vi.fn(async (rows: BenefitRow[]) => {
       calls.benefits.push(...rows)
       return new Map(rows.map((r) => [r.source_id, `id-${r.source_id}`]))
@@ -100,6 +106,21 @@ describe('runGov24Sync', () => {
     const slugs = Object.fromEntries(calls.benefits.map((b) => [b.source_id, b.slug]))
     expect(slugs.A).toBe('청년-지원')
     expect(slugs.B).toBe('청년-지원-2')
+  })
+
+  it('다른 출처가 선점한 slug를 비켜 간다', async () => {
+    // benefits.slug의 unique 제약은 source를 가리지 않는다. gov24 슬러그만 보고
+    // 이름을 배정하면 손으로 채운 '부모급여' 행과 충돌해 upsert 배치가 통째로 실패한다.
+    const { repo, calls } = fakeRepo({}, null, ['부모급여'])
+    const list = [item('A', '부모급여', '20260201090000')]
+    await runGov24Sync({ repo, fetchList: async () => list, fetchConditions: async () => [], now })
+    expect(calls.benefits[0].slug).toBe('부모급여-2')
+  })
+
+  it('만료 마감을 자기 출처로 좁혀 요청한다', async () => {
+    const { repo } = fakeRepo()
+    await runGov24Sync({ repo, fetchList: async () => [item('A', '가', '20260201090000')], fetchConditions: async () => [], now })
+    expect(repo.closeExpired).toHaveBeenCalledWith('gov24', expect.any(String))
   })
 
   it('30% 급감이면 upsert 없이 중단 기록', async () => {
