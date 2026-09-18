@@ -278,6 +278,12 @@ export interface GuideRow {
   body_md: string
   segment: string | null
   published_at: string | null
+  /**
+   * 본문을 실질적으로 보완한 시각. 한 번도 손대지 않았으면 null이고, 읽는 쪽에서
+   * published_at으로 떨어진다. 기존 행을 published_at으로 채우지 않은 이유가 여기 있다 —
+   * 채우면 "증보한 적 없음"과 "발행 당일 증보함"이 구분되지 않는다.
+   */
+  updated_at: string | null
 }
 
 /** 사이트맵용 발행 가이드 목록. 색인 판정은 넘겨받는 쪽(guideEntries)이 한다. */
@@ -329,7 +335,7 @@ export const listGuides = unstable_cache(
 
 export const getGuide = unstable_cache(
   async (slug: string): Promise<GuideRow | null> => {
-    const { data, error } = await createPublicClient().from('guides').select('slug, title, body_md, segment, published_at').eq('slug', slug).maybeSingle()
+    const { data, error } = await createPublicClient().from('guides').select('slug, title, body_md, segment, published_at, updated_at').eq('slug', slug).maybeSingle()
     if (error) throw error
     return data
   },

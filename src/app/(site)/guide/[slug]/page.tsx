@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getGuide } from '@/lib/benefits/queries'
 import { absoluteUrl, siteName } from '@/lib/seo/site'
-import { breadcrumbs } from '@/lib/seo/jsonld'
+import { article, breadcrumbs } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
 import Markdown from '@/components/benefits/Markdown'
 import AdPlacement from '@/components/benefits/AdPlacement'
@@ -23,7 +23,6 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const { slug } = await params
   const g = await getGuide(decodeURIComponent(slug))
   if (!g || !g.published_at) notFound()
-  const url = absoluteUrl(`/guide/${g.slug}`)
   return (
     <article className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       {/*
@@ -38,17 +37,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             { name: '가이드', path: '/guide' },
             { name: g.title, path: `/guide/${g.slug}` },
           ]),
-          {
-            '@context': 'https://schema.org',
-            '@type': 'Article',
-            headline: g.title,
-            mainEntityOfPage: { '@type': 'WebPage', '@id': url },
-            url,
-            ...(g.published_at ? { datePublished: g.published_at, dateModified: g.published_at } : {}),
-            author: { '@type': 'Organization', name: siteName() },
-            publisher: { '@type': 'Organization', name: siteName() },
-            inLanguage: 'ko',
-          },
+          article({ title: g.title, slug: g.slug, published_at: g.published_at, updated_at: g.updated_at, publisher: siteName() }),
         ]}
       />
       <nav className="text-xs text-gray-500" aria-label="현재 위치">
