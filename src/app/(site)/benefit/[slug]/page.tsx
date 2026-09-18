@@ -155,7 +155,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
           </section>
           )}
 
-          <SourceFooter agency={b.agency} syncedAt={b.synced_at} sourceUpdatedAt={b.source_updated_at} applyUrl={b.apply_url} />
+          <SourceFooter source={b.source} agency={b.agency} syncedAt={b.synced_at} sourceUpdatedAt={b.source_updated_at} applyUrl={b.apply_url} evidence={b.alt_sources} />
         </article>
 
         {/* 모바일 하단 바와 같은 기준으로 숨긴다. 한쪽만 숨기면 뷰포트에 따라 안내가 모순된다. */}

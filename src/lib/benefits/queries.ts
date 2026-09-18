@@ -50,7 +50,10 @@ export interface BenefitDetail extends BenefitListRow {
   apply_url: string | null
   contact: string | null
   status: BenefitStatus
+  source: string
   source_updated_at: string | null
+  /** 손으로 채운 행의 근거 문서. 보조금24 행은 빈 배열이다. */
+  alt_sources: { label: string; url: string }[]
   benefit_conditions: ConditionJoin | null
   benefit_articles: ArticleJoin | null
 }
@@ -58,7 +61,7 @@ export interface BenefitDetail extends BenefitListRow {
 const ROWS_PER_PAGE = 1000 // Supabase 단일 응답 기본 최대 행 수
 
 const LIST_COLS = 'slug, title, summary, amount_text, deadline_type, apply_start, apply_end, region_code, segments, agency, synced_at'
-const DETAIL_COLS = `id, ${LIST_COLS}, target_text, criteria_text, apply_method, apply_url, contact, status, source_updated_at,
+const DETAIL_COLS = `id, ${LIST_COLS}, target_text, criteria_text, apply_method, apply_url, contact, status, source, source_updated_at, alt_sources,
   benefit_conditions(age_min, age_max, gender, income_bands, life_stages, household_types, occupations, region_codes),
   benefit_articles(explainer_md, steps_md, faq_json, checklist_json, related_ids, review_status, indexable, reviewed_at)`
 
