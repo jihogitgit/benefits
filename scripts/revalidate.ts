@@ -1,21 +1,23 @@
-import { CACHE_TAGS } from '../src/lib/cache-tags'
-import { PUBLIC_SEGMENTS } from '../data/segments'
+import { parseArgs, buildTargets } from '../src/lib/revalidate-targets'
 
 /**
- * 해설 발행 후 온디맨드 재검증.
+ * 발행 후 온디맨드 재검증.
  *
  * 발행만 하면 화면에 나오지 않는다. 조회 함수(unstable_cache)와 페이지(ISR)가 각각 캐시를
  * 갖고 있어 최악의 경우 12시간 동안 이전 응답이 나간다. 그 사이 크롤러가 새로 생긴 내부
  * 링크를 타고 들어오면 아직 noindex인 상세 페이지를 받는데, 이는 링크가 없는 것보다 나쁘다 —
  * 검색엔진에 "이 페이지는 색인하지 말라"고 명시적으로 알려주는 꼴이 된다.
  *
- * 경로는 반드시 퍼센트 인코딩해서 넘긴다. 프로덕션에서 두 형태를 교차 측정한 결과
- * 인코딩된 경로만 무효화되고(4/4) 한글 원형은 캐시가 그대로 HIT였다. Next가 들어온 URL의
- * pathname과 그대로 맞추기 때문이다. 이 값을 틀리면 API는 ok를 주지만 아무 일도 일어나지 않는다.
+ * 태그·경로 계산은 src/lib/revalidate-targets.ts에 있다(테스트가 붙어 있다).
  *
  * 사용:
  *   npm run revalidate -- --url=https://naemok.com
  *   npm run revalidate -- --url=https://naemok.com 청년월세-지원 두루누리-사회보험료-지원
+ *   npm run revalidate -- --url=https://naemok.com --guide=출산지원금-첫만남이용권-부모급여-아동수당
+ *
+ * 슬러그를 여러 개 넘길 때는 npm run 대신 npx tsx를 직접 쓴다. npm이 -- 뒤 인자를 한 덩어리로
+ * 넘겨 슬러그들이 argv 한 칸에 뭉친다.
+ *   npx tsx --env-file=.env.local scripts/revalidate.ts --url=https://naemok.com a b c
  *
  * 대상은 --url 또는 REVALIDATE_TARGET으로 명시한다. NEXT_PUBLIC_SITE_URL은 기본값으로 쓰지
  * 않는다 — 로컬 개발용(localhost)일 때는 무의미하고, 프로덕션을 가리키게 바꿔 둔 사람이
@@ -24,27 +26,6 @@ import { PUBLIC_SEGMENTS } from '../data/segments'
 
 /** CRON_SECRET을 보낼 수 있는 호스트. 오타 하나로 프로덕션 비밀키가 임의 호스트로 나가지 않도록 한다. */
 const ALLOWED_HOSTS = new Set(['naemok.com', 'www.naemok.com'])
-
-function parseArgs(argv: string[]): { url?: string; slugs: string[] } {
-  const slugs: string[] = []
-  let url: string | undefined
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    if (a === '--url') {
-      // 공백 형태(--url X)를 받지 않으면 X가 슬러그로 흘러들어가 쓰레기 경로를 만든다
-      url = argv[++i]
-      if (!url) throw new Error('--url 뒤에 주소가 없다')
-    } else if (a.startsWith('--url=')) {
-      url = a.slice('--url='.length)
-    } else if (a.startsWith('-')) {
-      // 모르는 플래그를 조용히 무시하면 --ulr= 같은 오타가 기본값으로 흘러간다
-      throw new Error(`알 수 없는 옵션: ${a}`)
-    } else {
-      slugs.push(a)
-    }
-  }
-  return { url, slugs }
-}
 
 function resolveTarget(flag?: string): string {
   const raw = (flag ?? process.env.REVALIDATE_TARGET ?? '').trim()
@@ -62,30 +43,13 @@ function resolveTarget(flag?: string): string {
   return u.origin
 }
 
-/**
- * 슬러그는 slugify가 만든 값이라 문자·숫자·하이픈뿐이다(src/lib/benefits/slug.ts).
- * 주소를 통째로 붙여넣는 실수를 여기서 잡지 않으면 /benefit/https%3A%2F%2F... 같은 경로가
- * 만들어지고, revalidatePath는 그런 경로에도 조용히 성공한다.
- */
-function assertSlug(s: string): void {
-  if (/[/:\s?#%]/.test(s)) throw new Error(`슬러그가 아니다(주소를 붙여넣었는가?): ${s}`)
-}
-
 async function main() {
-  const { url, slugs } = parseArgs(process.argv.slice(2))
+  const { url, slugs, guides } = parseArgs(process.argv.slice(2))
   const base = resolveTarget(url)
   const secret = process.env.CRON_SECRET
   if (!secret) throw new Error('CRON_SECRET이 없다')
-  for (const s of slugs) assertSlug(s)
 
-  const paths = [
-    '/',
-    ...PUBLIC_SEGMENTS.map((s) => `/${s.path}`),
-    // absoluteUrl과 같은 방식(구간별 encodeURIComponent)으로 인코딩한다
-    ...slugs.map((s) => `/benefit/${encodeURIComponent(s)}`),
-  ]
-  // 상세·목록·집계는 benefits:all, 홈 전용 목록은 benefits:home을 달고 있다. 해설 발행은 둘 다 건드린다.
-  const tags = [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsHome]
+  const { tags, paths } = buildTargets({ slugs, guides })
 
   let res: Response
   try {
@@ -112,6 +76,7 @@ async function main() {
   await Promise.all(paths.map((p) => fetch(`${base}${p}`).catch(() => null)))
 
   console.log(`재검증 완료 — 태그 ${tags.length}개, 경로 ${paths.length}개 (재생성까지 확인)`)
+  for (const t of tags) console.log(`  #${t}`)
   for (const p of paths) console.log(`  ${p}`)
   console.log('\n사이트맵(/sitemap/*.xml)은 revalidate 1시간이라 따로 손대지 않아도 반영된다.')
 }
