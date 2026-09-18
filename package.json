@@ -14,6 +14,7 @@
     "seed:curated": "tsx --env-file=.env.local scripts/seed-curated.ts",
     "fixtures:capture": "tsx --env-file=.env.local scripts/capture-fixtures.ts",
     "verify:search": "tsx --env-file=.env.local scripts/verify-search-parity.ts",
+    "verify:figures": "tsx --env-file=.env.local scripts/verify-guide-figures.ts",
     "revalidate": "tsx --env-file=.env.local scripts/revalidate.ts",
     "gen:icons": "tsx scripts/gen-icons.tsx"
   },

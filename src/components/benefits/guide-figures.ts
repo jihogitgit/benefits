@@ -16,7 +16,7 @@
 export const GUIDE_FIGURES: Record<string, { width: number; height: number }> = {
   'birth-deadlines.svg': { width: 480, height: 272 },
   'birth-parental-leave-gap.svg': { width: 480, height: 216 },
-  'kosaf-grade-threshold.svg': { width: 480, height: 258 },
+  'kosaf-grade-threshold.svg': { width: 480, height: 276 },
   'kosaf-income-brackets.svg': { width: 480, height: 192 },
   'rent-income-bands.svg': { width: 480, height: 200 },
   'rent-income-deduction.svg': { width: 480, height: 205 },
