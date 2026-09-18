@@ -10,7 +10,11 @@
 
   <text x="20" y="120" font-size="14" font-weight="700" fill="#111827">2년 만기일시 (5년까지 연장됐을 때)</text>
   <text x="460" y="120" text-anchor="end" font-size="14" font-weight="700" fill="#111827">이자 825만원</text>
-  <rect x="20" y="128" width="376.0" height="30" fill="#b45309"/>
+  <!-- 두 행의 "내가 내는 몫"은 같은 색이다. 아래 행을 #b45309로 칠했다가 되돌렸다 —
+       범례에 없는 색이라 대조하는 독자가 설명 없는 제3의 범주로 읽고, 색이 범주(내 몫
+       vs 이차보전)와 행 정체(어느 선택지)를 동시에 나르게 된다. 행 구분은 왼쪽 라벨과
+       오른쪽 총액, 막대 길이가 이미 한다. -->
+  <rect x="20" y="128" width="376.0" height="30" fill="#0f766e"/>
   <rect x="396.0" y="128" width="64.0" height="30" fill="#fbbf24"/>
   <text x="208.0" y="148" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">705만원</text>
 
