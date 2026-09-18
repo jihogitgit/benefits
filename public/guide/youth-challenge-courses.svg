@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="270" fill="#ffffff"/>
+
+  <text x="20"  y="34" font-size="15" font-weight="700" fill="#111827">단기 · 5주 40시간</text>
+  <text x="460" y="34" text-anchor="end" font-size="15" font-weight="700" fill="#111827">50만원</text>
+  <rect x="20" y="42" width="62.9" height="28" fill="#0f766e"/>
+
+  <text x="20"  y="100" font-size="15" font-weight="700" fill="#111827">중기 · 15주 120시간</text>
+  <text x="460" y="100" text-anchor="end" font-size="15" font-weight="700" fill="#111827">220만원</text>
+  <rect x="20"    y="108" width="188.6" height="28" fill="#0f766e"/>
+  <rect x="208.6" y="108" width="25.1"  height="28" fill="#14b8a6"/>
+  <rect x="233.7" y="108" width="62.9"  height="28" fill="#b45309"/>
+
+  <text x="20"  y="166" font-size="15" font-weight="700" fill="#111827">장기 · 25주 200시간</text>
+  <text x="460" y="166" text-anchor="end" font-size="15" font-weight="700" fill="#111827">350만원</text>
+  <rect x="20"    y="174" width="314.3" height="28" fill="#0f766e"/>
+  <rect x="334.3" y="174" width="25.1"  height="28" fill="#14b8a6"/>
+  <rect x="359.4" y="174" width="37.7"  height="28" fill="#f59e0b"/>
+  <rect x="397.1" y="174" width="62.9"  height="28" fill="#b45309"/>
+
+  <rect x="20"  y="222" width="13" height="13" fill="#0f766e"/>
+  <text x="40"  y="233" font-size="14" fill="#374151">참여수당</text>
+  <rect x="250" y="222" width="13" height="13" fill="#14b8a6"/>
+  <text x="270" y="233" font-size="14" fill="#374151">이수 인센티브</text>
+  <rect x="20"  y="248" width="13" height="13" fill="#f59e0b"/>
+  <text x="40"  y="259" font-size="14" fill="#374151">구직활동 인센티브</text>
+  <rect x="250" y="248" width="13" height="13" fill="#b45309"/>
+  <text x="270" y="259" font-size="14" fill="#374151">취(창)업 인센티브</text>
+</svg>

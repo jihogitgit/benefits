@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="200" fill="#ffffff"/>
+
+  <line x1="202" y1="34" x2="202" y2="150" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <text x="20"  y="44" font-size="15" font-weight="700" fill="#111827">국토부 청년월세 지원</text>
+  <text x="460" y="44" text-anchor="end" font-size="12.5" fill="#6b7280">소득평가액 기준</text>
+  <rect x="30" y="52" width="172" height="28" fill="#0f766e"/>
+  <text x="40" y="72" font-size="14" font-weight="700" fill="#ffffff">청년가구 중위 60% 이하</text>
+
+  <text x="20"  y="108" font-size="15" font-weight="700" fill="#111827">경상남도 청년 월세 지원</text>
+  <text x="460" y="108" text-anchor="end" font-size="12.5" fill="#6b7280">건강보험료 기준</text>
+  <rect x="202" y="116" width="258" height="28" fill="#b45309"/>
+  <text x="212" y="136" font-size="14" font-weight="700" fill="#ffffff">60% 초과 150% 이하</text>
+
+  <line x1="30" y1="150" x2="460" y2="150" stroke="#9ca3af" stroke-width="1"/>
+  <g stroke="#9ca3af" stroke-width="1">
+    <line x1="30" y1="150" x2="30" y2="155"/>
+    <line x1="202" y1="150" x2="202" y2="155"/>
+    <line x1="316.7" y1="150" x2="316.7" y2="155"/>
+    <line x1="460" y1="150" x2="460" y2="155"/>
+  </g>
+  <text x="30"  y="170" text-anchor="middle" font-size="12.5" fill="#6b7280">0</text>
+  <text x="202" y="170" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">60%</text>
+  <text x="316.7" y="170" text-anchor="middle" font-size="12.5" fill="#6b7280">100%</text>
+  <text x="460" y="170" text-anchor="end" font-size="12.5" fill="#6b7280">150%</text>
+
+  <text x="240" y="192" text-anchor="middle" font-size="13.5" fill="#6b7280">두 공고는 같은 60%를 서로 다른 방식으로 잽니다.</text>
+</svg>

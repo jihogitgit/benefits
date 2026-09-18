@@ -141,4 +141,107 @@ describe('Markdown — 인용', () => {
     expect(container.querySelector('blockquote')).toBeNull()
     expect(container.querySelectorAll('li')).toHaveLength(2)
   })
+
+  describe('그림', () => {
+    const SVG = '/guide/youth-challenge-350.svg'
+
+    it('한 줄 그림 문법을 figure/img로 만든다', () => {
+      const { container } = render(<Markdown text={`![350만원의 구성](${SVG})`} />)
+      const img = container.querySelector('figure img')
+      expect(img).not.toBeNull()
+      expect(img!.getAttribute('src')).toBe(SVG)
+      expect(img!.getAttribute('alt')).toBe('350만원의 구성')
+      expect(container.querySelector('figcaption')).toBeNull()
+    })
+
+    it('따옴표 캡션은 figcaption이 되고 alt와 따로 남는다', () => {
+      const { container } = render(
+        <Markdown text={`![막대 넷으로 나눈 350만원](${SVG} "참여수당과 인센티브의 구성")`} />,
+      )
+      expect(container.querySelector('img')!.getAttribute('alt')).toBe('막대 넷으로 나눈 350만원')
+      expect(container.querySelector('figcaption')!.textContent).toBe('참여수당과 인센티브의 구성')
+    })
+
+    it('캡션 안에서도 링크가 동작한다', () => {
+      render(<Markdown text={`![그림](${SVG} "출처 [보조금24](https://www.gov.kr)")`} />)
+      expect(screen.getByRole('link', { name: '보조금24' })).toBeInTheDocument()
+    })
+
+    // 파일이 도착하기 전에도 자리를 잡아야 본문이 밀리지 않는다. 브라우저는 내려받기 전에는
+    // viewBox를 볼 수 없으므로 비율을 우리가 먼저 알려 준다.
+    it('내려받기 전에도 자리를 잡도록 비율을 붙인다', () => {
+      const { container } = render(<Markdown text={`![그림](${SVG})`} />)
+      expect(container.querySelector('img')!.getAttribute('style')).toContain('aspect-ratio: 480 / 180')
+    })
+
+    // 실린 그림 목록에 없는 주소는 전부 막는다. 오타 난 파일명이 통과하면 화면에는
+    // 깨진 이미지만 남는데, 검수자는 렌더된 화면이 아니라 마크다운을 본다.
+    it.each([
+      ['/guide/youth-challenge-35.svg', '오타 난 파일명'],
+      ['https://example.com/a.svg', '외부 주소'],
+      ['/guide/../secret.svg', '상위 경로'],
+      ['/uploads/a.svg', '허용 밖 폴더'],
+      ['javascript:alert(1)', '스킴'],
+    ])('%s는 그림으로 만들지 않는다 (%s)', (src) => {
+      const { container } = render(<Markdown text={`![그림](${src})`} />)
+      expect(container.querySelector('img')).toBeNull()
+    })
+
+    // 막힌 그림은 지우지 않고 문법 그대로 보여야 글쓴이가 오타를 알아본다.
+    it('막힌 그림은 링크로 둔갑하지 않고 원문이 남는다', () => {
+      const { container } = render(<Markdown text={'![그림](https://example.com/a.svg)'} />)
+      expect(container.querySelector('a')).toBeNull()
+      expect(container.textContent).toContain('![그림](https://example.com/a.svg)')
+    })
+
+    // 빈 alt는 문법에서 이미 걸리지만, 공백만 든 alt는 문법을 통과해 렌더 쪽 확인까지 온다.
+    it.each([
+      ['', '빈 alt'],
+      [' ', '공백만 든 alt'],
+    ])('alt가 %s이면 그림으로 만들지 않는다 (%s)', (alt) => {
+      const { container } = render(<Markdown text={`![${alt}](${SVG})`} />)
+      expect(container.querySelector('img')).toBeNull()
+    })
+
+    // 그림 앞뒤 문장이 같은 덩어리에 딸려 오면 문단이 통째로 사라진다.
+    it('문단 안에 섞인 그림 문법은 그림이 아니라 글자로 남는다', () => {
+      const { container } = render(<Markdown text={`앞 문장\n![그림](${SVG})`} />)
+      expect(container.querySelector('img')).toBeNull()
+      expect(container.textContent).toContain('앞 문장')
+      expect(container.textContent).toContain(`![그림](${SVG})`)
+    })
+
+    it('그림은 앞뒤 빈 줄로 떼어 놓으면 본문과 함께 살아 있다', () => {
+      const { container } = render(<Markdown text={`앞 문장\n\n![그림](${SVG})\n\n뒤 문장`} />)
+      expect(container.querySelectorAll('figure')).toHaveLength(1)
+      expect(container.querySelectorAll('p')).toHaveLength(2)
+    })
+
+    // 제목 바로 아래에 빈 줄 없이 붙여 쓰는 것은 흔한 작성 방식이다. 제목 정규화가
+    // 이것도 떼어 주는지 고정해 둔다.
+    it('제목 바로 아래에 붙여 써도 그림이 된다', () => {
+      const { container } = render(<Markdown text={`## 소제목\n![그림](${SVG})`} />)
+      expect(container.querySelector('h3')!.textContent).toBe('소제목')
+      expect(container.querySelectorAll('figure')).toHaveLength(1)
+    })
+
+    // 인용·목록이 그림 분기에 먼저 걸려 사라지면 안 된다.
+    it('인용 안의 그림 문법은 인용으로 남는다', () => {
+      const { container } = render(<Markdown text={`> ![그림](${SVG})`} />)
+      expect(container.querySelector('blockquote')).not.toBeNull()
+      expect(container.querySelector('figure')).toBeNull()
+    })
+
+    // ! 뒤의 대괄호를 링크로 보지 않기로 한 대가. 의도된 동작이라 여기 고정해 둔다.
+    it('느낌표 바로 뒤의 링크 문법은 링크가 되지 않는다', () => {
+      const { container } = render(<Markdown text={'지금 확인하세요![내 지원금](/my)'} />)
+      expect(container.querySelector('a')).toBeNull()
+      expect(container.textContent).toContain('![내 지원금](/my)')
+    })
+
+    it('느낌표와 링크 사이에 공백이 있으면 링크가 된다', () => {
+      render(<Markdown text={'지금 확인하세요! [내 지원금](/my)'} />)
+      expect(screen.getByRole('link', { name: '내 지원금' })).toBeInTheDocument()
+    })
+  })
 })

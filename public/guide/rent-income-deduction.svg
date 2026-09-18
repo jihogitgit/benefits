@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 205" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="205" fill="#ffffff"/>
+
+  <text x="348" y="30" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">세전 220만원</text>
+  <line x1="348" y1="38" x2="348" y2="104" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <rect x="40"  y="60" width="308" height="32" fill="#0f766e"/>
+  <rect x="348" y="60" width="112" height="32" fill="#e5e7eb"/>
+  <text x="194" y="82" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">소득평가액 154만원 이하</text>
+  <text x="404" y="82" text-anchor="middle" font-size="14" fill="#6b7280">초과</text>
+
+  <line x1="40" y1="98" x2="460" y2="98" stroke="#9ca3af" stroke-width="1"/>
+  <g stroke="#9ca3af" stroke-width="1">
+    <line x1="40" y1="98" x2="40" y2="103"/>
+    <line x1="180" y1="98" x2="180" y2="103"/>
+    <line x1="320" y1="98" x2="320" y2="103"/>
+    <line x1="460" y1="98" x2="460" y2="103"/>
+  </g>
+  <text x="40"  y="118" text-anchor="middle" font-size="12.5" fill="#6b7280">0</text>
+  <text x="180" y="118" text-anchor="middle" font-size="12.5" fill="#6b7280">100만원</text>
+  <text x="320" y="118" text-anchor="middle" font-size="12.5" fill="#6b7280">200만원</text>
+  <text x="460" y="118" text-anchor="end" font-size="12.5" fill="#6b7280">300만원</text>
+  <text x="240" y="136" text-anchor="middle" font-size="12.5" fill="#9ca3af">세전 월 근로소득</text>
+
+  <line x1="20" y1="150" x2="460" y2="150" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="240" y="170" text-anchor="middle" font-size="14" fill="#374151">근로·사업소득 30% 공제 → 220만원 × 0.7 = 154만원</text>
+  <!-- 이 그림은 공개 주소라 본문 밖에서 단독으로 열릴 수 있다. 캡션에만 두면 한정이 사라진다 -->
+  <text x="240" y="191" text-anchor="middle" font-size="12.5" fill="#9ca3af">1인가구·근로소득만 있는 경우. 재산과 원가구 기준이 따로 걸립니다.</text>
+</svg>
