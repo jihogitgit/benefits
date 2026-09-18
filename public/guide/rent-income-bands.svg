@@ -1,7 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
   <rect width="480" height="200" fill="#ffffff"/>
 
-  <line x1="202" y1="34" x2="202" y2="150" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <!-- 60%에 세로선을 두지 않는다. 두 막대를 관통하면 하나의 경계를 공유한다는 주장이 되는데,
+       둘은 서로 다른 자로 잰 60%라 그 주장이 성립하지 않는다. 선은 글자보다 먼저 읽히므로
+       아래 각주의 경고보다 세다. 짧게 줄이는 안도 써 봤지만 두 막대 사이 빈 자리를 경남
+       제목이 차지하고 있어 제목에 딸린 구분선처럼 읽혔다. 60%가 특별한 값이라는 표시는
+       축 눈금 라벨이 혼자 굵고 진한 것으로 이미 하고 있고, 두 막대가 같은 x에서 만나는
+       것은 막대 자체가 보여준다. -->
 
   <text x="20"  y="44" font-size="15" font-weight="700" fill="#111827">국토부 청년월세 지원</text>
   <text x="460" y="44" text-anchor="end" font-size="12.5" fill="#6b7280">소득평가액 기준</text>
