@@ -5,7 +5,7 @@ import { conditionFilters } from './condition-filter'
 import { REGIONS } from '../../../data/regions'
 import { daysUntil } from './status'
 
-import { AGE_BANDS, type AgeBand } from './age-bands'
+import { AGE_BANDS, YOUNGEST_BAND_FLOOR, type AgeBand } from './age-bands'
 
 export { AGE_BANDS }
 export type { AgeBand }
@@ -72,11 +72,32 @@ export interface Criteria {
 }
 
 /**
+ * 이 나이 구간이 '신청자 나이'로 읽힐 수 있는지.
+ *
+ * 원천(보조금24 supportConditions)은 JA0110/JA0111에 '대상자' 나이를 담는다. 대부분은
+ * 대상자가 곧 신청자라 그대로 쓰면 되는데, 영유아 사업은 대상자가 아이다. 아동수당은
+ * 0~7세, 부모급여는 0~2세로 들어온다. 진단이 묻는 것은 신청자 나이(10대~50대 이상)이므로
+ * 상한이 10 미만인 구간은 어떤 밴드와도 겹치지 않는다 — 거르는 게 아니라 레코드를
+ * 통째로 지운다.
+ *
+ * 실측(2026-09): 이런 행이 진행 중인 것만 198건이고 **전부 parenting 세그먼트**다.
+ * 아동수당·가정양육수당·영유아보육료·유아학비(누리과정)·저소득층 기저귀조제분유가 여기
+ * 들어 있었다. 나이를 하나라도 고른 사용자에게는 이 198건이 통째로 안 보였다.
+ *
+ * 원천 값을 고치지 않고 읽는 쪽에서 판단한다. JA0110/JA0111이 담은 아이 나이는 그 자체로
+ * 사실이고, 지우면 나중에 생애주기로 옮길 근거까지 사라진다.
+ */
+function isApplicantAge(c: CondLike): boolean {
+  return c.age_max === null || c.age_max >= YOUNGEST_BAND_FLOOR
+}
+
+/**
  * 나이 조건이 하나라도 등록돼 있는지. 없으면 '전 연령'이라 거르지도, 가점하지도 않는다.
  * age_min·age_max는 각각 독립적으로 null일 수 있다(실데이터에 한쪽만 있는 행이 존재한다).
+ * 신청자 나이로 읽을 수 없는 구간은 조건이 없는 것으로 본다.
  */
 function hasAgeCond(c: CondLike): boolean {
-  return c.age_min !== null || c.age_max !== null
+  return (c.age_min !== null || c.age_max !== null) && isApplicantAge(c)
 }
 
 /** 조건의 나이 구간이 사용자 나이대와 겹치는지. 열린 쪽은 경계 없음으로 본다. 겹침만 판단하며 조건 유무는 보지 않는다. */

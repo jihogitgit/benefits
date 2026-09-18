@@ -1,5 +1,6 @@
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import type { Criteria } from './search'
+import { YOUNGEST_BAND_FLOOR } from './age-bands'
 
 /**
  * 조건 판정을 DB로 내린다.
@@ -41,8 +42,11 @@ export function conditionFilters(q: Criteria): string[] {
     const [lo, hi] = q.ageRange
     // 나이 조건이 아예 없는 행은 거르지 않는다(전 연령). 한쪽만 있는 행은 열린 쪽을
     // 경계 없음으로 본다 — matchesConditions의 (age_max ?? 120) / (age_min ?? 0)과 같다.
+    // 상한이 가장 어린 밴드 밑인 행은 신청자 나이로 읽을 수 없어 조건이 없는 것으로 본다.
+    // matchesConditions의 isApplicantAge와 같은 판정이다 — 갈라지면 총건수와 목록이 어긋난다.
     out.push(
       `and(age_min.is.null,age_max.is.null),` +
+        `age_max.lt.${assertInt(YOUNGEST_BAND_FLOOR)},` +
         `and(or(age_max.is.null,age_max.gte.${assertInt(lo)}),or(age_min.is.null,age_min.lte.${assertInt(hi)}))`,
     )
   }

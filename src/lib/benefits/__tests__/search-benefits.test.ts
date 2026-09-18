@@ -139,7 +139,7 @@ describe('searchBenefits — 검색어 필터', () => {
     await searchBenefits(client, input({ ageBand: '30s', situations: ['job_seeker'], countOnly: true }))
     const uniq = [...new Set(calls.conditionOr)]
     expect(uniq).toContain(
-      'and(age_min.is.null,age_max.is.null),and(or(age_max.is.null,age_max.gte.30),or(age_min.is.null,age_min.lte.39))',
+      'and(age_min.is.null,age_max.is.null),age_max.lt.10,and(or(age_max.is.null,age_max.gte.30),or(age_min.is.null,age_min.lte.39))',
     )
     expect(uniq).toContain('and(life_stages.eq.{},household_types.eq.{},occupations.eq.{}),occupations.ov.{job_seeker}')
   })

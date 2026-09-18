@@ -42,6 +42,33 @@ describe('matchesConditions', () => {
   it('나이 조건이 없는 항목은 나이로 거르지 않는다', () => {
     expect(matchesConditions({ ...cond, age_min: null, age_max: null }, { ageRange: [40, 49], situations: [], region: null })).toBe(true)
   })
+
+  /*
+    원천은 JA0110/JA0111에 '대상자' 나이를 담는데 영유아 사업은 그 대상자가 아이다.
+    아동수당이 0~7세로 들어와 10대~50대 이상 다섯 밴드 전부에서 탈락했다 — 거르는 게
+    아니라 레코드를 지웠다. 이런 행이 진행 중인 것만 198건이고 전부 parenting이었다.
+  */
+  it('상한이 10대 밑이면 신청자 나이로 읽지 않는다 — 아동수당이 모든 밴드에서 사라졌었다', () => {
+    const childAge = { ...cond, age_min: 0, age_max: 7, life_stages: [] }
+    for (const band of [[10, 19], [20, 29], [30, 39], [40, 49], [50, 120]] as [number, number][])
+      expect(matchesConditions(childAge, { ageRange: band, situations: [], region: null })).toBe(true)
+    // 나이로 가점도 하지 않는다. 신청자 나이가 아니니 맞물렸다고 볼 수 없다.
+    expect(matchScore(childAge, { ageRange: [30, 39], situations: [], region: null })).toBe(0)
+  })
+
+  it('경계: 상한 9는 신청자 나이가 아니고, 10은 신청자 나이다', () => {
+    const nine = { ...cond, age_min: 0, age_max: 9 }
+    const ten = { ...cond, age_min: 0, age_max: 10 }
+    expect(matchesConditions(nine, { ageRange: [30, 39], situations: [], region: null })).toBe(true)
+    expect(matchesConditions(ten, { ageRange: [30, 39], situations: [], region: null })).toBe(false)
+    expect(matchesConditions(ten, { ageRange: [10, 19], situations: [], region: null })).toBe(true)
+  })
+
+  it('청소년 대상 사업은 그대로 걸러진다 — 상한 18은 10대와만 겹친다', () => {
+    const teen = { ...cond, age_min: 13, age_max: 18 }
+    expect(matchesConditions(teen, { ageRange: [10, 19], situations: [], region: null })).toBe(true)
+    expect(matchesConditions(teen, { ageRange: [30, 39], situations: [], region: null })).toBe(false)
+  })
   it('상황은 하나라도 일치하면 통과, 상황 조건이 없는 항목은 통과', () => {
     expect(matchesConditions(cond, { ageRange: null, situations: ['pregnancy'], region: null })).toBe(true)
     expect(matchesConditions(cond, { ageRange: null, situations: ['job_seeker'], region: null })).toBe(false)
