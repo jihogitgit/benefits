@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getGuide } from '@/lib/benefits/queries'
 import { absoluteUrl, siteName } from '@/lib/seo/site'
 import { article, breadcrumbs } from '@/lib/seo/jsonld'
+import { metaDescription } from '@/lib/seo/meta-description'
 import JsonLd from '@/components/JsonLd'
 import Markdown from '@/components/benefits/Markdown'
 import AdPlacement from '@/components/benefits/AdPlacement'
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   const g = await getGuide(decodeURIComponent(slug))
   if (!g || !g.published_at) return {}
-  return { title: g.title, description: g.body_md.slice(0, 120).replace(/\s+/g, ' '), alternates: { canonical: absoluteUrl(`/guide/${g.slug}`) } }
+  return { title: g.title, description: metaDescription(g.body_md), alternates: { canonical: absoluteUrl(`/guide/${g.slug}`) } }
 }
 
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
