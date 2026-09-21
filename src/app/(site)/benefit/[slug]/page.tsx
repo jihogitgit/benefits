@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getBenefitBySlug, listRelated } from '@/lib/benefits/queries'
+import { getBenefitBySlug, getGuidesForBenefit, listRelated } from '@/lib/benefits/queries'
 import { buildChecklist } from '@/lib/benefits/checklist'
 import { firstLine, deadlineLabel } from '@/lib/benefits/format'
 import { daysUntil } from '@/lib/benefits/status'
@@ -50,7 +50,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
   const now = new Date()
   const seg = SEGMENT_BY_SLUG[b.segments[0] ?? 'other'] ?? SEGMENT_OTHER
-  const related = await listRelated(seg.slug, b.region_code, b.slug, 6)
+  const [related, guides] = await Promise.all([listRelated(seg.slug, b.region_code, b.slug, 6), getGuidesForBenefit(b.slug)])
   const article = b.benefit_articles
   const published = benefitIndexable({ status: b.status, article })
   const checklist = buildChecklist(b.benefit_conditions, article?.checklist_json ?? null)
@@ -64,6 +64,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
     ...(article?.explainer_md ? [{ id: 'explainer', label: '해설' }] : [{ id: 'original', label: '원문 안내' }]),
     ...(article?.steps_md ? [{ id: 'steps', label: '신청 순서' }] : []),
     ...(faq.length ? [{ id: 'faq', label: '자주 묻는 질문' }] : []),
+    ...(guides.length ? [{ id: 'guides', label: '관련 가이드' }] : []),
     // related가 비면 섹션은 제목만 남는다. 목차 칩이 빈 자리를 가리키지 않게 같은 조건으로 건다.
     ...(related.length ? [{ id: 'related', label: '함께 받는 지원금' }] : []),
   ]
@@ -142,6 +143,24 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
                 ))}
               </dl>
             </section>
+          )}
+
+          {guides.length > 0 && (
+          <section id="guides" className="mt-8">
+            <h2 className="mb-3 text-lg font-bold">이 지원금을 다룬 가이드</h2>
+            <ul className="space-y-2">
+              {guides.map((g) => (
+                <li key={g.slug}>
+                  <Link
+                    href={`/guide/${g.slug}`}
+                    className="block rounded-xl border border-gray-200 px-4 py-3 text-[15px] font-semibold text-gray-900 hover:border-brand-300 hover:bg-brand-50/40"
+                  >
+                    {g.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
           )}
 
           <AdPlacement slot="detail-2" />

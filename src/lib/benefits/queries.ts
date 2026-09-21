@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache'
+import { buildGuideBacklinks, type GuideRef } from './guide-backlinks'
 import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
 import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
@@ -332,6 +333,33 @@ export const listGuides = unstable_cache(
   ['guides-list'],
   { tags: [CACHE_TAGS.guides], revalidate: 86400 },
 )
+
+/**
+ * 사업 슬러그 → 그 사업을 다룬 가이드.
+ *
+ * 사업별로 캐시하지 않고 색인을 통째로 한 번만 캐시한다. 사업마다 따로 캐시하면 항목이
+ * 1만 개가 되고, 그 하나하나가 가이드 본문을 전부 읽는다. 지금 발행 가이드는 여섯 편이라
+ * 한 번 읽는 값이 싸다.
+ */
+const guideBacklinks = unstable_cache(
+  async (): Promise<Record<string, GuideRef[]>> => {
+    const { data, error } = await createPublicClient()
+      .from('guides')
+      .select('slug, title, body_md')
+      .not('published_at', 'is', null)
+      .order('published_at', { ascending: false })
+      .order('slug', { ascending: true })
+    if (error) throw error
+    return buildGuideBacklinks(data ?? [])
+  },
+  ['guide-backlinks'],
+  { tags: [CACHE_TAGS.guides], revalidate: 86400 },
+)
+
+/** 이 사업을 다룬 발행 가이드. 없으면 빈 배열. */
+export async function getGuidesForBenefit(benefitSlug: string): Promise<GuideRef[]> {
+  return (await guideBacklinks())[benefitSlug] ?? []
+}
 
 export const getGuide = unstable_cache(
   async (slug: string): Promise<GuideRow | null> => {
