@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="280" fill="#ffffff"/>
+  <text x="20" y="24" font-size="13" fill="#6b7280">점포철거비 지원금 · 평당 20만원 · 부가세 제외</text>
+
+  <!-- 축: 가로는 전용면적(평), 세로는 지원금(만원) 하나만 잰다.
+       0평 x=60, 40평 x=450 → 9.75px/평. 0원 y=230, 700만원 y=40 → 0.2714286px/만원.
+       꺾이는 자리는 600만원 ÷ 20만원 = 30평이고, 그 좌표가 (352.5, 67.1)이다. -->
+  <line x1="60" y1="40" x2="60" y2="230" stroke="#d1d5db" stroke-width="1"/>
+  <line x1="60" y1="230" x2="460" y2="230" stroke="#d1d5db" stroke-width="1"/>
+
+  <text x="52" y="234" text-anchor="end" font-size="11.5" fill="#6b7280">0</text>
+  <text x="52" y="179.7" text-anchor="end" font-size="11.5" fill="#6b7280">200</text>
+  <text x="52" y="125.4" text-anchor="end" font-size="11.5" fill="#6b7280">400</text>
+  <text x="52" y="71.1" text-anchor="end" font-size="11.5" fill="#6b7280">600</text>
+  <text x="20" y="48" font-size="11.5" fill="#6b7280">(만원)</text>
+
+  <line x1="60" y1="175.7" x2="450" y2="175.7" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="60" y1="121.4" x2="450" y2="121.4" stroke="#f3f4f6" stroke-width="1"/>
+
+  <!-- 600만원 상한과 그 상한에 닿는 30평을 점선으로 표시한다 -->
+  <line x1="60" y1="67.1" x2="450" y2="67.1" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4 3"/>
+  <line x1="352.5" y1="67.1" x2="352.5" y2="230" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <polyline points="60,230 352.5,67.1 450,67.1" fill="none" stroke="#0f766e" stroke-width="2.5"/>
+  <circle cx="352.5" cy="67.1" r="4" fill="#0f766e"/>
+
+  <text x="364" y="60" font-size="13" font-weight="700" fill="#0f766e">30평부터 600만원</text>
+
+  <text x="60" y="248" text-anchor="middle" font-size="11.5" fill="#6b7280">0</text>
+  <text x="157.5" y="248" text-anchor="middle" font-size="11.5" fill="#6b7280">10</text>
+  <text x="255" y="248" text-anchor="middle" font-size="11.5" fill="#6b7280">20</text>
+  <text x="352.5" y="248" text-anchor="middle" font-size="11.5" fill="#6b7280">30</text>
+  <text x="450" y="248" text-anchor="middle" font-size="11.5" fill="#6b7280">40</text>
+  <text x="460" y="266" text-anchor="end" font-size="11.5" fill="#6b7280">전용면적 (평)</text>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 260" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="260" fill="#ffffff"/>
+  <text x="20" y="24" font-size="13" fill="#6b7280">보령시 전입학생 생활지원금 · 누적 지급액</text>
+
+  <!-- 가로는 전입 후 개월(0~18), 세로는 그때까지 받은 누적 금액(만원) 하나만 잰다.
+       0개월 x=60, 18개월 x=450 → 21.6666667px/개월.
+       0원 y=210, 70만원 y=50 → 2.2857143px/만원.
+       5 → 198.6 · 25 → 152.9 · 40 → 118.6 · 60 → 72.9
+       색은 짝 그림과 같다 — 진한 #0f766e가 '내게 들어온 것'이다. -->
+  <line x1="60" y1="50" x2="60" y2="210" stroke="#d1d5db" stroke-width="1"/>
+  <line x1="60" y1="210" x2="460" y2="210" stroke="#d1d5db" stroke-width="1"/>
+
+  <text x="52" y="214" text-anchor="end" font-size="11.5" fill="#6b7280">0</text>
+  <text x="52" y="168.3" text-anchor="end" font-size="11.5" fill="#6b7280">20</text>
+  <text x="52" y="122.6" text-anchor="end" font-size="11.5" fill="#6b7280">40</text>
+  <text x="52" y="76.9" text-anchor="end" font-size="11.5" fill="#6b7280">60</text>
+  <text x="20" y="42" font-size="11.5" fill="#6b7280">(만원)</text>
+
+  <line x1="60" y1="164.3" x2="450" y2="164.3" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="60" y1="118.6" x2="450" y2="118.6" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="60" y1="72.9" x2="450" y2="72.9" stroke="#f3f4f6" stroke-width="1"/>
+
+  <polyline points="60,210 60,198.6 190,198.6 190,152.9 320,152.9 320,118.6 450,118.6 450,72.9"
+            fill="none" stroke="#0f766e" stroke-width="2.5"/>
+
+  <circle cx="60" cy="198.6" r="3.5" fill="#0f766e"/>
+  <circle cx="190" cy="152.9" r="3.5" fill="#0f766e"/>
+  <circle cx="320" cy="118.6" r="3.5" fill="#0f766e"/>
+  <circle cx="450" cy="72.9" r="3.5" fill="#0f766e"/>
+
+  <text x="68" y="194" font-size="11.5" font-weight="700" fill="#0f766e">5</text>
+  <text x="198" y="148" font-size="11.5" font-weight="700" fill="#0f766e">25</text>
+  <text x="328" y="114" font-size="11.5" font-weight="700" fill="#0f766e">40</text>
+  <text x="450" y="66" text-anchor="end" font-size="12.5" font-weight="700" fill="#0f766e">60만원</text>
+
+  <text x="60" y="228" text-anchor="middle" font-size="11.5" fill="#6b7280">전입</text>
+  <text x="190" y="228" text-anchor="middle" font-size="11.5" fill="#6b7280">6개월</text>
+  <text x="320" y="228" text-anchor="middle" font-size="11.5" fill="#6b7280">1년</text>
+  <text x="450" y="228" text-anchor="middle" font-size="11.5" fill="#6b7280">1년 6개월</text>
+</svg>

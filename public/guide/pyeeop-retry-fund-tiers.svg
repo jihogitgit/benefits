@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <defs>
+    <!-- 조건을 채워야 열리는 유형은 사선으로 둔다. 진하게 칠하면 누구나 그 한도를
+         쓸 수 있는 것으로 읽히는데, 희망형과 도약형은 앞 단계를 마쳐야 한다.
+         규약대로 조건부는 밀도로, 크기는 축 길이로 나눈다.
+         선은 타일 가운데에 둔다 — x=0이면 선 굵기의 절반이 타일 밖으로 나가 잘린다. -->
+    <pattern id="cond" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill="#ffffff"/>
+      <line x1="3" y1="0" x2="3" y2="6" stroke="#0f766e" stroke-width="2.2"/>
+    </pattern>
+  </defs>
+  <rect width="480" height="200" fill="#ffffff"/>
+  <text x="20" y="24" font-size="13" fill="#6b7280">재도전특별자금 대출한도 · 소상공인시장진흥공단</text>
+
+  <!-- 축은 대출한도 하나만 잰다. 0원 x=110, 2.2억 x=455 → 0.0156818px/만원.
+       7천만원 109.8 · 1억 156.8 · 2억 313.6. 희망형 막대 끝이 1억 눈금과 정확히 겹친다. -->
+  <text x="20" y="62" font-size="12.5" fill="#111827">일반형</text>
+  <rect x="110" y="50" width="109.8" height="20" fill="#0f766e"/>
+  <text x="226" y="65" font-size="12.5" font-weight="700" fill="#111827">7천만원</text>
+
+  <text x="20" y="98" font-size="12.5" fill="#111827">희망형</text>
+  <rect x="110" y="86" width="156.8" height="20" fill="url(#cond)" stroke="#0f766e" stroke-width="1"/>
+  <text x="273" y="101" font-size="12.5" font-weight="700" fill="#111827">1억원</text>
+
+  <text x="20" y="134" font-size="12.5" fill="#111827">도약형</text>
+  <rect x="110" y="122" width="313.6" height="20" fill="url(#cond)" stroke="#0f766e" stroke-width="1"/>
+  <text x="430" y="137" font-size="12.5" font-weight="700" fill="#111827">2억원</text>
+
+  <line x1="110" y1="150" x2="455" y2="150" stroke="#d1d5db" stroke-width="1"/>
+  <text x="110" y="164" text-anchor="middle" font-size="11.5" fill="#6b7280">0</text>
+  <text x="266.8" y="164" text-anchor="middle" font-size="11.5" fill="#6b7280">1억</text>
+  <text x="423.6" y="164" text-anchor="middle" font-size="11.5" fill="#6b7280">2억</text>
+
+  <rect x="20" y="180" width="13" height="13" fill="#0f766e"/>
+  <text x="40" y="191" font-size="12" fill="#374151">기본 대상</text>
+  <rect x="130" y="180" width="13" height="13" fill="url(#cond)" stroke="#0f766e" stroke-width="1"/>
+  <text x="150" y="191" font-size="12" fill="#374151">앞 단계를 마쳐야 열림</text>
+</svg>
