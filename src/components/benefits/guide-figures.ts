@@ -33,6 +33,8 @@ export const GUIDE_FIGURES: Record<string, { width: number; height: number }> = 
   'birth-parental-leave-gap.svg': { width: 480, height: 216 },
   'freelance-maternity-amounts.svg': { width: 480, height: 276 },
   'freelance-maternity-split.svg': { width: 480, height: 250 },
+  'idolbom-copay-by-type.svg': { width: 480, height: 330 },
+  'idolbom-local-topup.svg': { width: 480, height: 344 },
   'kosaf-grade-threshold.svg': { width: 480, height: 276 },
   'kosaf-income-brackets.svg': { width: 480, height: 192 },
   'rent-income-bands.svg': { width: 480, height: 200 },

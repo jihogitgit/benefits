@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 330" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="330" fill="#ffffff"/>
+  <text x="20" y="24" font-size="13" fill="#6b7280">시간당 이용요금 12,790원 · 취학 전(2019.1.1. 이후 출생) · 시간제 기본형</text>
+
+  <!-- 다섯 줄이 모두 같은 것을 잰다 — 시간 하나에 드는 12,790원이다. 그래서 막대 길이가
+       전부 같고, 갈라지는 것은 그 안의 비율뿐이다. 취학 후는 지원율이 달라 같은 축에
+       올리지 않고 본문 표로 뺐다.
+       색은 짝 그림(idolbom-local-topup.svg)과 같은 뜻으로 쓴다 — 진한 #0f766e는
+       '남이 내는 몫', 옅은 #ccfbf1은 '내가 내는 몫'이다. -->
+
+  <text x="20" y="50" font-size="13" font-weight="700" fill="#111827">가형 · 중위 75% 이하</text>
+  <text x="460" y="50" text-anchor="end" font-size="13" font-weight="700" fill="#111827">내 몫 1,918원</text>
+  <rect x="20" y="58" width="374.0" height="26" fill="#0f766e"/>
+  <rect x="394.0" y="58" width="66.0" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+
+  <text x="20" y="102" font-size="13" font-weight="700" fill="#111827">나형 · 중위 120% 이하</text>
+  <text x="460" y="102" text-anchor="end" font-size="13" font-weight="700" fill="#111827">내 몫 5,116원</text>
+  <rect x="20" y="110" width="264.0" height="26" fill="#0f766e"/>
+  <rect x="284.0" y="110" width="176.0" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+
+  <text x="20" y="154" font-size="13" font-weight="700" fill="#111827">다형 · 중위 150% 이하</text>
+  <text x="460" y="154" text-anchor="end" font-size="13" font-weight="700" fill="#111827">내 몫 8,952원</text>
+  <rect x="20" y="162" width="132.0" height="26" fill="#0f766e"/>
+  <rect x="152.0" y="162" width="308.0" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+
+  <text x="20" y="206" font-size="13" font-weight="700" fill="#111827">라형 · 중위 250% 이하</text>
+  <text x="460" y="206" text-anchor="end" font-size="13" font-weight="700" fill="#111827">내 몫 10,870원</text>
+  <rect x="20" y="214" width="66.1" height="26" fill="#0f766e"/>
+  <rect x="86.1" y="214" width="373.9" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+
+  <text x="20" y="258" font-size="13" font-weight="700" fill="#111827">마형 · 중위 250% 초과</text>
+  <text x="460" y="258" text-anchor="end" font-size="13" font-weight="700" fill="#111827">내 몫 12,790원</text>
+  <rect x="20" y="266" width="440.0" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+
+  <rect x="20" y="306" width="13" height="13" fill="#0f766e"/>
+  <text x="40" y="317" font-size="12.5" fill="#374151">정부지원금</text>
+  <rect x="130" y="306" width="13" height="13" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+  <text x="150" y="317" font-size="12.5" fill="#374151">본인부담금</text>
+</svg>
