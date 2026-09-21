@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 250" role="img" font-family="system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <rect width="480" height="250" fill="#ffffff"/>
+  <text x="20" y="24" font-size="13.5" fill="#6b7280">가입 여부와 기간 요건이 함께 갈라놓습니다</text>
+
+  <!-- 정액 150만원으로 가는 길이 셋이라는 것이 이 그림의 요점이라 그 셋을 위에 모았다.
+       칸 색은 짝 그림(freelance-maternity-amounts.svg)과 같은 뜻으로 쓴다 —
+       옅은 칸 #ccfbf1은 '정액', 진한 칸 #0f766e는 '보수에 비례'다. 조건부가 아니라
+       금액의 성격 차이이므로 사선이 아니라 명도로 가른다. -->
+
+  <text x="20" y="66" font-size="12.5" fill="#111827">고용보험에 안 들어 있다</text>
+  <line x1="226" y1="61" x2="248" y2="61" stroke="#cbd5e1" stroke-width="2"/>
+  <polygon points="248,56 258,61 248,66" fill="#cbd5e1"/>
+  <rect x="262" y="48" width="8" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+  <text x="278" y="66" font-size="12" fill="#111827">미적용자 출산급여 150만원</text>
+
+  <text x="20" y="102" font-size="12.5" fill="#111827">근로자 · 180일 미달</text>
+  <line x1="226" y1="97" x2="248" y2="97" stroke="#cbd5e1" stroke-width="2"/>
+  <polygon points="248,92 258,97 248,102" fill="#cbd5e1"/>
+  <rect x="262" y="84" width="8" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+  <text x="278" y="102" font-size="12" fill="#111827">미적용자 출산급여 150만원</text>
+
+  <text x="20" y="138" font-size="12.5" fill="#111827">예술인·노무제공자 3개월 미달</text>
+  <line x1="226" y1="133" x2="248" y2="133" stroke="#cbd5e1" stroke-width="2"/>
+  <polygon points="248,128 258,133 248,138" fill="#cbd5e1"/>
+  <rect x="262" y="120" width="8" height="26" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+  <text x="278" y="138" font-size="12" fill="#111827">미적용자 출산급여 150만원</text>
+
+  <line x1="20" y1="152" x2="460" y2="152" stroke="#e5e7eb" stroke-width="1"/>
+
+  <text x="20" y="180" font-size="12.5" fill="#111827">근로자 · 180일 이상</text>
+  <line x1="226" y1="175" x2="248" y2="175" stroke="#cbd5e1" stroke-width="2"/>
+  <polygon points="248,170 258,175 248,180" fill="#cbd5e1"/>
+  <rect x="262" y="162" width="8" height="26" fill="#0f766e"/>
+  <text x="278" y="180" font-size="12" fill="#111827">출산전후휴가 급여 (통상임금)</text>
+
+  <text x="20" y="216" font-size="12.5" fill="#111827">예술인·노무제공자 3개월 이상</text>
+  <line x1="226" y1="211" x2="248" y2="211" stroke="#cbd5e1" stroke-width="2"/>
+  <polygon points="248,206 258,211 248,216" fill="#cbd5e1"/>
+  <rect x="262" y="198" width="8" height="26" fill="#0f766e"/>
+  <text x="278" y="216" font-size="12" fill="#111827">출산전후급여등 (월평균보수)</text>
+
+  <text x="20" y="240" font-size="12" fill="#6b7280">옅은 칸은 정액 150만원, 진한 칸은 보수에 비례하는 급여입니다.</text>
+</svg>
