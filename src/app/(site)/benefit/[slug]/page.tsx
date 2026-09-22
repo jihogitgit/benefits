@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getBenefitBySlug, getGuidesForBenefit, listRelated } from '@/lib/benefits/queries'
+import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers } from '@/lib/benefits/queries'
 import { buildChecklist } from '@/lib/benefits/checklist'
 import { firstLine, deadlineLabel } from '@/lib/benefits/format'
 import { daysUntil } from '@/lib/benefits/status'
@@ -20,6 +20,7 @@ import SectionNav from '@/components/benefits/SectionNav'
 import SourceFooter from '@/components/benefits/SourceFooter'
 import AdPlacement from '@/components/benefits/AdPlacement'
 import BenefitCard from '@/components/benefits/BenefitCard'
+import PeerList from '@/components/benefits/PeerList'
 import JsonLd from '@/components/JsonLd'
 
 export const revalidate = 21600
@@ -50,7 +51,11 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
   const now = new Date()
   const seg = SEGMENT_BY_SLUG[b.segments[0] ?? 'other'] ?? SEGMENT_OTHER
-  const [related, guides] = await Promise.all([listRelated(seg.slug, b.region_code, b.slug, 6), getGuidesForBenefit(b.slug)])
+  const [related, guides, peers] = await Promise.all([
+    listRelated(seg.slug, b.region_code, b.slug, 6),
+    getGuidesForBenefit(b.slug),
+    listPeers(b.slug),
+  ])
   const article = b.benefit_articles
   const published = benefitIndexable({ status: b.status, article })
   const checklist = buildChecklist(b.benefit_conditions, article?.checklist_json ?? null)
@@ -64,6 +69,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
     ...(article?.explainer_md ? [{ id: 'explainer', label: '해설' }] : [{ id: 'original', label: '원문 안내' }]),
     ...(article?.steps_md ? [{ id: 'steps', label: '신청 순서' }] : []),
     ...(faq.length ? [{ id: 'faq', label: '자주 묻는 질문' }] : []),
+    ...(peers.length ? [{ id: 'peers', label: '다른 지역' }] : []),
     ...(guides.length ? [{ id: 'guides', label: '관련 가이드' }] : []),
     // related가 비면 섹션은 제목만 남는다. 목차 칩이 빈 자리를 가리키지 않게 같은 조건으로 건다.
     ...(related.length ? [{ id: 'related', label: '함께 받는 지원금' }] : []),
@@ -143,6 +149,21 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
                 ))}
               </dl>
             </section>
+          )}
+
+          {/*
+            같은 이름의 사업을 다른 지자체도 한다. 독자가 이 페이지에서 실제로 알고 싶은 것은
+            "우리 동네는 얼마인가"인데, 지금까지는 같은 사업 수십 건이 서로를 모른 채 흩어져
+            있었다. 묶는 규칙과 그 한계는 lib/benefits/peer-group.ts에 있다.
+          */}
+          {peers.length > 0 && (
+          <section id="peers" className="mt-8">
+            <h2 className="mb-1 text-lg font-bold">같은 사업을 하는 다른 지역</h2>
+            <p className="mb-3 text-sm text-gray-600">
+              이름은 같아도 지자체마다 금액과 조건이 다릅니다. 해당 지역 페이지에서 확인하세요.
+            </p>
+            <PeerList items={peers} />
+          </section>
           )}
 
           {guides.length > 0 && (

@@ -5,6 +5,7 @@ import { kstDateString } from './status'
 import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import { CACHE_TAGS } from '@/lib/cache-tags'
+import { groupPeers, type PeerItem } from './peer-group'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -241,6 +242,55 @@ export const listRelated = unstable_cache(
   ['related'],
   { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
 )
+
+/**
+ * 같은 사업을 여러 지자체가 각자 운영하는 묶음. 열쇠 규칙과 그 근거는 peer-group.ts에 있다.
+ *
+ * 한 번에 open 전체(10,483건)를 읽어 묶음을 통째로 만든다. 슬러그 하나로 좁혀 물을 수가
+ * 없기 때문이다 — 열쇠는 제목에서 계산되는 값이라 SQL에 열이 없고, 제목 앞뒤에 지역이
+ * 붙는 형태가 제각각이라 LIKE로도 못 잡는다. 대신 6시간에 한 번만 돈다.
+ *
+ * 묶음을 반환할 때 Map이 아니라 평범한 객체를 쓴다. unstable_cache는 값을 JSON으로 저장해
+ * Map이 `{}`로 납작해지는데, 오류는 안 나고 모든 페이지에서 동류가 0건으로 보일 뿐이다.
+ */
+export const peerIndex = unstable_cache(
+  async (): Promise<{ keyBySlug: Record<string, string>; groups: Record<string, PeerItem[]> }> => {
+    const rows: PeerItem[] = []
+    for (let offset = 0; ; offset += ROWS_PER_PAGE) {
+      const { data, error } = await createPublicClient()
+        .from('benefits')
+        .select('slug, title, region_code, agency')
+        .eq('status', 'open')
+        .order('slug')
+        .range(offset, offset + ROWS_PER_PAGE - 1)
+      if (error) throw error
+      const page = (data ?? []) as unknown as PeerItem[]
+      rows.push(...page)
+      if (page.length < ROWS_PER_PAGE) break
+    }
+    const groups: Record<string, PeerItem[]> = {}
+    const keyBySlug: Record<string, string> = {}
+    for (const [key, items] of groupPeers(rows)) {
+      groups[key] = items
+      for (const item of items) keyBySlug[item.slug] = key
+    }
+    return { keyBySlug, groups }
+  },
+  ['peer-index'],
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
+)
+
+/**
+ * 이 지원금과 같은 사업을 하는 다른 지역. 자기 자신은 뺀다.
+ *
+ * 금액은 담지도 정렬하지도 않는다. 이유는 PeerList와 PeerItem의 주석에 있다.
+ */
+export async function listPeers(slug: string): Promise<PeerItem[]> {
+  const { keyBySlug, groups } = await peerIndex()
+  const key = keyBySlug[slug]
+  if (!key) return []
+  return (groups[key] ?? []).filter((item) => item.slug !== slug)
+}
 
 export const getRegionMeta = unstable_cache(
   async (slug: string): Promise<{ code: string; slug: string; name: string; description_md: string | null } | null> => {
