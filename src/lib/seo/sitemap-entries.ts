@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { absoluteUrl } from './site'
-import { benefitIndexable, guideIndexable, regionHubIndexable } from './index-policy'
+import { benefitIndexable, compareIndexable, guideIndexable, regionHubIndexable } from './index-policy'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 
 type Entry = MetadataRoute.Sitemap[number]
@@ -58,6 +58,19 @@ export function guideEntries(rows: GuideSitemapRow[]): Entry[] {
     changeFrequency: 'monthly',
     priority: 0.6,
   }))
+}
+
+/**
+ * 비교 페이지. 열쇠를 여기서 인코딩하지 않는다 — absoluteUrl이 경로 조각마다 이미 한다.
+ * 한 번 더 걸면 '%'가 다시 '%25'로 인코딩되어 사이트맵 전체가 없는 주소를 가리킨다
+ * (한글 슬러그를 그대로 넘기는 guideEntries와 같은 규칙이다).
+ *
+ * lastmod는 싣지 않는다. 묶음은 제목에서 계산된 값이라 "언제 바뀌었나"에 해당하는 시각이 없다.
+ */
+export function compareEntries(groups: { key: string; regionCount: number }[]): Entry[] {
+  return groups
+    .filter(compareIndexable)
+    .map((g) => ({ url: absoluteUrl(`/compare/${g.key}`), changeFrequency: 'weekly' as const, priority: 0.6 }))
 }
 
 export function staticEntries(): Entry[] {

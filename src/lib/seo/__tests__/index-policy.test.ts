@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { benefitIndexable, hubIndexable, regionHubIndexable } from '../index-policy'
+import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, COMPARE_MIN_REGIONS } from '../index-policy'
 
 describe('index policy', () => {
   it('상세: 게재된 해설이 있고 open일 때만 색인', () => {
@@ -24,5 +24,18 @@ describe('index policy', () => {
     // 지역명만 갈아끼운 사실상 같은 페이지 51개를 색인시키는 doorway page 패턴이다.
     expect(regionHubIndexable({ localCount: 1, description_md: '광주 안내' })).toBe(false)
     expect(regionHubIndexable({ localCount: 0, description_md: '광주 안내' })).toBe(false)
+  })
+})
+
+describe('compareIndexable', () => {
+  it('지역 수가 임계값 이상이면 색인한다', () => {
+    expect(compareIndexable({ regionCount: COMPARE_MIN_REGIONS })).toBe(true)
+    expect(compareIndexable({ regionCount: COMPARE_MIN_REGIONS - 1 })).toBe(false)
+  })
+
+  // 건수가 아니라 지역 수를 본다. 한 지자체가 대상별로 쪼개 등록한 사업 여러 건은
+  // "여러 곳이 하는 같은 사업"이 아니라서 비교할 것이 없다.
+  it('건수가 많아도 지역이 적으면 색인하지 않는다', () => {
+    expect(compareIndexable({ regionCount: 2 })).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths } from '../sitemap-entries'
+import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths, compareEntries } from '../sitemap-entries'
 
 beforeEach(() => { process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com' })
 
@@ -64,5 +64,30 @@ describe('guideEntries', () => {
 
   it('가이드가 없으면 빈 배열', () => {
     expect(guideEntries([])).toEqual([])
+  })
+})
+
+describe('compareEntries', () => {
+  it('지역 5곳 미만은 사이트맵에 넣지 않는다', () => {
+    const urls = compareEntries([
+      { key: '출산장려금', regionCount: 10 },
+      { key: '벼육묘', regionCount: 3 },
+    ]).map((e) => e.url)
+    expect(urls).toHaveLength(1)
+    expect(urls[0]).toContain(encodeURIComponent('출산장려금'))
+  })
+
+  // absoluteUrl이 경로 조각마다 인코딩한다. 여기서 또 걸면 '%'가 '%25'가 되어
+  // 사이트맵 66줄이 전부 없는 주소를 가리킨다 — 실제로 한 번 그렇게 나갔다.
+  it('한글 열쇠를 한 번만 인코딩한다', () => {
+    const [entry] = compareEntries([{ key: '산모신생아건강관리', regionCount: 15 }])
+    expect(entry.url).toBe(`https://example.com/compare/${encodeURIComponent('산모신생아건강관리')}`)
+    expect(entry.url).not.toContain('%25')
+  })
+
+  // 묶음은 제목에서 계산한 값이라 "언제 바뀌었나"에 해당하는 시각이 없다. 없는 편이
+  // 부정확한 값보다 낫다(이 파일 위쪽 regionHubEntries 주석과 같은 이유).
+  it('lastmod를 싣지 않는다', () => {
+    expect(compareEntries([{ key: '출산장려금', regionCount: 10 }])[0].lastModified).toBeUndefined()
   })
 })

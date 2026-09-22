@@ -285,11 +285,34 @@ export const peerIndex = unstable_cache(
  *
  * 금액은 담지도 정렬하지도 않는다. 이유는 PeerList와 PeerItem의 주석에 있다.
  */
-export async function listPeers(slug: string): Promise<PeerItem[]> {
+export async function listPeers(slug: string): Promise<{ key: string; items: PeerItem[] } | null> {
   const { keyBySlug, groups } = await peerIndex()
   const key = keyBySlug[slug]
-  if (!key) return []
-  return (groups[key] ?? []).filter((item) => item.slug !== slug)
+  if (!key) return null
+  return { key, items: (groups[key] ?? []).filter((item) => item.slug !== slug) }
+}
+
+/** 비교 페이지 하나가 쓰는 묶음 전체(자기 자신을 빼지 않는다). 없으면 null. */
+export async function getPeerGroup(key: string): Promise<PeerItem[] | null> {
+  const { groups } = await peerIndex()
+  return groups[key] ?? null
+}
+
+/**
+ * 비교 페이지를 만들 수 있는 열쇠 전부. 사이트맵과 라우트가 같은 목록을 본다.
+ *
+ * 열쇠에 '/'가 들어가면 경로 조각 하나로 담기지 않아 라우트가 어긋난다. 지금 170개 중
+ * 해당하는 것은 없지만, 제목은 원천에서 오는 값이라 다음 동기화에 생길 수 있다.
+ */
+export async function listCompareKeys(): Promise<{ key: string; regionCount: number; itemCount: number }[]> {
+  const { groups } = await peerIndex()
+  return Object.entries(groups)
+    .filter(([key]) => !key.includes('/'))
+    .map(([key, items]) => ({
+      key,
+      regionCount: new Set(items.map((i) => i.region_code)).size,
+      itemCount: items.length,
+    }))
 }
 
 export const getRegionMeta = unstable_cache(

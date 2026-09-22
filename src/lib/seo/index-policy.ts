@@ -47,3 +47,21 @@ export const REGION_HUB_MIN_LOCAL_ITEMS = 10
 export function regionHubIndexable(r: { localCount: number; description_md: string | null }): boolean {
   return r.localCount >= REGION_HUB_MIN_LOCAL_ITEMS && !!r.description_md?.trim()
 }
+
+/**
+ * 비교 페이지(/compare/[key])의 색인 임계값. 세는 대상은 **서로 다른 시·도 수**다.
+ *
+ * 기존 지원금·허브 판정은 건드리지 않는다. 이건 새 페이지 종류에 대한 새 기준이다.
+ *
+ * 건수가 아니라 지역 수를 보는 이유는 지역 허브와 같다. 한 지자체가 대상별로 쪼개 등록한
+ * 사업 여러 건은 "여러 곳이 하는 같은 사업"이 아니라서 비교할 것이 없고, 그런 묶음까지
+ * 색인을 열면 제목만 다른 목록 페이지 170장이 깔린다. 지역 5곳으로 끊으면 66장이 남는다.
+ *
+ * 임계값을 넘지 못한 묶음도 페이지는 만든다 — 상세 페이지의 "다른 지역" 절이 그리로
+ * 링크하기 때문이다. 다만 robots가 noindex이고 사이트맵에도 넣지 않는다.
+ */
+export const COMPARE_MIN_REGIONS = 5
+
+export function compareIndexable(g: { regionCount: number }): boolean {
+  return g.regionCount >= COMPARE_MIN_REGIONS
+}
