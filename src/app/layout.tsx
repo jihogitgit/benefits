@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
+import { GTM_ID, gtmSnippet, analyticsPath } from '@/lib/gtm'
 import Script from 'next/script'
 import './globals.css'
 import { siteName, siteUrl, SITE_DESCRIPTION } from '@/lib/seo/site'
@@ -27,9 +28,41 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const gaId = process.env.NEXT_PUBLIC_GA_ID
   const adsense = ADSENSE_CLIENT
+  const gtm = GTM_ID
+  // 계측은 한 경로만 쓴다. 판정과 근거는 lib/gtm.ts의 analyticsPath에 있다.
+  const analytics = analyticsPath({ gtm, gaId })
   return (
     <html lang="ko">
       <body className="min-h-screen bg-background text-foreground antialiased">
+        {/*
+          GTM. 구글이 준 스니펫은 <head>에 넣으라고 하지만 body 첫 자식으로 둔다.
+          앱 라우터에서 인라인 스크립트를 head에 넣을 방법이 둘인데 둘 다 나쁘다.
+
+          하나는 React 19의 호이스팅인데, 올려주는 것은 async가 붙은 src 스크립트뿐이고
+          인라인은 렌더 위치에 그대로 남는다. 하나는 next/script의 beforeInteractive인데,
+          앱 라우터에서 인라인을 받으면 스니펫을 실행하는 태그를 내보내지 않고
+          `(self.__next_s=self.__next_s||[]).push([0,{...}])`로 감싸 Next 런타임에 맡긴다
+          (node_modules/next/dist/client/script.js). 그러면 ① 실행이 Next 번들 로드 뒤로
+          밀리고 ② HTML에 스니펫이 JSON 이스케이프된 형태로만 남아 태그 어시스턴트와
+          GTM 설치 확인이 못 찾는다. 애드센스가 afterInteractive로 실패한 것과 같은 모양이다.
+
+          body 첫 자식의 평범한 script는 HTML 파싱 중에 그 자리에서 실행된다 — 하이드레이션도
+          Next 런타임도 기다리지 않으므로, 앱 라우터에서 실제로 얻을 수 있는 가장 빠른 시점이다.
+          스니펫도 구글이 준 글자 그대로 HTML에 박힌다.
+        */}
+        {analytics === 'gtm' && gtm && (
+          <>
+            <script dangerouslySetInnerHTML={{ __html: gtmSnippet(gtm) }} />
+            <noscript>
+              <iframe
+                src={`https://www.googletagmanager.com/ns.html?id=${gtm}`}
+                height="0"
+                width="0"
+                style={{ display: 'none', visibility: 'hidden' }}
+              />
+            </noscript>
+          </>
+        )}
         {/*
           next/script가 아니라 평범한 script 태그를 쓴다. strategy="afterInteractive"는 HTML에
           preload 링크만 남기고 실제 태그는 하이드레이션 이후 JS로 주입하는데, 그러면 HTML만 읽는
@@ -45,7 +78,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             crossOrigin="anonymous"
           />
         )}
-        {gaId && (
+        {/*
+          gtag 직접 연결. GTM이 켜져 있으면 analyticsPath가 'gtm'을 내므로 이 분기는 죽는다.
+          둘을 같이 켜면 페이지뷰가 두 번 잡히고, 그 이중 계측은 GA4 화면에서 '트래픽이 늘었다'로
+          보여 사고로 인지되지 않는다. 정말 둘을 같이 써야 하면 컨테이너에서 GA4 태그를 빼는 쪽이다.
+        */}
+        {analytics === 'gtag' && gaId && (
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />
             <Script id="ga4-init" strategy="afterInteractive">
