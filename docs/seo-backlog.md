@@ -30,6 +30,8 @@
 
 ## 남은 것
 
+실행 계획은 `docs/superpowers/plans/2026-09-23-peer-comparison-depth.md`에 있다.
+
 ### 1. GSC 데이터 대기 (막힘 — 사용자만 줄 수 있음)
 
 Search Console의 검색어 CSV가 있어야 정할 수 있는 것이 둘이다.
