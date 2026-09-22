@@ -66,7 +66,10 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
   return {
     title: `${name} 지자체 ${placeCount}곳 비교 (${kstYear()})`,
     description: `${name}${eulReul(name)} 운영하는 지자체 ${placeCount}곳. ${top}. 금액과 조건은 지자체마다 다릅니다.`,
-    alternates: { canonical: absoluteUrl(`/compare/${encodeURIComponent(name)}`) },
+    // absoluteUrl이 경로 조각마다 인코딩한다. 여기서 또 걸면 '%'가 '%25'가 되어
+    // 모든 비교 페이지가 없는 주소를 canonical로 가리킨다(운영에 한 번 그렇게 나갔다).
+    // 반대로 화면 링크(href)는 absoluteUrl을 안 거치므로 그쪽은 인코딩해서 넘겨야 한다.
+    alternates: { canonical: absoluteUrl(`/compare/${name}`) },
     robots: { index: compareIndexable({ regionCount: groups.length }), follow: true },
   }
 }
@@ -81,7 +84,7 @@ export default async function ComparePage({ params }: { params: Promise<{ key: s
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
-      <JsonLd data={[breadcrumbs([{ name: '홈', path: '/' }, { name: name, path: `/compare/${encodeURIComponent(name)}` }])]} />
+      <JsonLd data={[breadcrumbs([{ name: '홈', path: '/' }, { name: name, path: `/compare/${name}` }])]} />
 
       <nav className="text-xs text-gray-500"><Link href="/">홈</Link></nav>
       <h1 className="mt-1 text-2xl font-extrabold leading-tight sm:text-3xl">{name}</h1>
