@@ -276,6 +276,15 @@ export const getLastSyncAt = unstable_cache(
 export interface GuideRow {
   slug: string
   title: string
+  /**
+   * 검색결과(<title>)용 제목. null이면 title을 그대로 쓴다.
+   *
+   * 화면의 h1과 나눠 둔 이유: 한글 검색결과는 대략 30자 전후에서 잘리는데 가이드 제목은
+   * 전부 "통념 → 반전 숫자" 구조라, 클릭 이유인 반전이 예외 없이 절단선 뒤로 갔다. 발행
+   * 10편이 32~49자였고 브랜드 접미사까지 붙어 37~54자다. title 하나를 짧게 고치면 페이지를
+   * 여는 사람이 보는 문장까지 같이 나빠지므로 검색용만 따로 둔다.
+   */
+  seo_title: string | null
   body_md: string
   segment: string | null
   published_at: string | null
@@ -363,7 +372,7 @@ export async function getGuidesForBenefit(benefitSlug: string): Promise<GuideRef
 
 export const getGuide = unstable_cache(
   async (slug: string): Promise<GuideRow | null> => {
-    const { data, error } = await createPublicClient().from('guides').select('slug, title, body_md, segment, published_at, updated_at').eq('slug', slug).maybeSingle()
+    const { data, error } = await createPublicClient().from('guides').select('slug, title, seo_title, body_md, segment, published_at, updated_at').eq('slug', slug).maybeSingle()
     if (error) throw error
     return data
   },

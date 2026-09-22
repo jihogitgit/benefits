@@ -17,7 +17,20 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   const g = await getGuide(decodeURIComponent(slug))
   if (!g || !g.published_at) return {}
-  return { title: g.title, description: metaDescription(g.body_md), alternates: { canonical: absoluteUrl(`/guide/${g.slug}`) } }
+  return {
+    /*
+      검색용 제목이 있으면 그것을 쓰고, 브랜드 접미사도 떼기 위해 absolute로 둔다.
+      루트 레이아웃의 template이 ' | 내몫'을 붙이는데, 한글 검색결과가 잘리는 30자 안에서
+      브랜드에 5자를 쓰면 정작 클릭 이유인 숫자가 절단선 뒤로 간다. 구글은 사이트명을 제목
+      위 줄에 따로 보여주므로 제목 안의 브랜드는 같은 말을 두 번 하는 셈이다.
+
+      화면의 h1은 g.title 그대로다(아래 <h1>). 두 곳을 한 문장으로 겸하던 것을 나눈 것이
+      seo_title의 목적이다 — queries.ts의 GuideRow.seo_title 주석 참고.
+    */
+    title: g.seo_title?.trim() ? { absolute: g.seo_title.trim() } : g.title,
+    description: metaDescription(g.body_md),
+    alternates: { canonical: absoluteUrl(`/guide/${g.slug}`) },
+  }
 }
 
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
