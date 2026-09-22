@@ -16,7 +16,8 @@
     "verify:search": "tsx --env-file=.env.local scripts/verify-search-parity.ts",
     "verify:figures": "tsx --env-file=.env.local scripts/verify-guide-figures.ts",
     "revalidate": "tsx --env-file=.env.local scripts/revalidate.ts",
-    "gen:icons": "tsx scripts/gen-icons.tsx"
+    "gen:icons": "tsx scripts/gen-icons.tsx",
+    "backfill:segments": "tsx --env-file=.env.local scripts/backfill-segments.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
