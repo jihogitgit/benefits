@@ -3,7 +3,10 @@ import type { BenefitDetail } from '@/lib/benefits/queries'
 
 export default function SummaryGrid({ b }: { b: BenefitDetail }) {
   const cells = [
-    { k: '지원 내용', v: firstLine(b.amount_text, 60) ?? '공식 페이지 확인' },
+    // amount_text 첫 줄은 내용이 아니라 머리말인 행이 많다 — '< … 개요 >'가 제목을 되풀이하거나
+    // '? 지원대상 및 기준' 같은 빈 라벨이 실린다. summary는 같은 행에 이미 실려 오고 표본
+    // 500건 전부 채워져 있다. BenefitCard와 같은 출처를 쓴다.
+    { k: '지원 내용', v: firstLine(b.summary, 60) ?? firstLine(b.amount_text, 60) ?? '공식 페이지 확인' },
     { k: '대상', v: firstLine(b.target_text, 60) ?? '공식 페이지 확인' },
     { k: '신청 기간', v: deadlineLabel(b) },
     { k: '신청처', v: b.apply_method ? b.apply_method.replace(/\|\|/g, ' · ') : (b.agency ?? '공식 페이지 확인') },
