@@ -111,14 +111,40 @@ export default function DiagnosisPanel() {
           label="지원금 이름으로 찾기"
           placeholder="예: 근로장려금, 청년월세"
         />
-        <div>
-          <p className="mb-2 text-xs font-semibold text-gray-500">나이</p>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="나이">
-            {AGE_OPTIONS.map((o) => (
-              <Chip key={o.value} on={d.ageBand === o.value} onClick={() => pickAge(o.value)}>{o.label}</Chip>
-            ))}
+        {/* 나이 칩은 1,236px 줄에서 557px만 쓰고 나머지 679px를 비웠다. 지역이 목록 상자가
+            되면서 같이 짧아졌으므로 넓은 화면에서는 두 칸에 나눠 담는다. 좁은 화면은
+            기본값인 한 칸 그대로라 모바일 배치는 바뀌지 않는다. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-semibold text-gray-500">나이</p>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="나이">
+              {AGE_OPTIONS.map((o) => (
+                <Chip key={o.value} on={d.ageBand === o.value} onClick={() => pickAge(o.value)}>{o.label}</Chip>
+              ))}
+            </div>
+          </div>
+
+          {/* 지역은 17개 중 하나만 고른다. 칩으로 펼치면 390px에서 다섯 줄을 먹어 패널 혼자
+              뷰포트보다 길어졌고, 결과 버튼이 첫 화면 밖으로 밀려났다. 하나만 고르는 값은
+              목록 상자가 맞는 그릇이다 — 모바일에서는 기기 기본 선택기가 뜬다. */}
+          <div>
+            <label htmlFor="diagnosis-region" className="mb-2 block text-xs font-semibold text-gray-500">지역</label>
+            <select
+              id="diagnosis-region"
+              value={d.region ?? ''}
+              onChange={(e) => pickRegionDirect(e.target.value || null)}
+              className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 transition hover:border-brand-400 focus:border-brand-600 sm:max-w-xs"
+            >
+              <option value="">전국 · 지역 상관없음</option>
+              {REGION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {/* 상황은 일곱 개라 넓은 화면에서도 828px를 쓴다. 반 칸에 넣으면 두 줄이 되므로
+            한 줄을 통째로 준다. */}
         <div>
           <p className="mb-2 text-xs font-semibold text-gray-500">상황 (여러 개 가능)</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="상황 (여러 개 가능)">
@@ -126,23 +152,6 @@ export default function DiagnosisPanel() {
               <Chip key={o.value} on={d.situations.includes(o.value)} onClick={() => toggleSituation(o.value)}>{o.label}</Chip>
             ))}
           </div>
-        </div>
-        {/* 지역은 17개 중 하나만 고른다. 칩으로 펼치면 390px에서 다섯 줄을 먹어 패널 혼자
-            뷰포트보다 길어졌고, 결과 버튼이 첫 화면 밖으로 밀려났다. 하나만 고르는 값은
-            목록 상자가 맞는 그릇이다 — 모바일에서는 기기 기본 선택기가 뜬다. */}
-        <div>
-          <label htmlFor="diagnosis-region" className="mb-2 block text-xs font-semibold text-gray-500">지역</label>
-          <select
-            id="diagnosis-region"
-            value={d.region ?? ''}
-            onChange={(e) => pickRegionDirect(e.target.value || null)}
-            className="min-h-11 w-full rounded-lg border border-gray-300 sm:max-w-xs bg-white px-3 text-sm text-gray-900 transition hover:border-brand-400 focus:border-brand-600"
-          >
-            <option value="">전국 · 지역 상관없음</option>
-            {REGION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
         </div>
 
         {/* 높이가 같은 컨테이너로 감싸 진단 복원 전후에 레이아웃이 튀지 않게 한다 */}
