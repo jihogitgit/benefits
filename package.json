@@ -18,7 +18,8 @@
     "revalidate": "tsx --env-file=.env.local scripts/revalidate.ts",
     "gen:icons": "tsx scripts/gen-icons.tsx",
     "backfill:segments": "tsx --env-file=.env.local scripts/backfill-segments.ts",
-    "measure:exclusion": "tsx --env-file=.env.local scripts/measure-exclusion-text.ts"
+    "measure:exclusion": "tsx --env-file=.env.local scripts/measure-exclusion-text.ts",
+    "measure:compare": "tsx --env-file=.env.local scripts/measure-compare-facts.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

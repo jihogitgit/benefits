@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getPeerGroup } from '@/lib/benefits/queries'
+import { getPeerGroup, getCompareFacts } from '@/lib/benefits/queries'
+import { toFact, splitsOf, type CompareFact } from '@/lib/benefits/compare-facts'
 import { sigunguOf, type PeerItem } from '@/lib/benefits/peer-group'
 import { compareIndexable } from '@/lib/seo/index-policy'
 import { breadcrumbs } from '@/lib/seo/jsonld'
@@ -82,6 +83,12 @@ export default async function ComparePage({ params }: { params: Promise<{ key: s
 
   const { groups, placeCount } = bySido(items)
 
+  // 갈리는 축만 싣는다. 무엇이 갈리는지는 묶음마다 다르므로 66장이 서로 다른 문장을 낸다.
+  // 판정 규칙과 축을 고른 근거는 lib/benefits/compare-facts.ts 주석에 있다.
+  const facts = (await getCompareFacts(items.map((i) => i.slug))).map(toFact)
+  const factBySlug = new Map<string, CompareFact>(facts.map((f) => [f.slug, f]))
+  const splits = splitsOf(facts)
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
       <JsonLd data={[breadcrumbs([{ name: '홈', path: '/' }, { name: name, path: `/compare/${name}` }])]} />
@@ -93,6 +100,26 @@ export default async function ComparePage({ params }: { params: Promise<{ key: s
         {placeCount !== items.length && `(등록된 지원사업 ${items.length}건)`}.
         이름은 같아도 금액·대상·신청 기간은 지자체마다 다르므로, 사는 곳의 페이지에서 확인하세요.
       </p>
+
+      {splits.length > 0 && (
+        <section className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4" aria-label="지자체마다 갈리는 대목">
+          <h2 className="text-sm font-bold text-gray-900">지자체마다 갈리는 대목</h2>
+          <ul className="mt-2 space-y-1">
+            {splits.map((s) => (
+              <li key={s.label} className="text-sm text-gray-700">
+                <span className="font-medium text-gray-900">{s.label}</span>{' '}
+                <span className="tabular-nums">
+                  {s.count}건
+                </span>
+                <span className="text-gray-500"> / {s.total}건</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-gray-500">
+            원천 자료에 적힌 값만 셉니다. 금액은 표기 단위가 제각각이라 여기서 비교하지 않습니다.
+          </p>
+        </section>
+      )}
       {/*
         금액을 여기에 모으지 않는다. 원천의 금액 칸은 총액·월액·분할이 한 열에 섞여 있고
         대상 설명까지 함께 들어 있어, 나란히 놓는 순간 서로 다른 것을 잰 값이 한 축에 선다.
@@ -120,6 +147,22 @@ export default async function ComparePage({ params }: { params: Promise<{ key: s
                   >
                     <span className="text-[15px] font-medium text-gray-900">{i.label}</span>
                     {i.detail && <span className="mt-0.5 block text-sm text-gray-600">{i.detail}</span>}
+                    {/*
+                      갈리는 축만 줄에 표시한다. 전건인 축을 달면 26줄에 같은 딱지가 26개
+                      붙어 읽는 사람이 고를 근거가 되지 못한다 — 위 요약이 그 축을 이미
+                      버린 이유와 같다.
+                    */}
+                    {splits.length > 0 && (
+                      <span className="mt-1.5 flex flex-wrap gap-1">
+                        {splits.map((s) =>
+                          factBySlug.get(i.slug)?.[s.key] === s.markTrue ? (
+                            <span key={s.key} className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                              {s.markLabel}
+                            </span>
+                          ) : null,
+                        )}
+                      </span>
+                    )}
                   </Link>
                 </li>
               ))}

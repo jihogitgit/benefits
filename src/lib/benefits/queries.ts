@@ -6,6 +6,7 @@ import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-pol
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { groupPeers, type PeerItem } from './peer-group'
+import type { FactRow } from './compare-facts'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -296,6 +297,33 @@ export async function listPeers(slug: string): Promise<{ key: string; items: Pee
 export async function getPeerGroup(key: string): Promise<PeerItem[] | null> {
   const { groups } = await peerIndex()
   return groups[key] ?? null
+}
+
+/**
+ * 비교에 쓸 사실을 묶음의 지원금만큼 가져온다.
+ *
+ * peerIndex에 얹지 않는다. 그쪽은 10,488건 전부를 6시간 캐시에 JSON으로 담는데, 행마다
+ * 신청방법·소득 배열을 더하면 비교 페이지 하나 때문에 모든 페이지가 쓰는 캐시가 부푼다.
+ * 여기서 필요한 것은 한 번에 최대 45건이라 페이지가 따로 묻는 편이 싸다.
+ *
+ * slug로 묻는다. 묶음 최대가 45건이라 요청 URL이 2KB를 넘지 않는다 — uuid 900개를
+ * .in()으로 넘겼다가 PostgREST 헤더 한도(16KB)에서 끊긴 적이 있다.
+ */
+export async function getCompareFacts(slugs: readonly string[]): Promise<FactRow[]> {
+  if (slugs.length === 0) return []
+  const { data, error } = await createPublicClient()
+    .from('benefits')
+    .select('slug, apply_method, deadline_type, benefit_conditions(income_bands)')
+    .in('slug', slugs as string[])
+  if (error) throw error
+  type Embedded = { income_bands: string[] } | { income_bands: string[] }[] | null
+  return ((data ?? []) as unknown as { slug: string; apply_method: string | null; deadline_type: string; benefit_conditions: Embedded }[]).map(
+    (r) => {
+      // 임베드는 관계에 따라 객체로도 배열로도 온다. 조건 행이 없는 지원금은 null이다.
+      const c = Array.isArray(r.benefit_conditions) ? r.benefit_conditions[0] : r.benefit_conditions
+      return { slug: r.slug, apply_method: r.apply_method, deadline_type: r.deadline_type, income_bands: c?.income_bands ?? [] }
+    },
+  )
 }
 
 /**
