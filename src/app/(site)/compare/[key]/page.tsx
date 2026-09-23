@@ -102,8 +102,14 @@ export default async function ComparePage({ params }: { params: Promise<{ key: s
       <div className="mt-8 space-y-6">
         {groups.map((g) => (
           <section key={g.code}>
+            {/*
+              여기는 '건'으로 센다. 아래 목록이 사업 한 건에 한 줄이라 이 숫자는 줄 수와 같다.
+              '곳'을 쓰면 앞 문장의 "지자체 N곳"과 같은 낱말이 서로 다른 것을 세게 되고,
+              한 지자체가 여러 건을 등록한 묶음에서 두 숫자가 어긋나 보인다 — 실측 66장 중
+              3장(공영주차장 20↔29, 체육시설 22↔31, 상수도 25↔26)이 그랬다.
+            */}
             <h2 className="mb-2 text-sm font-bold text-gray-500">
-              {g.name} <span className="font-normal">{g.list.length}곳</span>
+              {g.name} <span className="font-normal">{g.list.length}건</span>
             </h2>
             <ul className="grid gap-2 sm:grid-cols-2">
               {g.list.map((i) => (
