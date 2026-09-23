@@ -11,7 +11,13 @@ export function regionName(code: string): string {
 }
 
 export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: Date }) {
-  const amount = firstLine(row.amount_text, 80)
+  // amount_text는 이름과 달리 금액이 아니라 보조금24의 지원내용 원문 덩어리다. 첫 줄은
+  // 대부분 내용이 아니라 머리말이라서, 카드에 '< 2026년 … 지원(추가모집) 개요 >'처럼
+  // 제목을 되풀이하거나 '? 지원대상 및 기준', '지원대상' 같은 빈 라벨이 찍혔다.
+  // summary는 같은 행에 이미 실려 오고(LIST_COLS) 표본 500건 전부 채워져 있으며
+  // '장애인 평생교육이용권 포인트 지원(1인 35만원)'처럼 금액까지 담고 있다.
+  // summary에도 줄바꿈 뒤 각주가 붙는 행이 있어 첫 줄만 쓴다.
+  const desc = firstLine(row.summary, 80) ?? firstLine(row.amount_text, 80)
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm focus-within:border-brand-400">
       <div className="mb-1 flex flex-wrap items-center gap-1.5">
@@ -27,7 +33,7 @@ export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: D
           {row.title}
         </Link>
       </h3>
-      {amount && <p className="mt-1 line-clamp-2 text-sm text-gray-600">{amount}</p>}
+      {desc && <p className="mt-1 line-clamp-2 text-sm text-gray-600">{desc}</p>}
     </article>
   )
 }
