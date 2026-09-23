@@ -17,7 +17,9 @@ export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: D
       <div className="mb-1 flex flex-wrap items-center gap-1.5">
         <DdayBadge deadline_type={row.deadline_type} apply_end={row.apply_end} now={now} />
         <span className="text-xs text-gray-500">{regionName(row.region_code)}</span>
-        {row.agency && <span className="text-xs text-gray-400">· {row.agency}</span>}
+        {/* gray-400은 흰 배경 대비 2.6:1로 AA(4.5:1) 미달이었다. 카드마다 한 번씩 나오므로
+            홈에서만 18곳이 걸렸다. */}
+        {row.agency && <span className="text-xs text-gray-500">· {row.agency}</span>}
       </div>
       <h3 className="text-base font-semibold leading-snug">
         {/* after:inset-0 로 카드 전체를 클릭 영역으로 넓힌다. 접근성 이름은 제목만 유지된다. */}

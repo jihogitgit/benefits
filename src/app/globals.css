@@ -142,9 +142,19 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 한글은 기본이 글자 단위 줄바꿈이라 '평생교육이용권 지원(추가모/집)'처럼 낱말 중간에서
+       끊긴다. 카드 제목과 공고명이 대부분 긴 한글 복합어라 모바일에서 특히 심했다.
+       keep-all로 어절을 지키고, 끊을 데가 없는 긴 문자열은 break-word로 흘려보낸다
+       (그 짝이 없으면 keep-all 혼자서는 가로로 넘친다). */
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
   html {
     @apply font-sans;
+  }
+  /* 키보드로 옮겨 다닐 때 지금 어디에 있는지 보이게 한다. 마우스 클릭에는 뜨지 않는다. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
   }
 }
 /* prose 최소 대체 (typography 플러그인 미사용) */
