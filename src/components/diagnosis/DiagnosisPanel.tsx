@@ -136,7 +136,7 @@ export default function DiagnosisPanel() {
             id="diagnosis-region"
             value={d.region ?? ''}
             onChange={(e) => pickRegionDirect(e.target.value || null)}
-            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 transition hover:border-brand-400 focus:border-brand-600"
+            className="min-h-11 w-full rounded-lg border border-gray-300 sm:max-w-xs bg-white px-3 text-sm text-gray-900 transition hover:border-brand-400 focus:border-brand-600"
           >
             <option value="">전국 · 지역 상관없음</option>
             {REGION_OPTIONS.map((o) => (
@@ -148,7 +148,7 @@ export default function DiagnosisPanel() {
         {/* 높이가 같은 컨테이너로 감싸 진단 복원 전후에 레이아웃이 튀지 않게 한다 */}
         <div className="grid min-h-[3.5rem] items-center pt-1">
           {isEmpty(d) ? (
-            <p className="text-center text-sm text-gray-500">검색어를 넣거나 조건을 골라 주세요. 하나만 써도 됩니다.</p>
+            <p className="text-center text-sm text-gray-500 sm:text-left">검색어를 넣거나 조건을 골라 주세요. 하나만 써도 됩니다.</p>
           ) : (
             <Link
               href="/my"

@@ -70,7 +70,7 @@ export default async function HomePage() {
                   <li key={g.slug}>
                     <Link
                       href={`/guide/${g.slug}`}
-                      className="flex min-h-11 items-center rounded-lg px-2 py-1.5 text-sm leading-snug text-brand-700 transition hover:bg-brand-50"
+                      className="flex min-h-11 items-center rounded-lg px-2 py-1.5 text-sm leading-snug text-brand-700 transition hover:bg-brand-50 sm:min-h-0 sm:py-2"
                     >
                       {g.title}
                     </Link>
@@ -80,7 +80,7 @@ export default async function HomePage() {
               {guides.length > 4 && (
                 <Link
                   href="/guide"
-                  className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+                  className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50 sm:min-h-0 sm:py-2"
                 >
                   가이드 전체 보기 →
                 </Link>
