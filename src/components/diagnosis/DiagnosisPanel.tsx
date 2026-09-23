@@ -30,6 +30,14 @@ export default function DiagnosisPanel() {
   const [countFailed, setCountFailed] = useState(false)
   const [restored, setRestored] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // 사용자가 손을 댔는지. 마운트 직후의 빈 상태와 '사용자가 비운' 빈 상태를 구별한다.
+  const touched = useRef(false)
+
+  /** 사용자 조작 표시. 이어보기 문구를 끄고, 빈 상태도 저장 대상이 되게 한다. */
+  const markTouched = () => {
+    touched.current = true
+    setRestored(false)
+  }
 
   // 첫 렌더 후 localStorage 복원. 서버에서는 readDiagnosis()가 항상 빈 값을 주므로
   // 렌더 중에 읽으면 hydration 불일치가 난다. 반드시 useEffect에서 읽는다.
@@ -46,6 +54,10 @@ export default function DiagnosisPanel() {
     if (isEmpty(d)) {
       setTotal(null)
       setCountFailed(false)
+      // 사용자가 마지막 조건을 뺀 것이라면 그 사실도 저장한다. 예전에는 빈 상태에서
+      // 그냥 돌아가 이전 값이 localStorage에 남았고, 새로고침하면 방금 지운 조건이
+      // 되살아났다. 마운트 직후의 빈 상태는 복원 전이므로 저장하면 안 된다.
+      if (touched.current) writeDiagnosis(d)
       return
     }
     writeDiagnosis(d)
@@ -67,19 +79,22 @@ export default function DiagnosisPanel() {
   }, [d])
 
   const toggleSituation = (v: string) => {
-    setRestored(false)
+    markTouched()
     setD((p) => ({ ...p, situations: p.situations.includes(v) ? p.situations.filter((s) => s !== v) : [...p.situations, v] }))
   }
   const pickAge = (v: Diagnosis['ageBand']) => {
-    setRestored(false)
+    markTouched()
     setD((p) => ({ ...p, ageBand: p.ageBand === v ? null : v }))
   }
-  const pickRegion = (v: Diagnosis['region']) => {
-    setRestored(false)
-    setD((p) => ({ ...p, region: p.region === v ? null : v }))
+  // 목록 상자는 고른 값을 그대로 준다. 칩처럼 같은 값을 눌러 끄는 동작이 없으므로
+  // '선택 안 함'은 빈 값으로 들어온다.
+  const pickRegionDirect = (v: Diagnosis['region']) => {
+    markTouched()
+    setD((p) => (p.region === v ? p : { ...p, region: v }))
   }
   // SearchBox가 디바운스를 끝낸 뒤에만 부른다. 여기서 다시 지연을 줄 필요는 없다.
   const setQuery = useCallback((q: string) => {
+    touched.current = true
     setRestored(false)
     setD((p) => (p.q === q ? p : { ...p, q }))
   }, [])
@@ -112,13 +127,22 @@ export default function DiagnosisPanel() {
             ))}
           </div>
         </div>
+        {/* 지역은 17개 중 하나만 고른다. 칩으로 펼치면 390px에서 다섯 줄을 먹어 패널 혼자
+            뷰포트보다 길어졌고, 결과 버튼이 첫 화면 밖으로 밀려났다. 하나만 고르는 값은
+            목록 상자가 맞는 그릇이다 — 모바일에서는 기기 기본 선택기가 뜬다. */}
         <div>
-          <p className="mb-2 text-xs font-semibold text-gray-500">지역</p>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="지역">
+          <label htmlFor="diagnosis-region" className="mb-2 block text-xs font-semibold text-gray-500">지역</label>
+          <select
+            id="diagnosis-region"
+            value={d.region ?? ''}
+            onChange={(e) => pickRegionDirect(e.target.value || null)}
+            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 transition hover:border-brand-400 focus:border-brand-600"
+          >
+            <option value="">전국 · 지역 상관없음</option>
             {REGION_OPTIONS.map((o) => (
-              <Chip key={o.value} on={d.region === o.value} onClick={() => pickRegion(o.value)}>{o.label}</Chip>
+              <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* 높이가 같은 컨테이너로 감싸 진단 복원 전후에 레이아웃이 튀지 않게 한다 */}

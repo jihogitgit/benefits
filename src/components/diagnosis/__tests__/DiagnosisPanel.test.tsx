@@ -15,11 +15,12 @@ describe('DiagnosisPanel', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('칩을 고르면 개수를 조회하고 localStorage에 저장한다', async () => {
+  it('조건을 고르면 개수를 조회하고 localStorage에 저장한다', async () => {
     render(<DiagnosisPanel />)
     fireEvent.click(screen.getByRole('button', { name: '30대' }))
     fireEvent.click(screen.getByRole('button', { name: '임신·출산' }))
-    fireEvent.click(screen.getByRole('button', { name: '서울' }))
+    // 지역은 17개 중 하나라 칩이 아니라 목록 상자다
+    fireEvent.change(screen.getByLabelText('지역'), { target: { value: 'seoul' } })
     await waitFor(() => expect(screen.getByRole('link', { name: /내 지원금 27개 보기/ })).toBeInTheDocument())
     const url = new URL(fetchMock.mock.calls.at(-1)![0] as string, 'http://localhost')
     expect(url.pathname).toBe('/api/benefits/search')
@@ -83,6 +84,18 @@ describe('DiagnosisPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '검색어 지우기' }))
     await waitFor(() => expect(screen.getByText(/검색어를 넣거나 조건을 골라 주세요/)).toBeInTheDocument())
+  })
+
+  it('지역을 전국으로 되돌리면 조건에서 빠진다', async () => {
+    // 칩은 같은 값을 다시 눌러 끄지만 목록 상자에는 그 동작이 없다. 빈 값이 해제다.
+    render(<DiagnosisPanel />)
+    const region = screen.getByLabelText('지역')
+    fireEvent.change(region, { target: { value: 'seoul' } })
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('diagnosis')!).region).toBe('seoul'))
+
+    fireEvent.change(region, { target: { value: '' } })
+    await waitFor(() => expect(screen.getByText(/검색어를 넣거나 조건을 골라 주세요/)).toBeInTheDocument())
+    expect(JSON.parse(localStorage.getItem('diagnosis')!).region).toBeNull()
   })
 
   it('같은 칩을 다시 누르면 해제된다', () => {
