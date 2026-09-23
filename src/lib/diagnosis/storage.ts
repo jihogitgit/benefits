@@ -1,6 +1,6 @@
 import type { AgeBand } from '@/lib/benefits/age-bands'
 import { normalizeQuery } from '@/lib/benefits/query-text'
-import { VALID_AGE, VALID_SITUATION, VALID_REGION } from './options'
+import { VALID_AGE, VALID_SITUATION, VALID_REGION, VALID_INCOME } from './options'
 
 export interface Diagnosis {
   /** 자유 입력 검색어. 필터와 AND로 묶여 '고른 조건 안에서 다시 찾기'가 된다. 없으면 빈 문자열. */
@@ -8,16 +8,22 @@ export interface Diagnosis {
   ageBand: AgeBand | null
   situations: string[]
   region: string | null
+  /**
+   * 중위소득 구간. /median-income 계산기가 채우고, 진단 패널은 읽기만 한다.
+   * 소득은 칩으로 고르게 하지 않는다 — 가구원 수와 금액을 받아 계산해야 나오는 값이라
+   * "대충 어느 구간" 을 사용자에게 묻는 순간 답이 틀린다.
+   */
+  incomeBand: string | null
 }
 
 export const STORAGE_KEY = 'diagnosis'
 
 /** 읽기 전용 기본값. 호출자가 실수로 변형하지 못하게 동결한다. 새 객체가 필요하면 emptyDiagnosis(). */
-export const EMPTY: Diagnosis = Object.freeze({ q: '', ageBand: null, situations: [], region: null }) as Diagnosis
+export const EMPTY: Diagnosis = Object.freeze({ q: '', ageBand: null, situations: [], region: null, incomeBand: null }) as Diagnosis
 
 /** 매번 새 객체를 돌려준다. 호출자가 situations를 직접 변형해도 모듈 상태가 오염되지 않는다. */
 export function emptyDiagnosis(): Diagnosis {
-  return { q: '', ageBand: null, situations: [], region: null }
+  return { q: '', ageBand: null, situations: [], region: null, incomeBand: null }
 }
 
 function sanitize(raw: unknown): Diagnosis {
@@ -31,7 +37,8 @@ function sanitize(raw: unknown): Diagnosis {
   const region = typeof o.region === 'string' && VALID_REGION.has(o.region) ? o.region : null
   // 손으로 편집한 localStorage나 옛 저장본이 그대로 API 쿼리로 나가지 않도록 여기서 한 번 더 정규화한다.
   const q = typeof o.q === 'string' ? normalizeQuery(o.q) : ''
-  return { q, ageBand, situations, region }
+  const incomeBand = typeof o.incomeBand === 'string' && VALID_INCOME.has(o.incomeBand) ? o.incomeBand : null
+  return { q, ageBand, situations, region, incomeBand }
 }
 
 export function readDiagnosis(): Diagnosis {
@@ -57,6 +64,7 @@ export function toSearchParams(d: Diagnosis): URLSearchParams {
   if (d.ageBand) sp.set('age', d.ageBand)
   if (d.situations.length) sp.set('situations', d.situations.join(','))
   if (d.region) sp.set('region', d.region)
+  if (d.incomeBand) sp.set('income', d.incomeBand)
   return sp
 }
 
@@ -73,9 +81,10 @@ export function fromSearchParams(sp: URLSearchParams): Diagnosis {
     ageBand: sp.get('age'),
     situations: (sp.get('situations') ?? '').split(',').map((x) => x.trim()).filter(Boolean),
     region: sp.get('region'),
+    incomeBand: sp.get('income'),
   })
 }
 
 export function isEmpty(d: Diagnosis): boolean {
-  return !d.q && !d.ageBand && d.situations.length === 0 && !d.region
+  return !d.q && !d.ageBand && d.situations.length === 0 && !d.region && !d.incomeBand
 }

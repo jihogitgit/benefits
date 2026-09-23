@@ -89,7 +89,7 @@ function fakeSupabase(rows: ReturnType<typeof row>[], orphans: ReturnType<typeof
 }
 
 const input = (over: Partial<SearchInput> = {}): SearchInput => ({
-  q: '', ageBand: null, situations: [], region: null, countOnly: false, limit: 50, offset: 0, ...over,
+  q: '', ageBand: null, situations: [], region: null, incomeBand: null, countOnly: false, limit: 50, offset: 0, ...over,
 })
 
 describe('searchBenefits — 검색어 필터', () => {

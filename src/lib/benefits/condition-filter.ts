@@ -1,6 +1,7 @@
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import type { Criteria } from './search'
 import { YOUNGEST_BAND_FLOOR } from './age-bands'
+import { INCOME_BANDS } from './income'
 
 /**
  * 조건 판정을 DB로 내린다.
@@ -18,6 +19,15 @@ import { YOUNGEST_BAND_FLOOR } from './age-bands'
 /** PostgREST 필터 문법을 깨뜨릴 수 있는 문자가 값에 섞이지 않았는지. 들어오면 버그다. */
 function assertSafe(value: string): string {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error(`조건 필터에 쓸 수 없는 값: ${value}`)
+  return value
+}
+
+/**
+ * 소득 구간 값은 '0-50', '200+' 처럼 assertSafe가 막는 문자를 쓴다. 값은 내부 상수
+ * INCOME_BANDS에서만 오므로 그 목록에 있는지로 확인한다.
+ */
+function assertSafeBand(value: string): string {
+  if (!(INCOME_BANDS as readonly string[]).includes(value)) throw new Error(`조건 필터에 쓸 수 없는 소득 구간: ${value}`)
   return value
 }
 
@@ -62,6 +72,13 @@ export function conditionFilters(q: Criteria): string[] {
   if (q.region) {
     // region_codes가 비어 있으면 전국 대상이라 거르지 않는다.
     out.push(`region_codes.eq.{},region_codes.cs.{${assertSafe(q.region)}}`)
+  }
+
+  if (q.incomeBands) {
+    // 소득 구간이 비어 있는 행은 소득을 안 보는 사업이라 통과시킨다. matchesConditions의
+    // `c.income_bands.length > 0` 과 같은 판정이다 — 갈라지면 총건수와 목록이 어긋난다.
+    const bands = q.incomeBands.map(assertSafeBand)
+    out.push(`income_bands.eq.{},income_bands.ov.{${bands.join(',')}}`)
   }
 
   if (q.situations.length > 0) {

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { conditionFilters } from '../condition-filter'
 import type { Criteria } from '../search'
 
-const q = (over: Partial<Criteria> = {}): Criteria => ({ ageRange: null, situations: [], region: null, ...over })
+const q = (over: Partial<Criteria> = {}): Criteria => ({ ageRange: null, situations: [], region: null, incomeBands: null, ...over })
 
 describe('conditionFilters', () => {
   it('조건이 없으면 필터도 없다', () => {
@@ -58,29 +58,29 @@ describe('conditionFilters — 신청자 나이로 읽을 수 없는 구간', ()
     양쪽에 같은 예외를 넣었고, 이 테스트가 SQL 쪽 문구를 고정한다.
   */
   it('상한이 10 미만인 행을 통과시키는 절이 들어간다', () => {
-    const [ageFilter] = conditionFilters({ ageRange: [30, 39], situations: [], region: null })
+    const [ageFilter] = conditionFilters({ ageRange: [30, 39], situations: [], region: null, incomeBands: null })
     expect(ageFilter).toContain('age_max.lt.10')
   })
 
   it('나이를 안 고르면 그 절도 없다', () => {
-    expect(conditionFilters({ ageRange: null, situations: [], region: null })).toEqual([])
+    expect(conditionFilters({ ageRange: null, situations: [], region: null, incomeBands: null })).toEqual([])
   })
 
   // JS 쪽 isChildTarget과 같은 판정을 SQL로 옮긴 것. 갈라지면 총건수와 목록이 어긋난다.
   describe('대상이 아이인 행', () => {
     it('아이를 키운다고 고르면 나이 상한 조건이 붙는다', () => {
-      const [f] = conditionFilters({ ageRange: null, situations: ['has_child'], region: null })
+      const [f] = conditionFilters({ ageRange: null, situations: ['has_child'], region: null, incomeBands: null })
       expect(f).toContain('age_max.lt.10')
     })
 
     it('다른 상황에서는 나이 상한 조건이 붙지 않는다', () => {
-      const [f] = conditionFilters({ ageRange: null, situations: ['job_seeker'], region: null })
+      const [f] = conditionFilters({ ageRange: null, situations: ['job_seeker'], region: null, incomeBands: null })
       expect(f).not.toContain('age_max.lt.10')
     })
 
     // 이 조건이 빠지면 영유아 사업이 아무 상황에나 '조건 없음'으로 통과한다.
     it('조건 없음 절에 나이 상한이 함께 걸린다', () => {
-      const [f] = conditionFilters({ ageRange: null, situations: ['single'], region: null })
+      const [f] = conditionFilters({ ageRange: null, situations: ['single'], region: null, incomeBands: null })
       expect(f).toContain('or(age_max.is.null,age_max.gte.10)')
     })
   })

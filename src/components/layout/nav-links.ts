@@ -12,6 +12,8 @@ export interface NavLink {
  */
 export const NAV_LINKS: NavLink[] = [
   ...PUBLIC_SEGMENTS.map((s) => ({ href: `/${s.path}`, label: `${s.name} 지원금` })),
+  { href: '/life', label: '생애 이벤트로 찾기' },
+  { href: '/median-income', label: '중위소득 계산기' },
   { href: '/guide', label: '가이드' },
   { href: '/deadline', label: '마감 임박' },
 ]
@@ -19,6 +21,8 @@ export const NAV_LINKS: NavLink[] = [
 /** 헤더 가로줄은 폭이 좁아 '지원금'을 뗀 짧은 이름을 쓴다. */
 export const NAV_LINKS_SHORT: NavLink[] = [
   ...PUBLIC_SEGMENTS.map((s) => ({ href: `/${s.path}`, label: s.name })),
+  { href: '/life', label: '생애 이벤트' },
+  { href: '/median-income', label: '중위소득' },
   { href: '/guide', label: '가이드' },
   { href: '/deadline', label: '마감 임박' },
 ]

@@ -8,6 +8,7 @@
  *   npm run verify:search
  */
 import { createAdminClient } from '../src/lib/supabase/admin'
+import { eligibleBands } from '../src/lib/benefits/income'
 import {
   searchBenefits,
   matchesConditions,
@@ -24,7 +25,7 @@ import { AGE_BANDS } from '../src/lib/benefits/age-bands'
 
 const PAGE = 1000
 const SELECT =
-  'slug, title, summary, agency, deadline_type, apply_end, benefit_conditions(age_min, age_max, gender, life_stages, household_types, occupations, region_codes)'
+  'slug, title, summary, agency, deadline_type, apply_end, benefit_conditions(age_min, age_max, gender, life_stages, household_types, occupations, region_codes, income_bands)'
 /** 목록 비교에서 맞춰볼 상위 건수. 전량을 비교할 필요는 없고 앞쪽이 어긋나면 충분히 드러난다. */
 const TOP_N = 8
 
@@ -46,7 +47,12 @@ interface Expected {
 
 /** 예전 구현 그대로: 전건을 끌어와 JS로 거른다. 비교 기준이므로 일부러 최적화하지 않는다. */
 async function legacy(supabase: ReturnType<typeof createAdminClient>, input: SearchInput, now: Date): Promise<Expected> {
-  const q: Criteria = { ageRange: ageBandToRange(input.ageBand), situations: input.situations, region: input.region }
+  const q: Criteria = {
+    ageRange: ageBandToRange(input.ageBand),
+    situations: input.situations,
+    region: input.region,
+    incomeBands: input.incomeBand ? eligibleBands(input.incomeBand) : null,
+  }
   const tokens = queryTokens(input.q)
   const rows: LegacyRow[] = []
   for (let from = 0; ; from += PAGE) {
@@ -78,20 +84,25 @@ async function legacy(supabase: ReturnType<typeof createAdminClient>, input: Sea
 const SITUATIONS = ['job_seeker', 'pregnancy', 'has_child', 'single', 'no_house', 'student', 'business']
 const REGIONS = ['seoul', 'busan', 'jeonnam-gwangju']
 const QUERIES = ['', '국민연금', '청년 월세', '창업지원']
+const INCOME_CASES = ['0-50', '51-75', '76-100', '101-200', '200+'] as const
 
 function cases(): SearchInput[] {
-  const base = { countOnly: false, limit: 50, offset: 0 } as const
+  const base = { countOnly: false, limit: 50, offset: 0, incomeBand: null } as const
   const out: SearchInput[] = []
   for (const ageBand of [null, ...AGE_BANDS]) out.push({ ...base, q: '', ageBand, situations: [], region: null })
   for (const s of SITUATIONS) out.push({ ...base, q: '', ageBand: null, situations: [s], region: null })
   for (const region of REGIONS) out.push({ ...base, q: '', ageBand: null, situations: [], region })
   for (const q of QUERIES) out.push({ ...base, q, ageBand: null, situations: [], region: null })
+  // 소득 축은 조건이 비어 있는 행을 통과시키는 규칙이 SQL과 JS 양쪽에 따로 적혀 있다.
+  // 어긋나면 총건수와 목록이 갈라지므로 구간마다 한 번씩 맞춰 본다.
+  for (const incomeBand of INCOME_CASES) out.push({ ...base, q: '', ageBand: null, situations: [], region: null, incomeBand })
   out.push(
     { ...base, q: '', ageBand: '20s', situations: ['job_seeker'], region: 'seoul' },
     { ...base, q: '', ageBand: '30s', situations: ['has_child', 'no_house'], region: 'busan' },
     { ...base, q: '청년', ageBand: '20s', situations: ['student'], region: 'seoul' },
     { ...base, q: '국민연금', ageBand: '50s+', situations: [], region: null },
     { ...base, q: '', ageBand: '50s+', situations: ['single', 'business'], region: 'jeonnam-gwangju' },
+    { ...base, q: '', ageBand: '30s', situations: ['no_house'], region: 'seoul', incomeBand: '51-75' },
   )
   return out
 }

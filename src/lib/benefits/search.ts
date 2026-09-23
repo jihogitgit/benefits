@@ -4,6 +4,7 @@ import { normalizeQuery, queryTokens } from './query-text'
 import { conditionFilters } from './condition-filter'
 import { REGIONS } from '../../../data/regions'
 import { daysUntil } from './status'
+import { INCOME_BANDS, eligibleBands, type IncomeBand } from './income'
 
 import { AGE_BANDS, YOUNGEST_BAND_FLOOR, type AgeBand } from './age-bands'
 
@@ -17,6 +18,8 @@ export interface SearchInput {
   ageBand: AgeBand | null
   situations: string[]
   region: string | null
+  /** 사용자가 속한 소득 구간 하나. 자격 확장(내 구간 이상)은 Criteria를 만들 때 한다. */
+  incomeBand: IncomeBand | null
   countOnly: boolean
   limit: number
   offset: number
@@ -26,6 +29,7 @@ export interface SearchInput {
 export function parseSearchParams(sp: URLSearchParams): SearchInput {
   const age = sp.get('age')
   const region = sp.get('region')
+  const income = sp.get('income')
   return {
     q: normalizeQuery(sp.get('q')),
     ageBand: AGE_BANDS.includes(age as AgeBand) ? (age as AgeBand) : null,
@@ -39,6 +43,7 @@ export function parseSearchParams(sp: URLSearchParams): SearchInput {
       ),
     ],
     region: region && REGION_SLUGS.has(region) ? region : null,
+    incomeBand: INCOME_BANDS.includes(income as IncomeBand) ? (income as IncomeBand) : null,
     countOnly: sp.get('count') === '1',
     limit: Math.min(100, Math.max(1, Number(sp.get('limit') ?? 50) || 50)),
     offset: Math.max(0, Number(sp.get('offset') ?? 0) || 0),
@@ -63,12 +68,15 @@ export interface CondLike {
   household_types: string[]
   occupations: string[]
   region_codes: string[]
+  income_bands: string[]
 }
 
 export interface Criteria {
   ageRange: [number, number] | null
   situations: string[]
   region: string | null
+  /** 자격이 되는 소득 구간 전부(내 구간과 그 위). null이면 소득으로 거르지 않는다. */
+  incomeBands: string[] | null
 }
 
 /**
@@ -149,6 +157,8 @@ export function matchesConditions(c: CondLike, q: Criteria): boolean {
   if (q.ageRange && hasAgeCond(c) && !ageOverlaps(c, q.ageRange)) return false
   if (q.region && c.region_codes.length > 0 && !c.region_codes.includes(q.region)) return false
   if (q.situations.length > 0 && hasSituationCond(c) && !situationHit(c, q.situations)) return false
+  // 소득 구간이 비어 있는 행은 소득을 안 보는 사업이라 거르지 않는다(10,482건 중 82.7%).
+  if (q.incomeBands && c.income_bands.length > 0 && !c.income_bands.some((b) => q.incomeBands!.includes(b))) return false
   return true
 }
 
@@ -164,6 +174,8 @@ export function matchScore(c: CondLike | null, q: Criteria): number {
   if (q.situations.length && hasSituationCond(c) && situationHit(c, q.situations)) s += 2
   if (q.region && c.region_codes.includes(q.region)) s += 1
   if (q.ageRange && hasAgeCond(c) && ageOverlaps(c, q.ageRange)) s += 1
+  // 소득 조건이 실제로 걸린 사업을 앞세운다. 나이·지역과 같은 무게 1점이다.
+  if (q.incomeBands && c.income_bands.length > 0 && c.income_bands.some((b) => q.incomeBands!.includes(b))) s += 1
   return s
 }
 
@@ -205,6 +217,7 @@ export function cacheKeyFor(input: SearchInput): string {
     input.ageBand ?? '-',
     [...input.situations].sort().join('+') || '-',
     input.region ?? '-',
+    input.incomeBand ?? '-',
     input.countOnly ? 'c' : 'l',
     input.limit,
     input.offset,
@@ -234,7 +247,7 @@ export interface SearchResultItem {
  * '!inner' 문법에서 인스턴스화가 폭주한다(TS2589). 행 타입은 RankRow/FullRow로 직접 준다.
  */
 const SELECT_RANK: string =
-  'id, slug, title, deadline_type, apply_end, benefit_conditions!inner(age_min, age_max, life_stages, household_types, occupations, region_codes)'
+  'id, slug, title, deadline_type, apply_end, benefit_conditions!inner(age_min, age_max, life_stages, household_types, occupations, region_codes, income_bands)'
 /** 조건 행이 없는 지원금용. !inner가 이들을 떨구므로 따로 조회해 합친다. */
 const SELECT_RANK_ORPHAN: string = 'id, slug, title, deadline_type, apply_end, benefit_conditions(benefit_id)'
 /** 실제로 화면에 나가는 페이지 분량에만 쓰는 전체 컬럼. */
@@ -383,7 +396,13 @@ export async function searchBenefits(
   input: SearchInput,
   now = new Date(),
 ): Promise<{ total: number; items: SearchResultItem[] }> {
-  const q: Criteria = { ageRange: ageBandToRange(input.ageBand), situations: input.situations, region: input.region }
+  const q: Criteria = {
+    ageRange: ageBandToRange(input.ageBand),
+    situations: input.situations,
+    region: input.region,
+    // 내 구간보다 위쪽 상한을 둔 사업까지 자격이 된다(income.ts eligibleBands 주석).
+    incomeBands: input.incomeBand ? eligibleBands(input.incomeBand) : null,
+  }
   const tokens = queryTokens(input.q)
   const filters = conditionFilters(q)
 

@@ -16,9 +16,11 @@ export default function Header() {
           {siteName()}
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-5">
-          {/* 가로줄은 sm 이상에서만. 좁은 화면에서는 같은 목록이 MobileMenu 안에 있다. */}
-          <nav aria-label="주요 메뉴" className="hidden items-center gap-5 text-sm font-medium sm:flex">
+        <div className="flex items-center gap-1 md:gap-5">
+          {/* 가로줄은 md(768) 이상에서만. 640에서도 여섯 개는 들어갔지만 항목이 여덟이 되며
+              로고와 우측 사이 여유가 0px이 됐다 — 라벨 한 글자만 늘어도 깨진다.
+              좁은 화면에서는 같은 목록이 MobileMenu 안에 있다. */}
+          <nav aria-label="주요 메뉴" className="hidden items-center gap-5 text-sm font-medium md:flex">
             {NAV_LINKS_SHORT.map((l) => (
               <Link key={l.href} href={l.href} className="text-gray-700 transition hover:text-brand-700">
                 {l.label}

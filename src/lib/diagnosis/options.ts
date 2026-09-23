@@ -1,6 +1,7 @@
 import { AGE_BANDS, type AgeBand } from '@/lib/benefits/age-bands'
 import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { REGIONS } from '../../../data/regions'
+import { INCOME_BANDS } from '@/lib/benefits/income'
 
 export const AGE_OPTIONS: { value: AgeBand; label: string }[] = [
   { value: '10s', label: '10대' },
@@ -25,3 +26,5 @@ export const REGION_OPTIONS: { value: string; label: string }[] = REGIONS.map((r
 export const VALID_AGE = new Set<string>(AGE_BANDS)
 export const VALID_SITUATION = new Set(Object.keys(SITUATION_TO_CONDITIONS))
 export const VALID_REGION = new Set(REGIONS.map((r) => r.slug))
+/** 소득 구간은 계산기가 만든 값만 들어온다. 목록은 검색 쪽과 한 곳에서 나온다. */
+export const VALID_INCOME = new Set<string>(INCOME_BANDS)

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { absoluteUrl } from './site'
 import { benefitIndexable, compareIndexable, guideIndexable, regionHubIndexable } from './index-policy'
+import { LIFE_EVENTS } from '../../../data/life-events'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 
 type Entry = MetadataRoute.Sitemap[number]
@@ -79,6 +80,11 @@ export function staticEntries(): Entry[] {
     ...PUBLIC_SEGMENTS.map((s) => ({ url: absoluteUrl(`/${s.path}`), changeFrequency: 'daily' as const, priority: 0.9 })),
     { url: absoluteUrl('/guide'), changeFrequency: 'weekly', priority: 0.8 },
     { url: absoluteUrl('/deadline'), changeFrequency: 'daily', priority: 0.8 },
+    // 고시값은 해마다 한 번 바뀐다. 내용이 매일 도는 목록 페이지들과 빈도를 같게 두면
+    // 크롤러에게 거짓을 말하는 셈이다.
+    { url: absoluteUrl('/median-income'), changeFrequency: 'yearly', priority: 0.8 },
+    { url: absoluteUrl('/life'), changeFrequency: 'monthly', priority: 0.8 },
+    ...LIFE_EVENTS.map((e) => ({ url: absoluteUrl(`/life/${e.slug}`), changeFrequency: 'weekly' as const, priority: 0.7 })),
     { url: absoluteUrl('/about'), changeFrequency: 'yearly', priority: 0.3 },
     { url: absoluteUrl('/contact'), changeFrequency: 'yearly', priority: 0.2 },
     { url: absoluteUrl('/privacy'), changeFrequency: 'yearly', priority: 0.1 },

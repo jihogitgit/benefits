@@ -109,7 +109,7 @@ describe('URL 파라미터로 들어온 경우', () => {
     render(<DiagnosisResults />)
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(JSON.parse(localStorage.getItem('diagnosis')!)).toEqual({
-      q: '', ageBand: '20s', situations: ['no_house'], region: null,
+      q: '', ageBand: '20s', situations: ['no_house'], region: null, incomeBand: null,
     })
   })
 

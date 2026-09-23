@@ -26,7 +26,7 @@ describe('DiagnosisPanel', () => {
     expect(url.pathname).toBe('/api/benefits/search')
     expect(url.searchParams.get('count')).toBe('1')
     expect(url.searchParams.get('age')).toBe('30s')
-    expect(JSON.parse(localStorage.getItem('diagnosis')!)).toEqual({ q: '', ageBand: '30s', situations: ['pregnancy'], region: 'seoul' })
+    expect(JSON.parse(localStorage.getItem('diagnosis')!)).toEqual({ q: '', ageBand: '30s', situations: ['pregnancy'], region: 'seoul', incomeBand: null })
     expect(screen.getByRole('link', { name: /내 지원금 27개 보기/ })).toHaveAttribute('href', '/my')
   })
 

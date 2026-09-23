@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import { NAV_LINKS } from './nav-links'
 
 /**
- * 좁은 화면 전용 메뉴. 헤더 가로줄에는 여섯 곳이 들어가지 않는다 — 390px에서 로고를 빼면
- * 292px가 남는데 링크만 350px가 필요하다. 예전에는 넘치는 두 개(/guide·/deadline)에
+ * 좁은 화면 전용 메뉴. 헤더 가로줄에는 목록이 다 들어가지 않는다 — 390px에서 로고를 빼면
+ * 292px가 남는데 링크만 350px가 필요하고, 640px에서도 여유가 0px이다. 예전에는 넘치는 두 개(/guide·/deadline)에
  * `hidden sm:inline`을 걸어 감췄고, 대체 경로가 없어 모바일에서는 그 두 곳에 갈 길이
  * 아예 없었다. 감추는 대신 여기로 모은다.
  */
@@ -27,7 +27,7 @@ export default function MobileMenu() {
   }, [open])
 
   return (
-    <div className="sm:hidden">
+    <div className="md:hidden">
       <button
         type="button"
         aria-expanded={open}
