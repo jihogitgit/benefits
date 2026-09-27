@@ -14,7 +14,8 @@ export const revalidate = 3600
 // 렌더되는데, 그때 Next가 받는 경로가 '/'가 아니라 '/index'라서 './'가 naemok.com/index로
 // 풀린다. 존재하지 않는 URL을 정본으로 선언하게 되고, 빌드 시점 HTML에는 나타나지 않아
 // 로컬·프리뷰에서는 보이지 않는다(프로덕션 도메인에서 실측으로 발견).
-export const metadata: Metadata = { alternates: { canonical: absoluteUrl('/') } }
+// alternates는 병합되지 않고 교체되므로 루트 레이아웃의 RSS 링크를 여기서도 적는다(layout.tsx 주석 참고).
+export const metadata: Metadata = { alternates: { canonical: absoluteUrl('/'), types: { 'application/rss+xml': absoluteUrl('/rss.xml') } } }
 
 export default async function HomePage() {
   // listDeadlineSoon/listRecentlyUpdated는 현재 시각을 인자로 받지 않는다(unstable_cache 키 오염 방지).

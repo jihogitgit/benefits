@@ -7,6 +7,7 @@ import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { groupPeers, type PeerItem } from './peer-group'
 import type { FactRow } from './compare-facts'
+import type { FeedArticleRow, FeedGuideRow } from '@/lib/seo/rss'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -479,4 +480,49 @@ export const getGuide = unstable_cache(
   },
   ['guide'],
   { tags: [CACHE_TAGS.guides], revalidate: 86400 },
+)
+
+/**
+ * RSS 피드 원천. 최근 검수된 해설과 발행 가이드.
+ *
+ * 해설은 listWithArticles와 같은 이유로 benefit_articles를 부모로 두고 SQL에서 reviewed_at으로
+ * 정렬한다. benefits를 부모로 두면 LIMIT이 초안까지 포함한 임의 행을 잘라 발행분이 피드에서 빠진다.
+ * 색인 판정은 피드 빌더(feedItems)가 benefitIndexable로 한 번 더 한다.
+ */
+export const listFeedSources = unstable_cache(
+  async (limit: number): Promise<{ articles: FeedArticleRow[]; guides: FeedGuideRow[] }> => {
+    const supabase = createPublicClient()
+    const [a, g] = await Promise.all([
+      supabase
+        .from('benefit_articles')
+        .select('review_status, indexable, reviewed_at, benefits!inner(slug, title, summary, status, segments)')
+        .eq('indexable', true)
+        .in('review_status', INDEXABLE_REVIEW_STATUSES as unknown as string[])
+        .eq('benefits.status', 'open')
+        // 사이트맵이 공개 세그먼트만 내므로 피드도 같은 범위로 한정한다(listWithArticles 참고)
+        .overlaps('benefits.segments', PUBLIC_SEGMENTS.map((s) => s.slug))
+        .order('reviewed_at', { ascending: false, nullsFirst: false })
+        .order('benefit_id', { ascending: true })
+        .limit(limit),
+      supabase
+        .from('guides')
+        .select('slug, title, body_md, published_at')
+        .not('published_at', 'is', null)
+        .order('published_at', { ascending: false })
+        .order('slug', { ascending: true })
+        .limit(limit),
+    ])
+    if (a.error) throw a.error
+    if (g.error) throw g.error
+    type Row = { review_status: string; indexable: boolean; reviewed_at: string | null; benefits: Parent | Parent[] | null }
+    type Parent = { slug: string; title: string; summary: string | null; status: string }
+    const articles: FeedArticleRow[] = []
+    for (const r of (a.data ?? []) as unknown as Row[]) {
+      const b = one(r.benefits)
+      if (b) articles.push({ slug: b.slug, title: b.title, summary: b.summary, status: b.status, benefit_articles: { review_status: r.review_status, indexable: r.indexable, reviewed_at: r.reviewed_at } })
+    }
+    return { articles, guides: (g.data ?? []) as FeedGuideRow[] }
+  },
+  ['feed-sources'],
+  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.guides], revalidate: 3600 },
 )

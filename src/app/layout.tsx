@@ -17,7 +17,8 @@ export const metadata: Metadata = {
   // 주의: 하위 페이지가 alternates를 지정하면 이 객체가 병합되지 않고 통째로 교체된다. languages나
   // types만 추가하는 페이지는 canonical도 같이 적어야 하며, 빠뜨리면 그 페이지만 조용히 canonical을
   // 잃는다. './' 해석 자체의 회귀는 __tests__/canonical.test.ts가 지킨다.
-  alternates: { canonical: './' },
+  // types는 네이버·피드 리더가 RSS를 자동으로 찾는 <link rel="alternate">다.
+  alternates: { canonical: './', types: { 'application/rss+xml': '/rss.xml' } },
   openGraph: { type: 'website', locale: 'ko_KR', siteName: siteName() },
   // 네이버 서치어드바이저 소유확인. 네이버는 DNS 방식을 지원하지 않아 메타 태그로만 가능하다.
   // 공개값이라 env로 숨길 이유가 없고, 태그가 사라지면 소유확인이 풀리므로 코드에 고정한다.

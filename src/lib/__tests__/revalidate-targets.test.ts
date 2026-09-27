@@ -67,7 +67,7 @@ describe('buildTargets', () => {
 
   it('홈과 공개 세그먼트는 항상 들어간다', () => {
     const { paths } = buildTargets({ slugs: [], guides: [] })
-    expect(paths).toEqual(['/', '/youth', '/parenting', '/small-biz'])
+    expect(paths).toEqual(['/', '/youth', '/parenting', '/small-biz', '/rss.xml'])
   })
 
   it('주소를 슬러그로 넘기면 던진다', () => {

@@ -87,6 +87,8 @@ export function buildTargets({ slugs, guides }: Pick<RevalidateArgs, 'slugs' | '
     // 목록 페이지도 함께 비운다. 제목이 바뀌면 목록에 그대로 남는다.
     ...(guides.length ? ['/guide'] : []),
     ...guides.map((g) => `/guide/${encodeURIComponent(g)}`),
+    // 피드는 발행분을 최신순으로 싣는다. 비우지 않으면 새 글이 최대 1시간 늦게 오른다.
+    '/rss.xml',
   ]
 
   if (tags.length + paths.length > MAX_ITEMS) {
