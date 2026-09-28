@@ -1,5 +1,6 @@
 import { createAdminClient } from '../src/lib/supabase/admin'
 import { tagSegments, type SegmentCondInput } from '../src/lib/segments/rules'
+import { applySegmentOverrides } from '../src/lib/segments/overrides'
 import type { Segment } from '../src/types/database'
 
 /**
@@ -32,6 +33,7 @@ const EMPTY: SegmentCondInput = { age_min: null, age_max: null, life_stages: [],
 interface Row {
   id: string
   slug: string
+  source_id: string | null
   title: string
   target_text: string | null
   summary: string | null
@@ -50,7 +52,7 @@ async function main() {
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase
       .from('benefits')
-      .select('id, slug, title, target_text, summary, segments, status, benefit_conditions(age_min, age_max, life_stages, occupations, household_types)')
+      .select('id, slug, source_id, title, target_text, summary, segments, status, benefit_conditions(age_min, age_max, life_stages, occupations, household_types)')
       .order('slug', { ascending: true })
       .range(offset, offset + PAGE - 1)
     if (error) throw error
@@ -63,15 +65,19 @@ async function main() {
   const changed: { row: Row; next: Segment[] }[] = []
   for (const r of rows) {
     const c = r.benefit_conditions ?? EMPTY
-    const next = tagSegments(
-      { title: r.title, target_text: r.target_text, summary: r.summary },
-      {
-        age_min: c.age_min,
-        age_max: c.age_max,
-        life_stages: c.life_stages ?? [],
-        occupations: c.occupations ?? [],
-        household_types: c.household_types ?? [],
-      },
+    // 동기화와 같은 경로를 탄다(normalize.ts). 보정표를 빼면 여기서 보정분이 되돌아간다.
+    const next = applySegmentOverrides(
+      r.source_id,
+      tagSegments(
+        { title: r.title, target_text: r.target_text, summary: r.summary },
+        {
+          age_min: c.age_min,
+          age_max: c.age_max,
+          life_stages: c.life_stages ?? [],
+          occupations: c.occupations ?? [],
+          household_types: c.household_types ?? [],
+        },
+      ),
     )
     // 순서까지 비교하면 뜻이 같은데 순서만 다른 행을 매번 쓰게 된다. tagSegments의 순서는
     // 규칙의 판정 순서라 안정적이지만, 비교는 집합으로 한다.

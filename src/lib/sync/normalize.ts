@@ -3,6 +3,7 @@ import type { BenefitRow } from '@/types/database'
 import { parseDeadline } from '@/lib/benefits/deadline'
 import { computeStatus } from '@/lib/benefits/status'
 import { tagSegments } from '@/lib/segments/rules'
+import { applySegmentOverrides } from '@/lib/segments/overrides'
 import { extractRegion } from '@/lib/regions/extract'
 
 export const GOV24_SOURCE = 'gov24'
@@ -30,9 +31,9 @@ export function kstToIso(text: string | null | undefined): string | null {
 
 export function normalizeBenefit(item: ServiceListItem, cond: CondForNormalize | null, slug: string, now: Date): BenefitRow {
   const deadline = parseDeadline(item.신청기한)
-  const segments = tagSegments(
-    { title: item.서비스명, target_text: item.지원대상 ?? null, summary: item.서비스목적요약 ?? null },
-    cond ?? EMPTY_COND,
+  const segments = applySegmentOverrides(
+    item.서비스ID,
+    tagSegments({ title: item.서비스명, target_text: item.지원대상 ?? null, summary: item.서비스목적요약 ?? null }, cond ?? EMPTY_COND),
   )
 
   return {

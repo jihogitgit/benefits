@@ -14,7 +14,9 @@ export const FEED_LIMIT = 50
 export interface FeedArticleRow {
   slug: string
   title: string
-  summary: string | null
+  /** 설명은 해설 첫 문단에서 뽑는다. 정부24 summary는 낡은 숫자를 싣고 있는 경우가 있다
+   *  (주거안정 월세대출 summary의 "연 960만원 한도" — 현재 1,440만원). 해설은 그걸 바로잡은 글이다. */
+  explainer_md: string | null
   status: string
   benefit_articles: { review_status: string; indexable: boolean; reviewed_at: string | null } | null
 }
@@ -41,7 +43,7 @@ export function feedItems(articles: FeedArticleRow[], guides: FeedGuideRow[], li
       .map((a) => ({
         title: a.title,
         url: absoluteUrl(`/benefit/${a.slug}`),
-        description: metaDescription(a.summary ?? ''),
+        description: metaDescription(a.explainer_md?.split(/\n\s*\n/)[0] ?? ''),
         date: a.benefit_articles?.reviewed_at ?? null,
       })),
     ...guides.filter(guideIndexable).map((g) => ({

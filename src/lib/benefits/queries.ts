@@ -495,7 +495,7 @@ export const listFeedSources = unstable_cache(
     const [a, g] = await Promise.all([
       supabase
         .from('benefit_articles')
-        .select('review_status, indexable, reviewed_at, benefits!inner(slug, title, summary, status, segments)')
+        .select('review_status, indexable, reviewed_at, explainer_md, benefits!inner(slug, title, status, segments)')
         .eq('indexable', true)
         .in('review_status', INDEXABLE_REVIEW_STATUSES as unknown as string[])
         .eq('benefits.status', 'open')
@@ -514,12 +514,12 @@ export const listFeedSources = unstable_cache(
     ])
     if (a.error) throw a.error
     if (g.error) throw g.error
-    type Row = { review_status: string; indexable: boolean; reviewed_at: string | null; benefits: Parent | Parent[] | null }
-    type Parent = { slug: string; title: string; summary: string | null; status: string }
+    type Row = { review_status: string; indexable: boolean; reviewed_at: string | null; explainer_md: string | null; benefits: Parent | Parent[] | null }
+    type Parent = { slug: string; title: string; status: string }
     const articles: FeedArticleRow[] = []
     for (const r of (a.data ?? []) as unknown as Row[]) {
       const b = one(r.benefits)
-      if (b) articles.push({ slug: b.slug, title: b.title, summary: b.summary, status: b.status, benefit_articles: { review_status: r.review_status, indexable: r.indexable, reviewed_at: r.reviewed_at } })
+      if (b) articles.push({ slug: b.slug, title: b.title, explainer_md: r.explainer_md, status: b.status, benefit_articles: { review_status: r.review_status, indexable: r.indexable, reviewed_at: r.reviewed_at } })
     }
     return { articles, guides: (g.data ?? []) as FeedGuideRow[] }
   },
