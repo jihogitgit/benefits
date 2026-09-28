@@ -40,8 +40,9 @@ describe('sitemap entries', () => {
 })
 
 describe('sitemapPaths', () => {
-  it('정적/지역 허브 1개 + 공개 세그먼트 3개 = 4개 경로', () => {
-    expect(sitemapPaths()).toEqual(['/sitemap/0.xml', '/sitemap/1.xml', '/sitemap/2.xml', '/sitemap/3.xml'])
+  // 기타(4)는 뒤에 붙는다. 앞 번호가 밀리면 이미 제출한 1..3 파일의 내용이 바뀐다.
+  it('정적/지역 허브 1개 + 공개 세그먼트 3개 + 기타 1개 = 5개 경로', () => {
+    expect(sitemapPaths()).toEqual(['/sitemap/0.xml', '/sitemap/1.xml', '/sitemap/2.xml', '/sitemap/3.xml', '/sitemap/4.xml'])
   })
 })
 

@@ -27,6 +27,7 @@ describe('robots.txt', () => {
       'https://example.com/sitemap/1.xml',
       'https://example.com/sitemap/2.xml',
       'https://example.com/sitemap/3.xml',
+      'https://example.com/sitemap/4.xml',
     ])
   })
 

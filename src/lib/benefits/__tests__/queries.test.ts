@@ -129,14 +129,14 @@ describe('queries', () => {
       expect(c.order).toHaveBeenCalledWith('benefit_id', { ascending: true })
     })
 
-    it('segment가 null이면 공개 세그먼트로만 한정한다 — 사이트맵에 없는 페이지를 링크하지 않도록', async () => {
-      // 세그먼트 사이트맵은 PUBLIC_SEGMENTS만 낸다. 무필터로 두면 'other'나 빈 segments 지원금을
-      // 홈에서만 링크하게 되어 어느 사이트맵에도 없는 페이지가 색인 대상이 된다.
+    it('segment가 null이면 사이트맵 세그먼트로 한정한다 — 사이트맵에 없는 페이지를 링크하지 않도록', async () => {
+      // 세그먼트 사이트맵은 SITEMAP_SEGMENTS(공개 3 + 기타)를 낸다. 무필터로 두면 빈 segments
+      // 지원금을 홈에서만 링크하게 되어 어느 사이트맵에도 없는 페이지가 색인 대상이 된다.
       const c = chain()
       c.limit.mockResolvedValue({ data: [], error: null })
       from.mockReturnValue(c)
       await listWithArticles(null)
-      expect(c.overlaps).toHaveBeenCalledWith('benefits.segments', ['youth', 'parenting', 'small_biz'])
+      expect(c.overlaps).toHaveBeenCalledWith('benefits.segments', ['youth', 'parenting', 'small_biz', 'other'])
       expect(c.contains).not.toHaveBeenCalled()
 
       const c2 = chain()

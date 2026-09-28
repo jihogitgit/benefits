@@ -2,15 +2,25 @@ import type { MetadataRoute } from 'next'
 import { absoluteUrl } from './site'
 import { benefitIndexable, compareIndexable, guideIndexable, regionHubIndexable } from './index-policy'
 import { LIFE_EVENTS } from '../../../data/life-events'
-import { PUBLIC_SEGMENTS } from '../../../data/segments'
+import { PUBLIC_SEGMENTS, SEGMENT_OTHER } from '../../../data/segments'
 
 type Entry = MetadataRoute.Sitemap[number]
 
 /**
- * 사이트맵 분할 id. 0 = 정적 + 지역 허브, 1..n = 공개 세그먼트별 상세.
+ * 상세 사이트맵을 내는 세그먼트. 공개 세그먼트 뒤에 'other'(기타)를 둔다.
+ *
+ * 기타는 허브(/other)가 없어 홈·허브 목록에서는 빠지지만, 해설이 발행된 상세는 색인 대상이다.
+ * 사이트맵에서까지 빼면 주거급여처럼 대상층이 특정되지 않는 전국 제도가 어디서도 신고되지 않는다.
+ * 뒤에 붙이는 이유는 기존 1..3 파일 번호를 바꾸지 않기 위해서다(이미 검색엔진에 제출돼 있다).
+ * 'other'는 다른 세그먼트와 함께 붙지 않으므로(rules.ts·overrides.ts) 파일 간 중복이 없다.
+ */
+export const SITEMAP_SEGMENTS = [...PUBLIC_SEGMENTS, SEGMENT_OTHER]
+
+/**
+ * 사이트맵 분할 id. 0 = 정적 + 지역 허브, 1..n = SITEMAP_SEGMENTS 순서의 세그먼트별 상세.
  * generateSitemaps와 robots가 같은 목록을 봐야 robots가 없는 파일을 가리키지 않는다.
  */
-export const SITEMAP_IDS: number[] = [0, ...PUBLIC_SEGMENTS.map((_, i) => i + 1)]
+export const SITEMAP_IDS: number[] = [0, ...SITEMAP_SEGMENTS.map((_, i) => i + 1)]
 
 /** Next가 만드는 실제 경로. generateSitemaps는 /sitemap/{id}.xml만 내고 /sitemap.xml 인덱스는 내지 않는다. */
 export function sitemapPaths(): string[] {

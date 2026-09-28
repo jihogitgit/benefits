@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/server'
 import { countByRegion, listPublishedGuides, listCompareKeys } from '@/lib/benefits/queries'
-import { benefitEntries, compareEntries, guideEntries, regionHubEntries, staticEntries, SITEMAP_IDS, type BenefitSitemapRow } from '@/lib/seo/sitemap-entries'
+import { benefitEntries, compareEntries, guideEntries, regionHubEntries, staticEntries, SITEMAP_IDS, SITEMAP_SEGMENTS, type BenefitSitemapRow } from '@/lib/seo/sitemap-entries'
 import { PUBLIC_SEGMENTS } from '../../data/segments'
 import { REGIONS } from '../../data/regions'
 
@@ -9,7 +9,7 @@ export const revalidate = 3600
 
 const ROWS_PER_PAGE = 1000 // Supabase 단일 응답 기본 최대 행 수
 
-// id 0: 정적 + 가이드 + 지역 허브, id 1..3: 세그먼트별 상세(색인 가능한 것만)
+// id 0: 정적 + 가이드 + 지역 허브, id 1..4: 세그먼트별 상세(색인 가능한 것만, 4는 기타)
 export async function generateSitemaps() {
   return SITEMAP_IDS.map((id) => ({ id }))
 }
@@ -69,7 +69,7 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
   // id === 0이 거짓이 되어 정적·지역 허브 항목이 통째로 사라졌다(사이트맵 0건). 반드시 수치화한다.
   const n = Number(id)
   if (n === 0) return hubSitemap()
-  const seg = PUBLIC_SEGMENTS[n - 1]
+  const seg = SITEMAP_SEGMENTS[n - 1]
   if (!seg) return []
   return segmentSitemap(seg.slug)
 }

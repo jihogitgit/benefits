@@ -3,11 +3,11 @@ import { buildGuideBacklinks, type GuideRef } from './guide-backlinks'
 import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
 import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
-import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { groupPeers, type PeerItem } from './peer-group'
 import type { FactRow } from './compare-facts'
 import type { FeedArticleRow, FeedGuideRow } from '@/lib/seo/rss'
+import { SITEMAP_SEGMENTS } from '@/lib/seo/sitemap-entries'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -123,9 +123,10 @@ export const listBySegment = unstable_cache(
  * benefitIndexable을 뒤에서 한 번 더 통과시켜 기준이 갈라질 여지를 남기지 않는다.
  * 기준이 갈라지면 사이트맵에 없는 페이지로 링크가 가거나(색인 낭비) 그 반대가 된다.
  *
- * @param segment null이면 공개 세그먼트 전체(홈용). 공개 세그먼트로 한정하는 이유는
- *   세그먼트 사이트맵이 PUBLIC_SEGMENTS만 내기 때문이다. 'other'나 빈 segments를 가진
- *   지원금을 홈에서 링크하면 어느 사이트맵에도 없는 페이지를 홈에서만 가리키게 된다.
+ * @param segment null이면 사이트맵 세그먼트 전체(홈용, SITEMAP_SEGMENTS — 기타 포함). 범위를
+ *   사이트맵과 맞추는 이유는 어느 사이트맵에도 없는 페이지를 홈에서만 가리키지 않기 위해서다.
+ *   빈 segments를 가진 지원금은 어느 쪽에도 들지 않는다. 기타를 넣는 이유는 허브(/other)가 없어
+ *   홈이 그 상세로 가는 거의 유일한 내부 링크이기 때문이다(주거급여 등).
  */
 export const listWithArticles = unstable_cache(
   async (segment: Segment | null, limit = 12): Promise<BenefitListRow[]> => {
@@ -138,7 +139,7 @@ export const listWithArticles = unstable_cache(
       .eq('benefits.status', 'open')
     q = segment
       ? q.contains('benefits.segments', [segment])
-      : q.overlaps('benefits.segments', PUBLIC_SEGMENTS.map((s) => s.slug))
+      : q.overlaps('benefits.segments', SITEMAP_SEGMENTS.map((s) => s.slug))
     const { data, error } = await q
       // 최근 검수 순. 동률일 때 순서가 재생성마다 뒤집히지 않도록 PK로 한 번 더 고정한다.
       .order('reviewed_at', { ascending: false, nullsFirst: false })
@@ -499,8 +500,8 @@ export const listFeedSources = unstable_cache(
         .eq('indexable', true)
         .in('review_status', INDEXABLE_REVIEW_STATUSES as unknown as string[])
         .eq('benefits.status', 'open')
-        // 사이트맵이 공개 세그먼트만 내므로 피드도 같은 범위로 한정한다(listWithArticles 참고)
-        .overlaps('benefits.segments', PUBLIC_SEGMENTS.map((s) => s.slug))
+        // 사이트맵과 같은 범위(기타 포함). 홈 목록(listWithArticles)과 달리 허브 링크가 필요 없다.
+        .overlaps('benefits.segments', SITEMAP_SEGMENTS.map((s) => s.slug))
         .order('reviewed_at', { ascending: false, nullsFirst: false })
         .order('benefit_id', { ascending: true })
         .limit(limit),
