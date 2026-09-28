@@ -1,7 +1,10 @@
 import { deadlineLabel, firstLine } from '@/lib/benefits/format'
 import type { BenefitDetail } from '@/lib/benefits/queries'
+import { withDisplayOverrides } from '@/lib/benefits/display-overrides'
 
-export default function SummaryGrid({ b }: { b: BenefitDetail }) {
+export default function SummaryGrid({ b: raw }: { b: BenefitDetail }) {
+  // 정부24 원문이 낡았거나 머리말만 있는 사업은 해설에서 뽑은 한 줄로 바꾼다
+  const b = withDisplayOverrides(raw)
   const cells = [
     // amount_text 첫 줄은 내용이 아니라 머리말인 행이 많다 — '< … 개요 >'가 제목을 되풀이하거나
     // '? 지원대상 및 기준' 같은 빈 라벨이 실린다. summary는 같은 행에 이미 실려 오고 표본

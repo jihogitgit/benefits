@@ -5,6 +5,7 @@ import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers } from '@
 import { buildChecklist } from '@/lib/benefits/checklist'
 import { firstLine, deadlineLabel } from '@/lib/benefits/format'
 import { daysUntil } from '@/lib/benefits/status'
+import { withDisplayOverrides, hasSummaryOverride } from '@/lib/benefits/display-overrides'
 import { benefitIndexable } from '@/lib/seo/index-policy'
 import { governmentService, breadcrumbs, faqPage } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
@@ -34,7 +35,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const b = await getBenefitBySlug(decodeURIComponent(slug))
   if (!b) return {}
   const indexable = benefitIndexable({ status: b.status, article: b.benefit_articles })
-  const desc = [firstLine(b.amount_text, 50), firstLine(b.target_text, 40), deadlineLabel(b)].filter(Boolean).join(' · ').slice(0, 120)
+  // 보정 문구가 있으면 요약 칸과 같은 한 줄을 스니펫에 싣는다(display-overrides.ts).
+  const d = withDisplayOverrides(b)
+  const desc = [firstLine(hasSummaryOverride(b.slug) ? d.summary : b.amount_text, 50), firstLine(d.target_text, 40), deadlineLabel(b)].filter(Boolean).join(' · ').slice(0, 120)
   return {
     title: `${b.title} 자격조건·신청방법 (${kstYear()})`,
     description: desc,
@@ -78,7 +81,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
       <JsonLd data={[
-        governmentService({ title: b.title, summary: b.summary, agency: b.agency, region_name: b.region_code === 'ALL' ? null : regionName(b.region_code), apply_url: b.apply_url, slug: b.slug }),
+        governmentService({ title: b.title, summary: withDisplayOverrides(b).summary, agency: b.agency, region_name: b.region_code === 'ALL' ? null : regionName(b.region_code), apply_url: b.apply_url, slug: b.slug }),
         breadcrumbs([{ name: '홈', path: '/' }, ...(seg.slug !== 'other' ? [{ name: seg.name, path: `/${seg.path}` }] : []), { name: b.title, path: `/benefit/${b.slug}` }]),
         published ? faqPage(faq) : null,
       ]} />

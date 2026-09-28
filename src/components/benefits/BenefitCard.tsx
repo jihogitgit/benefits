@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { BenefitListRow } from '@/lib/benefits/queries'
 import { firstLine } from '@/lib/benefits/format'
+import { withDisplayOverrides } from '@/lib/benefits/display-overrides'
 import { REGIONS, REGION_ALL } from '../../../data/regions'
 import DdayBadge from './DdayBadge'
 
@@ -17,7 +18,8 @@ export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: D
   // summary는 같은 행에 이미 실려 오고(LIST_COLS) 표본 500건 전부 채워져 있으며
   // '장애인 평생교육이용권 포인트 지원(1인 35만원)'처럼 금액까지 담고 있다.
   // summary에도 줄바꿈 뒤 각주가 붙는 행이 있어 첫 줄만 쓴다.
-  const desc = firstLine(row.summary, 80) ?? firstLine(row.amount_text, 80)
+  // 요약 칸과 같은 보정을 거친다. 카드와 상세 요약이 다른 숫자를 말하면 안 된다(display-overrides.ts).
+  const desc = firstLine(withDisplayOverrides(row).summary, 80) ?? firstLine(row.amount_text, 80)
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm focus-within:border-brand-400">
       <div className="mb-1 flex flex-wrap items-center gap-1.5">
