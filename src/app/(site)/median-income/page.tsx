@@ -65,7 +65,7 @@ export default function MedianIncomePage() {
       <section className="mt-10">
         <h2 className="mb-1 text-xl font-bold">제도별 기준선</h2>
         <p className="mb-3 text-sm text-gray-600">
-          아래 비율은 임의로 고른 눈금이 아니라 보건복지부 보도자료가 제도와 함께 명시한 값입니다.
+          아래 비율은 보건복지부 보도자료가 제도마다 밝혀 둔 값입니다.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-sm">
@@ -109,7 +109,7 @@ export default function MedianIncomePage() {
             {MEDIAN_INCOME_SOURCE.label}
           </a>
           의 표를 그대로 옮긴 값입니다. 실제 자격은 세전 소득이 아니라 소득인정액(소득평가액 + 재산의 소득환산액)으로
-          판정하는 제도가 많아, 계산 결과는 <b className="font-semibold">가늠자</b>이지 판정이 아닙니다.
+          판정하는 제도가 많아 계산 결과는 <b className="font-semibold">가늠자</b>로만 봐 주세요.
           신청 전에 각 지원금의 공식 페이지에서 확인하세요.
         </p>
         <p className="mt-3 text-sm">
