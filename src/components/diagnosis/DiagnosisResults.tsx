@@ -110,11 +110,26 @@ export default function DiagnosisResults() {
       if (!r.ok) throw new Error(String(r.status))
       const j = (await r.json()) as { total: number; items: SearchResultItem[] }
       setTotal(j.total)
-      setItems((prev) => (offset === 0 ? j.items : [...prev, ...j.items]))
+      // 이어 붙일 때 slug로 겹침을 거른다. 쪽마다 따로 순위를 매기고 따로 캐시하므로, 그 사이
+      // 동기화가 순서를 바꾸면 같은 카드가 두 쪽에 걸칠 수 있다(key 충돌까지 난다).
+      setItems((prev) => {
+        if (offset === 0) return j.items
+        const seen = new Set(prev.map((i) => i.slug))
+        return [...prev, ...j.items.filter((i) => !seen.has(i.slug))]
+      })
       setLoaded(true)
     } catch {
       // 취소는 오류가 아니고, 로딩 상태는 뒤이은 요청이 관리한다.
-      if (!ac.signal.aborted) setError(true)
+      if (!ac.signal.aborted) {
+        setError(true)
+        // 첫 쪽(필터를 바꾼 직후 포함)이 실패하면 이전 결과를 비운다. 남겨 두면 옛 필터의 목록 아래에
+        // "더 보기"가 새 필터의 2쪽을 이어 붙여 두 결과가 섞이고, "다시 시도"도 숨는다.
+        if (offset === 0) {
+          setItems([])
+          setTotal(0)
+          setLoaded(false)
+        }
+      }
     } finally {
       if (!ac.signal.aborted) setLoading(false)
     }
@@ -182,6 +197,9 @@ export default function DiagnosisResults() {
   const matched = splitUnsure ? open.filter((i) => i.hasConditions) : open
   const unsure = splitUnsure ? open.filter((i) => !i.hasConditions) : []
   const select = 'min-h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900'
+  // 지역이 유일한 조건이면 '지역 전체'를 고를 수 없게 한다. 고르면 진단이 비어 이 화면이 통째로
+  // "고른 조건이 없습니다"로 바뀌고 빈 진단이 저장돼, 여기서는 되돌릴 방법이 없다.
+  const regionOnly = !!d.region && isEmpty({ ...d, region: null })
   const firstLoad = loading && !loaded
   const countText = loaded ? `총 ${total.toLocaleString()}개` : error ? '불러오지 못함' : '검색 중…'
 
@@ -217,7 +235,7 @@ export default function DiagnosisResults() {
         <label>
           <span className="sr-only">지역</span>
           <select value={d.region ?? ''} onChange={(e) => setRegion(e.target.value)} className={select}>
-            <option value="">지역 전체</option>
+            <option value="" disabled={regionOnly}>지역 전체</option>
             {REGION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
@@ -253,7 +271,17 @@ export default function DiagnosisResults() {
         </p>
       )}
 
-      {matched.length > 0 && <BenefitList rows={matched.map(toRow)} />}
+      {matched.length > 0 &&
+        (splitUnsure ? (
+          <BenefitList rows={matched.map(toRow)} />
+        ) : (
+          // 사용자가 고른 정렬 순서를 지키느라 한 목록에 두므로, 조건이 등록되지 않은 카드는 카드에 표시한다.
+          <div className="grid gap-3 sm:grid-cols-2">
+            {matched.map((i) => (
+              <BenefitCard key={i.slug} row={toRow(i)} note={i.hasConditions ? undefined : '조건 확인 필요'} />
+            ))}
+          </div>
+        ))}
 
       {unsure.length > 0 && (
         <section className="mt-8">
@@ -276,9 +304,11 @@ export default function DiagnosisResults() {
           <h2 className="mb-2 text-base font-bold text-gray-700">
             마감된 공고 <span className="text-sm font-normal text-gray-500">— 지금은 신청할 수 없습니다. 다음 공고를 기다릴 때 참고하세요</span>
           </h2>
-          <div className="grid gap-3 opacity-75 sm:grid-cols-2">
+          {/* 흐리게(opacity) 처리하지 않는다. 회색 보조 글자가 대비 기준(4.5:1) 아래로 떨어진다.
+              묶음 제목과 카드의 '마감' 표시로 구분한다. */}
+          <div className="grid gap-3 sm:grid-cols-2">
             {closed.map((i) => (
-              <BenefitCard key={i.slug} row={toRow(i)} />
+              <BenefitCard key={i.slug} row={toRow(i)} note="마감" />
             ))}
           </div>
         </section>

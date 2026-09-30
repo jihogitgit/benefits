@@ -11,7 +11,12 @@ export function regionName(code: string): string {
   return code === REGION_ALL ? '전국' : (REGION_NAME[code] ?? code)
 }
 
-export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: Date }) {
+export default function BenefitCard({ row, now, note }: {
+  row: BenefitListRow
+  now?: Date
+  /** 배지 줄 끝에 붙는 짧은 표시(예: '조건 확인 필요', '마감'). 목록이 따로 묶어 설명하지 못할 때 쓴다. */
+  note?: string
+}) {
   // amount_text는 이름과 달리 금액이 아니라 보조금24의 지원내용 원문 덩어리다. 첫 줄은
   // 대부분 내용이 아니라 머리말이라서, 카드에 '< 2026년 … 지원(추가모집) 개요 >'처럼
   // 제목을 되풀이하거나 '? 지원대상 및 기준', '지원대상' 같은 빈 라벨이 찍혔다.
@@ -28,6 +33,7 @@ export default function BenefitCard({ row, now }: { row: BenefitListRow; now?: D
         {/* gray-400은 흰 배경 대비 2.6:1로 AA(4.5:1) 미달이었다. 카드마다 한 번씩 나오므로
             홈에서만 18곳이 걸렸다. */}
         {row.agency && <span className="text-xs text-gray-500">· {row.agency}</span>}
+        {note && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800">{note}</span>}
       </div>
       <h3 className="text-base font-semibold leading-snug">
         {/* after:inset-0 로 카드 전체를 클릭 영역으로 넓힌다. 접근성 이름은 제목만 유지된다. */}
