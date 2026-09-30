@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { siteName } from '@/lib/seo/site'
-import { NAV_LINKS } from './nav-links'
+import { SITE_LINKS } from './nav-links'
 
 /** 원문 데이터 제공처. 출처 표기와 공공누리 고지가 같은 값을 쓰도록 한 곳에 둔다. */
 const SOURCE = '공공데이터포털(data.go.kr) · 행정안전부 보조금24'
@@ -15,10 +15,10 @@ export default function Footer() {
   return (
     <footer className="mt-16 border-t bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-gray-600">
-        {/* 헤더가 좁은 화면에서 접는 목록을 여기서 다시 편다. 푸터는 폭 제약이 없으므로
+        {/* 헤더에는 큰 갈래만 둔다. 분야 허브·생애 이벤트·마감 임박까지 여기서 펴므로
             어느 화면에서나 모든 허브로 가는 길이 여기 하나는 남는다. */}
         <nav aria-label="사이트 메뉴" className="mb-5 flex flex-wrap gap-x-6 gap-y-1">
-          {NAV_LINKS.map((l) => (
+          {SITE_LINKS.map((l) => (
             <Link key={l.href} href={l.href} className="inline-flex min-h-11 items-center font-medium text-gray-800 hover:text-brand-700">
               {l.label}
             </Link>

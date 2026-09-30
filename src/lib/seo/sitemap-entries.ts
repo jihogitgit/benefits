@@ -88,6 +88,7 @@ export function staticEntries(): Entry[] {
   return [
     { url: absoluteUrl('/'), changeFrequency: 'daily', priority: 1.0 },
     ...PUBLIC_SEGMENTS.map((s) => ({ url: absoluteUrl(`/${s.path}`), changeFrequency: 'daily' as const, priority: 0.9 })),
+    { url: absoluteUrl('/benefits'), changeFrequency: 'daily', priority: 0.9 },
     { url: absoluteUrl('/guide'), changeFrequency: 'weekly', priority: 0.8 },
     { url: absoluteUrl('/deadline'), changeFrequency: 'daily', priority: 0.8 },
     // 고시값은 해마다 한 번 바뀐다. 내용이 매일 도는 목록 페이지들과 빈도를 같게 두면

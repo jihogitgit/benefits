@@ -121,9 +121,8 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
           잘렸다는 사실과 정렬 기준을 밝히고, 나머지를 찾는 경로(조건 진단)로 이어준다. */}
       {total > deadlineRows.length && (
         <p className="mt-4 text-sm text-gray-500">
-          마감이 가까운 {deadlineRows.length.toLocaleString()}개를 먼저 보여줍니다. 나머지는{' '}
-          <Link href="/" className="font-semibold text-brand-700 hover:underline">조건 진단</Link>
-          으로 좁혀서 찾아보세요.
+          마감이 가까운 {deadlineRows.length.toLocaleString()}개를 먼저 보여줍니다.{' '}
+          <Link href={`/benefits?seg=${seg.path}`} className="font-semibold text-brand-700 hover:underline">{seg.name} 지원금 {total.toLocaleString()}개 전체 보기 →</Link>
         </p>
       )}
 

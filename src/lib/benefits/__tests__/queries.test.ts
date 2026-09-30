@@ -6,14 +6,15 @@ vi.mock('next/cache', () => ({ unstable_cache: (fn: (...a: unknown[]) => unknown
 const chain = () => {
   const c: Record<string, unknown> = {}
   const self = () => c
-  for (const m of ['select', 'eq', 'neq', 'in', 'contains', 'overlaps', 'gte', 'lte', 'gt', 'order', 'limit', 'range', 'not', 'is']) c[m] = vi.fn(self)
+  for (const m of ['select', 'eq', 'neq', 'in', 'contains', 'overlaps', 'gte', 'lte', 'gt', 'order', 'limit', 'range', 'not', 'is', 'ilike', 'or']) c[m] = vi.fn(self)
   c.maybeSingle = vi.fn(async () => ({ data: null, error: null }))
   return c as Record<string, ReturnType<typeof vi.fn>>
 }
 const from = vi.fn()
 vi.mock('@/lib/supabase/server', () => ({ createPublicClient: () => ({ from }) }))
 
-import { getBenefitBySlug, listBySegment, listDeadlineSoon, getLastSyncAt, countByRegion, listWithArticles } from '../queries'
+import { getBenefitBySlug, listBySegment, listDeadlineSoon, getLastSyncAt, countByRegion, listWithArticles, listBrowse, countBrowseBySegment } from '../queries'
+import { BROWSE_DEFAULTS } from '../browse'
 
 describe('queries', () => {
   beforeEach(() => from.mockReset())
@@ -43,6 +44,71 @@ describe('queries', () => {
     expect(c.contains).toHaveBeenCalledWith('segments', ['youth'])
     expect(c.in).toHaveBeenCalledWith('region_code', ['seoul', 'ALL'])
     expect(rows).toEqual([{ slug: 'x' }])
+  })
+
+  it('listBrowse는 필터를 모두 걸고 안정 정렬 뒤 페이지 범위로 자른다', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-10T03:00:00Z'))
+    const c = chain()
+    c.range.mockResolvedValue({ data: [{ slug: 'a', benefit_articles: { indexable: true } }], count: 41, error: null })
+    from.mockReturnValue(c)
+    const r = await listBrowse({ ...BROWSE_DEFAULTS, seg: 'small-biz', region: 'seoul', status: 'soon', explained: true, q: '창업 자금', page: 3 })
+    expect(c.eq).toHaveBeenCalledWith('status', 'open')
+    expect(c.contains).toHaveBeenCalledWith('segments', ['small_biz'])
+    expect(c.in).toHaveBeenCalledWith('region_code', ['seoul', 'ALL'])
+    expect(c.eq).toHaveBeenCalledWith('deadline_type', 'period')
+    expect(c.gte).toHaveBeenCalledWith('apply_end', '2026-09-10')
+    expect(c.lte).toHaveBeenCalledWith('apply_end', '2026-09-24')
+    // '접수 중'이므로 아직 열리지 않은 공고는 뺀다
+    expect(c.or).toHaveBeenCalledWith('apply_start.is.null,apply_start.lte.2026-09-10')
+    expect(c.select.mock.calls[0][0]).toMatch(/benefit_articles!inner/)
+    expect(c.eq).toHaveBeenCalledWith('benefit_articles.indexable', true)
+    expect(c.ilike).toHaveBeenCalledWith('title', '%창업%')
+    expect(c.ilike).toHaveBeenCalledWith('title', '%자금%')
+    // 같은 마감일끼리 순서가 흔들리면 페이지 경계에서 카드가 겹치거나 빠진다
+    expect(c.order).toHaveBeenLastCalledWith('slug', { ascending: true })
+    expect(c.range).toHaveBeenCalledWith(40, 59)
+    // 조인한 해설 열은 카드 행에 싣지 않는다
+    expect(r).toEqual({ rows: [{ slug: 'a' }], total: 41 })
+  })
+
+  it('listBrowse 검색어는 진단 검색과 같은 낱말 수 상한에서 자른다', async () => {
+    const c = chain()
+    c.range.mockResolvedValue({ data: [], count: 0, error: null })
+    from.mockReturnValue(c)
+    await listBrowse({ ...BROWSE_DEFAULTS, q: '가 나 다 라 마 바 사' })
+    expect(c.ilike.mock.calls.length).toBeLessThanOrEqual(4)
+    expect(c.ilike.mock.calls.length).toBeGreaterThan(0)
+  })
+
+  it('listBrowse 전국 공통만은 ALL 하나만, 기본은 지역·해설 조인 없음', async () => {
+    const c = chain()
+    c.range.mockResolvedValue({ data: [], count: 0, error: null })
+    from.mockReturnValue(c)
+    await listBrowse({ ...BROWSE_DEFAULTS, region: 'national' })
+    expect(c.eq).toHaveBeenCalledWith('region_code', 'ALL')
+    expect(c.in).not.toHaveBeenCalled()
+    expect(c.select.mock.calls[0][0]).not.toMatch(/benefit_articles/)
+    expect(c.order).toHaveBeenCalledWith('apply_end', { ascending: true, nullsFirst: false })
+  })
+
+  it('listBrowse는 범위 밖 페이지(PGRST103)를 오류로 보지 않고 건수만 돌려준다', async () => {
+    const c = chain()
+    c.range.mockResolvedValue({ data: null, count: null, error: { code: 'PGRST103', message: 'Requested range not satisfiable' } })
+    ;(c as unknown as { then: unknown }).then = (res: (v: unknown) => void) => res({ count: 41, error: null })
+    from.mockReturnValue(c)
+    expect(await listBrowse({ ...BROWSE_DEFAULTS, page: 99 })).toEqual({ rows: [], total: 41 })
+  })
+
+  it('countBrowseBySegment는 분야마다 같은 필터로 센다', async () => {
+    const c = chain()
+    // head 요청은 마지막 필터 호출이 await된다. 체인 자체를 thenable로 만들어 count를 돌려준다.
+    ;(c as unknown as { then: unknown }).then = (res: (v: unknown) => void) => res({ count: 5, error: null })
+    from.mockReturnValue(c)
+    const r = await countBrowseBySegment({ ...BROWSE_DEFAULTS, seg: 'youth', status: 'always' })
+    expect(r.all).toBe(5)
+    expect(Object.keys(r.bySeg)).toEqual(['youth', 'parenting', 'small-biz', 'other'])
+    expect(c.eq).toHaveBeenCalledWith('deadline_type', 'always')
   })
 
   it('listDeadlineSoon은 오늘~N일 사이 기간 항목만', async () => {

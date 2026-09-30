@@ -2,12 +2,14 @@ import { unstable_cache } from 'next/cache'
 import { buildGuideBacklinks, type GuideRef } from './guide-backlinks'
 import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
+import { queryTokens } from './query-text'
 import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { groupPeers, type PeerItem } from './peer-group'
 import type { FactRow } from './compare-facts'
 import type { FeedArticleRow, FeedGuideRow } from '@/lib/seo/rss'
 import { SITEMAP_SEGMENTS } from '@/lib/seo/sitemap-entries'
+import { BROWSE_PAGE_SIZE, BROWSE_SEGMENTS, REGION_NATIONAL, SOON_DAYS, regionFilterOf, segmentSlugOf, type BrowseInput } from './browse'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
 
 export interface BenefitListRow {
@@ -101,6 +103,108 @@ export const listBySegment = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['list-by-segment'],
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
+)
+
+/** 필터 체인이 쓰는 메서드만. 쿼리 빌더의 전체 제네릭을 끌고 오지 않으려고 구조로 받는다. */
+interface Filterable {
+  eq(col: string, v: unknown): Filterable
+  in(col: string, v: unknown[]): Filterable
+  contains(col: string, v: unknown[]): Filterable
+  gte(col: string, v: unknown): Filterable
+  lte(col: string, v: unknown): Filterable
+  ilike(col: string, v: string): Filterable
+  or(filters: string): Filterable
+}
+
+// 제네릭으로 받으면 PostgrestFilterBuilder와의 구조 비교가 끝없이 전개된다(TS2589).
+// 구조 타입으로 받고 호출부가 원래 빌더 타입으로 되돌린다.
+function applyBrowseFilters<Q>(query: Q, input: BrowseInput): Q {
+  let q = query as unknown as Filterable
+  const now = new Date()
+  const today = kstDateString(now)
+  q = q.eq('status', 'open')
+  const seg = segmentSlugOf(input.seg)
+  if (seg) q = q.contains('segments', [seg])
+  if (input.region === REGION_NATIONAL) q = q.eq('region_code', 'ALL')
+  else {
+    const region = regionFilterOf(input.region)
+    if (region) q = q.in('region_code', [region, 'ALL'])
+  }
+  if (input.status === 'always') q = q.eq('deadline_type', 'always')
+  // '접수 중'이라 부르므로 아직 열리지 않은 공고는 뺀다. 시작일이 비어 있으면 열린 것으로 본다.
+  if (input.status === 'period' || input.status === 'soon') q = q.eq('deadline_type', 'period').gte('apply_end', today).or(`apply_start.is.null,apply_start.lte.${today}`)
+  if (input.status === 'soon') q = q.lte('apply_end', kstDateString(new Date(now.getTime() + SOON_DAYS * 86_400_000)))
+  if (input.explained) q = q.eq('benefit_articles.indexable', true).in('benefit_articles.review_status', [...INDEXABLE_REVIEW_STATUSES])
+  // 검색어는 정규화에서 문장부호가 빠져 ilike 패턴 문자(%, _)가 들어올 수 없다. 낱말마다 AND로 건다.
+  // 낱말 수는 진단 검색과 같은 상한(queryTokens)으로 자른다 — 긴 입력이 필터 수십 개가 되지 않게.
+  for (const t of queryTokens(input.q)) q = q.ilike('title', `%${t}%`)
+  return q as unknown as Q
+}
+
+/**
+ * /benefits 전체 목록 한 페이지와 전체 건수.
+ *
+ * '오늘'은 listDeadlineSoon과 같은 이유로 안에서 읽는다(캐시 키 안정). 정렬 뒤에 slug를 한 번 더
+ * 걸어 같은 마감일끼리의 순서를 고정한다 — 순서가 요청마다 흔들리면 range로 자른 페이지 경계에서
+ * 같은 카드가 두 페이지에 나오거나 한 장이 어느 페이지에도 없게 된다.
+ */
+export const listBrowse = unstable_cache(
+  async (input: BrowseInput): Promise<{ rows: BenefitListRow[]; total: number }> => {
+    // 동적 select 문자열은 supabase-js 타입 파서가 끝없이 전개한다(TS2589). 행 타입은 아래에서 단언하므로 '*'로 넘긴다.
+    const cols = input.explained ? `${LIST_COLS}, benefit_articles!inner(indexable, review_status)` : LIST_COLS
+    let q = applyBrowseFilters(createPublicClient().from('benefits').select(cols as '*', { count: 'exact' }), input)
+    q = input.sort === 'recent'
+      ? q.order('source_updated_at', { ascending: false, nullsFirst: false })
+      : q.order('apply_end', { ascending: true, nullsFirst: false })
+    const from = (input.page - 1) * BROWSE_PAGE_SIZE
+    const { data, count, error } = await q.order('slug', { ascending: true }).range(from, from + BROWSE_PAGE_SIZE - 1)
+    // 결과보다 뒤 페이지를 요청하면 PostgREST는 행 대신 416(PGRST103)을 준다. 필터를 좁힌 뒤 남은 주소나
+    // 오래된 공유 링크에서 흔히 생기므로 오류로 보지 않고 건수만 다시 세어 돌려준다 — 페이지가 마지막
+    // 페이지로 보낸다.
+    if (error?.code === 'PGRST103') {
+      const { count: total, error: e2 } = await applyBrowseFilters(createPublicClient().from('benefits').select(cols as '*', { count: 'exact', head: true }), input)
+      if (e2) throw e2
+      return { rows: [], total: total ?? 0 }
+    }
+    if (error) throw error
+    const rows = ((data ?? []) as unknown as (BenefitListRow & { benefit_articles?: unknown })[]).map((r) => {
+      const { benefit_articles, ...row } = r
+      void benefit_articles // 필터용으로만 조인한 열. 카드 행에는 싣지 않는다.
+      return row
+    })
+    return { rows, total: count ?? 0 }
+  },
+  ['list-browse'],
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
+)
+
+/**
+ * 분야 탭에 붙는 건수. 분야를 뺀 나머지 필터를 그대로 걸어 센다 — 탭을 눌렀을 때 나올 건수와
+ * 같아야 한다. 분야 하나당 head 요청 하나(행을 받지 않는다).
+ *
+ * 분야·쪽·정렬은 건수와 무관하므로 캐시 키에서 지운다. 남겨 두면 쪽마다 따로 캐시되어 요청이
+ * 불어나고, 1쪽과 7쪽이 서로 다른 시점의 건수를 보여 준다.
+ */
+export function countBrowseBySegment(input: BrowseInput) {
+  return countBrowseBySegmentCached({ ...input, seg: null, page: 1, sort: 'deadline' })
+}
+
+const countBrowseBySegmentCached = unstable_cache(
+  async (input: BrowseInput): Promise<{ all: number; bySeg: Record<string, number> }> => {
+    const cols = input.explained ? 'slug, benefit_articles!inner(indexable, review_status)' : 'slug'
+    const count = async (seg: string | null) => {
+      const { count, error } = await applyBrowseFilters(
+        createPublicClient().from('benefits').select(cols as '*', { count: 'exact', head: true }),
+        { ...input, seg },
+      )
+      if (error) throw error
+      return count ?? 0
+    }
+    const [all, ...each] = await Promise.all([count(null), ...BROWSE_SEGMENTS.map((s) => count(s.path))])
+    return { all, bySeg: Object.fromEntries(BROWSE_SEGMENTS.map((s, i) => [s.path, each[i]])) }
+  },
+  ['count-browse-by-segment'],
   { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
 )
 

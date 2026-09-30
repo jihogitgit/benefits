@@ -2,13 +2,11 @@
 import { useEffect, useId, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { NAV_LINKS } from './nav-links'
+import { MAIN_NAV } from './nav-links'
 
 /**
- * 좁은 화면 전용 메뉴. 헤더 가로줄에는 목록이 다 들어가지 않는다 — 390px에서 로고를 빼면
- * 292px가 남는데 링크만 350px가 필요하고, 640px에서도 여유가 0px이다. 예전에는 넘치는 두 개(/guide·/deadline)에
- * `hidden sm:inline`을 걸어 감췄고, 대체 경로가 없어 모바일에서는 그 두 곳에 갈 길이
- * 아예 없었다. 감추는 대신 여기로 모은다.
+ * 좁은 화면 전용 메뉴. 큰 갈래(MAIN_NAV)만 싣는다 — 분야·생애 이벤트·마감 임박은 /benefits 안에서
+ * 고른다. 헤더 가로줄은 390px에서 로고와 "내 진단" 버튼을 빼면 링크 세 개도 빠듯해 여기로 접는다.
  */
 export default function MobileMenu() {
   const [open, setOpen] = useState(false)
@@ -52,7 +50,7 @@ export default function MobileMenu() {
             className="absolute inset-x-0 top-14 z-40 border-b border-gray-200 bg-white shadow-sm"
           >
             <ul className="mx-auto max-w-6xl px-4 py-2">
-              {NAV_LINKS.map((l) => {
+              {MAIN_NAV.map((l) => {
                 const active = pathname === l.href || pathname.startsWith(l.href + '/')
                 return (
                   <li key={l.href}>
