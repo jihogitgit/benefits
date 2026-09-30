@@ -3,6 +3,8 @@ import { SITUATION_TO_CONDITIONS } from '@/lib/conditions/codemap'
 import { normalizeQuery, queryTokens } from './query-text'
 import { conditionFilters } from './condition-filter'
 import { REGIONS } from '../../../data/regions'
+import { SEGMENT_BY_PATH } from '../../../data/segments'
+import type { Segment } from '@/types/database'
 import { daysUntil } from './status'
 import { INCOME_BANDS, eligibleBands, type IncomeBand } from './income'
 
@@ -23,7 +25,22 @@ export interface SearchInput {
   countOnly: boolean
   limit: number
   offset: number
+  /** 결과 화면의 대상(분야) 필터. 세그먼트 slug. */
+  segment: Segment | null
+  sort: SearchSort
+  /** 마감된 공고도 함께. 기본은 접수 중(open)만. */
+  includeClosed: boolean
 }
+
+/**
+ * 결과 정렬. match는 조건 일치 점수순(rankBenefits), deadline은 마감이 가까운 기간 공고부터,
+ * recent는 원천 갱신이 최근인 것부터.
+ */
+export const SEARCH_SORTS = ['match', 'deadline', 'recent'] as const
+export type SearchSort = (typeof SEARCH_SORTS)[number]
+
+/** 결과 필터를 쓰지 않는 호출(생애 이벤트 랜딩, 스크립트)의 기본값. */
+export const RESULT_FILTER_DEFAULTS = { segment: null, sort: 'match', includeClosed: false } as const satisfies Pick<SearchInput, 'segment' | 'sort' | 'includeClosed'>
 
 /** 쿼리스트링을 검증된 검색 입력으로. 허용 목록에 없는 값은 버린다. */
 export function parseSearchParams(sp: URLSearchParams): SearchInput {
@@ -47,6 +64,10 @@ export function parseSearchParams(sp: URLSearchParams): SearchInput {
     countOnly: sp.get('count') === '1',
     limit: Math.min(100, Math.max(1, Number(sp.get('limit') ?? 50) || 50)),
     offset: Math.max(0, Number(sp.get('offset') ?? 0) || 0),
+    // 주소에는 /benefits와 같은 path(small-biz)를 싣고 안에서 slug(small_biz)로 바꾼다.
+    segment: SEGMENT_BY_PATH[sp.get('seg') ?? '']?.slug ?? null,
+    sort: (SEARCH_SORTS as readonly string[]).includes(sp.get('sort') ?? '') ? (sp.get('sort') as SearchSort) : 'match',
+    includeClosed: sp.get('closed') === '1',
   }
 }
 
@@ -77,6 +98,9 @@ export interface Criteria {
   region: string | null
   /** 자격이 되는 소득 구간 전부(내 구간과 그 위). null이면 소득으로 거르지 않는다. */
   incomeBands: string[] | null
+  /** 본표(benefits)에 거는 결과 필터. 조건표 판정과 무관하다. */
+  segment?: Segment | null
+  includeClosed?: boolean
 }
 
 /**
@@ -196,17 +220,39 @@ export interface Rankable {
   apply_end: string | null
   hasConditions: boolean
   score: number
+  /** 마감된 공고. 어느 정렬에서든 맨 뒤로 보낸다 — 지금 신청할 수 있는 것이 먼저다. */
+  closed?: boolean
+  source_updated_at?: string | null
 }
 
-/** 조건 일치 점수 내림차순 → 마감 임박(기간) → 상시/미확정 → 조건 확인 필요. 같은 그룹 안은 D-day 오름차순, 그 외 slug 순. */
-export function rankBenefits<T extends Rankable>(rows: T[], now: Date): T[] {
+/**
+ * 기본(match): 조건 일치 점수 내림차순 → 마감 임박(기간) → 상시/미확정 → 조건 확인 필요. 같은 그룹 안은 D-day 오름차순, 그 외 slug 순.
+ * deadline·recent는 결과 화면에서 사용자가 고른 정렬. 어느 쪽이든 마감된 공고는 맨 뒤다.
+ */
+export function rankBenefits<T extends Rankable>(rows: T[], now: Date, sort: SearchSort = 'match'): T[] {
   const group = (r: Rankable) => (!r.hasConditions ? 2 : r.deadline_type === 'period' && r.apply_end ? 0 : 1)
+  const dday = (r: Rankable) => daysUntil(r.apply_end, now)
+  // 마감 임박순의 앞줄: 오늘 이후 끝나는 기간 공고. 나머지(상시·미확정·기한 지난 것)는 그 뒤.
+  const upcoming = (r: Rankable) => r.deadline_type === 'period' && (dday(r) ?? -1) >= 0
+  const time = (r: Rankable) => (r.source_updated_at ? new Date(r.source_updated_at).getTime() : -Infinity)
   return [...rows].sort((a, b) => {
+    const c = Number(!!a.closed) - Number(!!b.closed)
+    if (c !== 0) return c
+    if (sort === 'deadline') {
+      const u = Number(upcoming(b)) - Number(upcoming(a))
+      if (u !== 0) return u
+      if (upcoming(a)) {
+        const d = (dday(a) ?? 0) - (dday(b) ?? 0)
+        if (d !== 0) return d
+      }
+      return b.score - a.score || a.slug.localeCompare(b.slug)
+    }
+    if (sort === 'recent') return time(b) - time(a) || b.score - a.score || a.slug.localeCompare(b.slug)
     const s = b.score - a.score
     if (s !== 0) return s
     const g = group(a) - group(b)
     if (g !== 0) return g
-    if (group(a) === 0) return (daysUntil(a.apply_end, now) ?? 0) - (daysUntil(b.apply_end, now) ?? 0)
+    if (group(a) === 0) return (dday(a) ?? 0) - (dday(b) ?? 0)
     return a.slug.localeCompare(b.slug)
   })
 }
@@ -221,6 +267,9 @@ export function cacheKeyFor(input: SearchInput): string {
     input.countOnly ? 'c' : 'l',
     input.limit,
     input.offset,
+    input.segment ?? '-',
+    input.sort,
+    input.includeClosed ? 'x' : 'o',
   ].join(':')
 }
 
@@ -237,6 +286,8 @@ export interface SearchResultItem {
   hasConditions: boolean
   dday: number | null
   score: number
+  /** 마감된 공고(마감 포함 보기에서만 나온다) */
+  closed: boolean
 }
 
 
@@ -247,11 +298,11 @@ export interface SearchResultItem {
  * '!inner' 문법에서 인스턴스화가 폭주한다(TS2589). 행 타입은 RankRow/FullRow로 직접 준다.
  */
 const SELECT_RANK: string =
-  'id, slug, title, deadline_type, apply_end, benefit_conditions!inner(age_min, age_max, life_stages, household_types, occupations, region_codes, income_bands)'
+  'id, slug, title, deadline_type, apply_end, status, source_updated_at, benefit_conditions!inner(age_min, age_max, life_stages, household_types, occupations, region_codes, income_bands)'
 /** 조건 행이 없는 지원금용. !inner가 이들을 떨구므로 따로 조회해 합친다. */
-const SELECT_RANK_ORPHAN: string = 'id, slug, title, deadline_type, apply_end, benefit_conditions(benefit_id)'
+const SELECT_RANK_ORPHAN: string = 'id, slug, title, deadline_type, apply_end, status, source_updated_at, benefit_conditions(benefit_id)'
 /** 실제로 화면에 나가는 페이지 분량에만 쓰는 전체 컬럼. */
-const SELECT_FULL: string = 'id, slug, title, summary, amount_text, deadline_type, apply_end, region_code, segments, agency'
+const SELECT_FULL: string = 'id, slug, title, summary, amount_text, deadline_type, apply_end, region_code, segments, agency, status'
 const PAGE = 1000 // Supabase 기본 최대 행 수. 넘기려면 .range()로 순회해야 한다.
 
 interface RankRow {
@@ -266,6 +317,8 @@ interface RankRow {
   title: string
   deadline_type: string
   apply_end: string | null
+  status: string
+  source_updated_at: string | null
   benefit_conditions?: CondLike | CondLike[] | null
 }
 
@@ -280,6 +333,7 @@ interface FullRow {
   region_code: string
   segments: string[]
   agency: string | null
+  status: string
 }
 
 /**
@@ -293,6 +347,7 @@ interface FullRow {
 interface QueryBuilder extends PromiseLike<{ data: unknown[] | null; count?: number | null; error: unknown }> {
   eq(column: string, value: unknown): QueryBuilder
   in(column: string, values: readonly unknown[]): QueryBuilder
+  contains(column: string, values: readonly unknown[]): QueryBuilder
   or(filters: string, options?: { referencedTable?: string }): QueryBuilder
   is(column: string, value: null): QueryBuilder
   order(column: string): QueryBuilder
@@ -304,13 +359,17 @@ function q0(builder: unknown): QueryBuilder {
   return builder as QueryBuilder
 }
 
+/** '마감된 공고도 보기'에서 함께 내는 상태. removed(원천에서 내려간 것)는 상세도 없으므로 넣지 않는다. */
+const VISIBLE_STATUSES_WITH_CLOSED = ['open', 'closed'] as const
+
 /**
- * benefits 본표에 걸리는 조건: 공개 상태, 지역, 검색어.
+ * benefits 본표에 걸리는 조건: 공개 상태, 지역, 분야, 검색어.
  * 조건표(benefit_conditions)에 걸리는 필터는 호출자가 conditionFilters로 따로 얹는다.
  */
 function applyBaseFilters(query: QueryBuilder, q: Criteria, tokens: string[]): QueryBuilder {
-  let out = query.eq('status', 'open')
+  let out = q.includeClosed ? query.in('status', VISIBLE_STATUSES_WITH_CLOSED) : query.eq('status', 'open')
   if (q.region) out = out.in('region_code', [q.region, 'ALL'])
+  if (q.segment) out = out.contains('segments', [q.segment])
   // 토큰마다 or()를 한 번씩 걸면 PostgREST가 서로 AND로 묶어 '청년 월세'가 두 단어를 모두
   // 가진 항목만 남긴다(or= 파라미터 반복이 AND라는 건 실측으로 확인했다).
   //
@@ -402,6 +461,8 @@ export async function searchBenefits(
     region: input.region,
     // 내 구간보다 위쪽 상한을 둔 사업까지 자격이 된다(income.ts eligibleBands 주석).
     incomeBands: input.incomeBand ? eligibleBands(input.incomeBand) : null,
+    segment: input.segment,
+    includeClosed: input.includeClosed,
   }
   const tokens = queryTokens(input.q)
   const filters = conditionFilters(q)
@@ -451,9 +512,12 @@ export async function searchBenefits(
         hasConditions: cond !== null,
         // 가점을 여기서 함께 매긴다. 정렬이 이 점수로 이뤄지므로 나중에 더하면 순위가 바뀌지 않는다.
         score: matchScore(cond, q) + titleHitBonus(r.title, tokens),
+        closed: r.status !== 'open',
+        source_updated_at: r.source_updated_at,
       }
     }),
     now,
+    input.sort,
   )
 
   // 여기서부터 total은 카운트 쿼리 값이 아니라 실제로 순위를 매긴 건수를 쓴다. 두 값이 다른
@@ -467,7 +531,7 @@ export async function searchBenefits(
   const full = await runRows<FullRow>(
     q0(supabase.from('benefits').select(SELECT_FULL))
       // 랭킹 조회와 이 조회 사이에 동기화가 status를 바꾼 행은 내보내지 않는다.
-      .eq('status', 'open')
+      .in('status', input.includeClosed ? VISIBLE_STATUSES_WITH_CLOSED : ['open'])
       .in(
         'id',
         page.map((r) => r.id),
@@ -492,6 +556,7 @@ export async function searchBenefits(
       hasConditions: r.hasConditions,
       dday: daysUntil(f.apply_end, now),
       score: r.score,
+      closed: f.status !== 'open',
     })
   }
   return { total: rankedTotal, items }

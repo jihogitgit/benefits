@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseSearchParams, ageBandToRange, matchesConditions, matchScore, rankBenefits, cacheKeyFor, titleHitBonus } from '../search'
+import { parseSearchParams, ageBandToRange, matchesConditions, matchScore, rankBenefits, cacheKeyFor, titleHitBonus, RESULT_FILTER_DEFAULTS } from '../search'
 
 describe('parseSearchParams', () => {
   it('쿼리스트링을 검색 입력으로', () => {
     const p = parseSearchParams(new URLSearchParams('age=30s&situations=pregnancy,single&region=seoul&count=1'))
-    expect(p).toEqual({ q: '', ageBand: '30s', situations: ['pregnancy', 'single'], region: 'seoul', incomeBand: null, countOnly: true, limit: 50, offset: 0 })
+    expect(p).toEqual({ q: '', ageBand: '30s', situations: ['pregnancy', 'single'], region: 'seoul', incomeBand: null, countOnly: true, limit: 50, offset: 0, segment: null, sort: 'match', includeClosed: false })
   })
   it('소득 구간도 받는다', () => {
     expect(parseSearchParams(new URLSearchParams('income=0-50')).incomeBand).toBe('0-50')
@@ -180,7 +180,7 @@ describe('rankBenefits', () => {
 })
 
 describe('cacheKeyFor', () => {
-  const base = { q: '', ageBand: '30s' as const, situations: ['single', 'pregnancy'], region: 'seoul', incomeBand: null, countOnly: false, limit: 50, offset: 0 }
+  const base = { q: '', ageBand: '30s' as const, situations: ['single', 'pregnancy'], region: 'seoul', incomeBand: null, countOnly: false, limit: 50, offset: 0, ...RESULT_FILTER_DEFAULTS }
   it('입력 순서와 무관하게 같은 키', () => {
     const a = cacheKeyFor(base)
     const b = cacheKeyFor({ ...base, situations: ['pregnancy', 'single'] })
@@ -214,5 +214,42 @@ describe('검색어 랭킹', () => {
       { slug: 'a', deadline_type: 'always', apply_end: null, hasConditions: true, score: 0 + titleHitBonus('근로장려금', ['근로장려금']) },
     ]
     expect(rankBenefits(rows, new Date('2026-09-16')).map((r) => r.slug)).toEqual(['a', 'b'])
+  })
+})
+
+describe('결과 필터 파라미터', () => {
+  it('대상·정렬·마감 포함을 읽고, 모르는 값은 기본으로', () => {
+    const p = parseSearchParams(new URLSearchParams('seg=small-biz&sort=deadline&closed=1'))
+    expect([p.segment, p.sort, p.includeClosed]).toEqual(['small_biz', 'deadline', true])
+    const q = parseSearchParams(new URLSearchParams('seg=mars&sort=popular&closed=yes'))
+    expect([q.segment, q.sort, q.includeClosed]).toEqual([null, 'match', false])
+  })
+
+  it('캐시 키가 결과 필터를 구분한다', () => {
+    const base = { q: '', ageBand: null, situations: [], region: null, incomeBand: null, countOnly: false, limit: 50, offset: 0, ...RESULT_FILTER_DEFAULTS }
+    const keys = new Set([
+      cacheKeyFor(base),
+      cacheKeyFor({ ...base, segment: 'youth' }),
+      cacheKeyFor({ ...base, sort: 'deadline' }),
+      cacheKeyFor({ ...base, includeClosed: true }),
+    ])
+    expect(keys.size).toBe(4)
+  })
+
+  it('마감 임박순: 오늘 이후 끝나는 기간 공고가 D-day 순으로 앞, 마감된 것은 맨 뒤', () => {
+    const now = new Date('2026-09-10T03:00:00Z')
+    const r = (slug: string, o: Partial<{ deadline_type: string; apply_end: string | null; score: number; closed: boolean }>) => ({ slug, deadline_type: 'always', apply_end: null, hasConditions: true, score: 0, ...o })
+    const out = rankBenefits(
+      [
+        r('always-hi', { score: 9 }),
+        r('closed', { deadline_type: 'period', apply_end: '2026-09-11', closed: true }),
+        r('far', { deadline_type: 'period', apply_end: '2026-10-30' }),
+        r('near', { deadline_type: 'period', apply_end: '2026-09-12' }),
+        r('past', { deadline_type: 'period', apply_end: '2026-09-01' }),
+      ],
+      now,
+      'deadline',
+    ).map((x) => x.slug)
+    expect(out).toEqual(['near', 'far', 'always-hi', 'past', 'closed'])
   })
 })

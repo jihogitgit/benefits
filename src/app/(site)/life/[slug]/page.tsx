@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { searchBenefits } from '@/lib/benefits/search'
+import { searchBenefits, RESULT_FILTER_DEFAULTS } from '@/lib/benefits/search'
 import { LIFE_EVENTS, LIFE_EVENT_BY_SLUG } from '../../../../../data/life-events'
 import { absoluteUrl } from '@/lib/seo/site'
 import BenefitCard from '@/components/benefits/BenefitCard'
@@ -37,6 +37,7 @@ export default async function LifeEventPage({ params }: { params: Promise<{ slug
   // 진단과 같은 어휘(situations)로 찾는다. 낱말 맞히기가 아니라 조건 매칭이라,
   // 여기서 넘어간 사용자가 홈에서 조건을 다시 고를 필요가 없다.
   const { total, items } = await searchBenefits(createAdminClient(), {
+    ...RESULT_FILTER_DEFAULTS,
     q: '',
     ageBand: null,
     situations: e.situations,

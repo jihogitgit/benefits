@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { searchBenefits, type SearchInput } from '../search'
+import { searchBenefits, RESULT_FILTER_DEFAULTS, type SearchInput } from '../search'
 
 /**
  * searchBenefits는 Supabase 빌더에 어떤 필터를 얹느냐가 일의 전부라, 빌더 호출을 기록하지 않으면
@@ -13,6 +13,8 @@ interface Calls {
   baseOr: string[]
   conditionOr: string[]
   in: [string, readonly unknown[]][]
+  eq: [string, unknown][]
+  contains: [string, readonly unknown[]][]
   selects: string[]
   /** head:true가 아닌(=행을 실제로 가져오는) 조회 수 */
   rowFetches: number
@@ -26,13 +28,13 @@ const row = (slug: string, title: string, agency: string | null = null, cond: un
   // limit 70 이상에서 헤더 한도를 넘겨 터진다(실측). 그 회귀를 아래 테스트가 지킨다.
   id: `id-${slug}`,
   slug, title, summary: null, amount_text: null, deadline_type: 'always',
-  apply_end: null, region_code: 'ALL', segments: [], agency, benefit_conditions: cond,
+  apply_end: null, region_code: 'ALL', segments: [], agency, status: 'open', source_updated_at: null as string | null, benefit_conditions: cond,
 })
 /** 조건 행이 없는 지원금. !inner가 떨구므로 따로 조회해 합쳐야 한다. */
 const orphanRow = (slug: string, title: string) => ({ ...row(slug, title), benefit_conditions: null })
 
 function fakeSupabase(rows: ReturnType<typeof row>[], orphans: ReturnType<typeof row>[] = []) {
-  const calls: Calls = { baseOr: [], conditionOr: [], in: [], selects: [], rowFetches: 0, queries: [] }
+  const calls: Calls = { baseOr: [], conditionOr: [], in: [], eq: [], contains: [], selects: [], rowFetches: 0, queries: [] }
 
   function builder(select: string, head: boolean) {
     let orphanQuery = false
@@ -40,7 +42,14 @@ function fakeSupabase(rows: ReturnType<typeof row>[], orphans: ReturnType<typeof
     const seen = { orphan: false, conditionOr: 0, baseOr: 0 }
     calls.queries.push(seen)
     const self = {
-      eq: () => self,
+      eq: (col: string, v: unknown) => {
+        calls.eq.push([col, v])
+        return self
+      },
+      contains: (col: string, v: readonly unknown[]) => {
+        calls.contains.push([col, v])
+        return self
+      },
       in: (col: string, vals: readonly unknown[]) => {
         calls.in.push([col, vals])
         if (col === 'id') idFilter = vals
@@ -89,7 +98,7 @@ function fakeSupabase(rows: ReturnType<typeof row>[], orphans: ReturnType<typeof
 }
 
 const input = (over: Partial<SearchInput> = {}): SearchInput => ({
-  q: '', ageBand: null, situations: [], region: null, incomeBand: null, countOnly: false, limit: 50, offset: 0, ...over,
+  q: '', ageBand: null, situations: [], region: null, incomeBand: null, countOnly: false, limit: 50, offset: 0, ...RESULT_FILTER_DEFAULTS, ...over,
 })
 
 describe('searchBenefits — 검색어 필터', () => {
@@ -259,5 +268,39 @@ describe('searchBenefits — 조건 행이 없는 지원금(orphan)', () => {
     expect(orphanQueries.every((q) => q.conditionOr === 0)).toBe(true)
     expect(orphanQueries.every((q) => q.baseOr > 0)).toBe(true)
     expect(condQueries.some((q) => q.conditionOr > 0)).toBe(true)
+  })
+})
+
+describe('searchBenefits 결과 필터', () => {
+  it('대상(분야)을 고르면 모든 조회에 segments 포함 필터를 건다', async () => {
+    const { client, calls } = fakeSupabase([row('a', 'A')], [orphanRow('b', 'B')])
+    await searchBenefits(client, input({ segment: 'youth' }))
+    // 카운트 2 + 행 조회 2 = 본표 필터가 걸리는 조회 네 번 모두
+    expect(calls.contains.filter(([c, v]) => c === 'segments' && (v as string[])[0] === 'youth').length).toBe(4)
+  })
+
+  it('기본은 접수 중만, 마감 포함이면 closed까지 — 재조회도 같은 기준', async () => {
+    const a = fakeSupabase([row('a', 'A')])
+    await searchBenefits(a.client, input())
+    expect(a.calls.eq).toContainEqual(['status', 'open'])
+    // 재조회도 접수 중만 — 마감된 행이 끼어들면 목록에 '마감' 카드가 섞인다
+    expect(a.calls.in).toContainEqual(['status', ['open']])
+
+    const closed = { ...row('c', 'C'), status: 'closed' }
+    const b = fakeSupabase([row('a', 'A'), closed])
+    const r = await searchBenefits(b.client, input({ includeClosed: true }))
+    expect(b.calls.in).toContainEqual(['status', ['open', 'closed']])
+    expect(b.calls.eq.some(([c]) => c === 'status')).toBe(false)
+    // 마감된 것은 맨 뒤, 표시용 플래그가 선다
+    expect(r.items.map((i) => [i.slug, i.closed])).toEqual([['a', false], ['c', true]])
+  })
+
+  it('최근 갱신순은 원천 갱신 시각 내림차순', async () => {
+    const { client } = fakeSupabase([
+      { ...row('old', 'O'), source_updated_at: '2026-01-01T00:00:00Z' },
+      { ...row('new', 'N'), source_updated_at: '2026-09-01T00:00:00Z' },
+    ])
+    const r = await searchBenefits(client, input({ sort: 'recent' }))
+    expect(r.items.map((i) => i.slug)).toEqual(['new', 'old'])
   })
 })

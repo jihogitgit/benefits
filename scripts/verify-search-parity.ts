@@ -87,7 +87,7 @@ const QUERIES = ['', '국민연금', '청년 월세', '창업지원']
 const INCOME_CASES = ['0-50', '51-75', '76-100', '101-200', '200+'] as const
 
 function cases(): SearchInput[] {
-  const base = { countOnly: false, limit: 50, offset: 0, incomeBand: null } as const
+  const base = { countOnly: false, limit: 50, offset: 0, incomeBand: null, segment: null, sort: 'match', includeClosed: false } as const
   const out: SearchInput[] = []
   for (const ageBand of [null, ...AGE_BANDS]) out.push({ ...base, q: '', ageBand, situations: [], region: null })
   for (const s of SITUATIONS) out.push({ ...base, q: '', ageBand: null, situations: [s], region: null })

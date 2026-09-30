@@ -1,5 +1,3 @@
-import { PUBLIC_SEGMENTS } from '../../../data/segments'
-
 export interface NavLink {
   href: string
   label: string
@@ -27,15 +25,8 @@ export const MAIN_NAV_SHORT: NavLink[] = [
 ]
 
 /**
- * 푸터는 전체 목록을 편다. 헤더에서 뺀 허브·생애 이벤트·마감 임박으로 가는 링크가 어느 화면에서나
- * 하나는 남아야 한다(크롤러가 따라갈 내부 링크이기도 하다). 예전에 헤더에만 있고 푸터에는 없어서
- * 모바일에서 /guide·/deadline로 갈 길이 사이트 전체에서 사라진 적이 있다.
+ * 푸터도 헤더와 같은 큰 갈래만 편다(홈은 로고가 맡으므로 뺀다). 분야 허브·생애 이벤트·마감 임박으로
+ * 가는 내부 링크는 홈의 "분야별로 보기"와 /benefits의 탭·"다른 방법으로 찾기"가 맡는다 —
+ * 크롤러가 따라갈 길은 거기서 이어진다.
  */
-export const SITE_LINKS: NavLink[] = [
-  { href: '/benefits', label: '지원금 찾기' },
-  ...PUBLIC_SEGMENTS.map((s) => ({ href: `/${s.path}`, label: `${s.name} 지원금` })),
-  { href: '/life', label: '생애 이벤트로 찾기' },
-  { href: '/deadline', label: '마감 임박' },
-  { href: '/guide', label: '가이드' },
-  { href: '/median-income', label: '중위소득 계산기' },
-]
+export const FOOTER_NAV: NavLink[] = MAIN_NAV.filter((l) => l.href !== '/')

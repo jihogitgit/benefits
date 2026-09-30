@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import type { SearchResultItem } from '@/lib/benefits/search'
+import type { SearchResultItem, SearchSort } from '@/lib/benefits/search'
+import { BROWSE_SEGMENTS } from '@/lib/benefits/browse'
 import { queryTokens } from '@/lib/benefits/query-text'
 import type { BenefitListRow } from '@/lib/benefits/queries'
 import type { DeadlineType, Segment } from '@/types/database'
@@ -13,6 +14,25 @@ import BenefitList from '@/components/benefits/BenefitList'
 import SearchBox from '@/components/diagnosis/SearchBox'
 
 const PAGE = 50
+
+/**
+ * 결과 화면에서만 쓰는 필터. 진단 조건(나이·상황·지역·소득)과 달리 저장하지 않는다 — 홈으로
+ * 돌아가 조건을 다시 고를 때 "왜 결과가 적지?"가 되지 않게, 이번 결과를 훑는 도구로만 둔다.
+ * 지역은 예외로 진단 조건 그 자체라 d.region을 바로 바꾼다(저장까지 이어진다).
+ */
+interface ResultFilters {
+  sort: SearchSort
+  /** 세그먼트 path(youth·small-biz 등). 빈 문자열이면 전체. */
+  seg: string
+  closed: boolean
+}
+const NO_FILTERS: ResultFilters = { sort: 'match', seg: '', closed: false }
+
+const SORT_OPTIONS: { value: SearchSort; label: string }[] = [
+  { value: 'match', label: '조건 일치순' },
+  { value: 'deadline', label: '마감 임박순' },
+  { value: 'recent', label: '최근 갱신순' },
+]
 
 function label(d: Diagnosis): string {
   return [
@@ -51,6 +71,7 @@ export default function DiagnosisResults() {
   const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [filters, setFilters] = useState<ResultFilters>(NO_FILTERS)
   const abortRef = useRef<AbortController | null>(null)
   const params = useSearchParams()
 
@@ -72,7 +93,7 @@ export default function DiagnosisResults() {
   // 언마운트 시 진행 중인 요청 취소. 취소된 응답으로는 상태를 갱신하지 않는다.
   useEffect(() => () => abortRef.current?.abort(), [])
 
-  const load = useCallback(async (diag: Diagnosis, offset: number) => {
+  const load = useCallback(async (diag: Diagnosis, offset: number, f: ResultFilters) => {
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
@@ -82,6 +103,9 @@ export default function DiagnosisResults() {
       const sp = toSearchParams(diag)
       sp.set('limit', String(PAGE))
       sp.set('offset', String(offset))
+      if (f.seg) sp.set('seg', f.seg)
+      if (f.sort !== 'match') sp.set('sort', f.sort)
+      if (f.closed) sp.set('closed', '1')
       const r = await fetch(`/api/benefits/search?${sp.toString()}`, { signal: ac.signal })
       if (!r.ok) throw new Error(String(r.status))
       const j = (await r.json()) as { total: number; items: SearchResultItem[] }
@@ -110,8 +134,12 @@ export default function DiagnosisResults() {
   }, [d])
 
   useEffect(() => {
-    if (d && !isEmpty(d)) void load(d, 0)
-  }, [d, load])
+    if (d && !isEmpty(d)) void load(d, 0, filters)
+  }, [d, filters, load])
+
+  const setRegion = useCallback((region: string) => {
+    setD((prev) => (!prev ? prev : { ...prev, region: region || null }))
+  }, [])
 
   // 첫 렌더와 빈 진단 안내의 높이를 맞춰 복원 직후 화면이 튀지 않게 한다.
   if (d === null) return <div className="py-16 text-center text-sm text-gray-500">불러오는 중…</div>
@@ -145,8 +173,15 @@ export default function DiagnosisResults() {
     )
   }
 
-  const matched = items.filter((i) => i.hasConditions)
-  const unsure = items.filter((i) => !i.hasConditions)
+  // 마감된 공고는 검색이 맨 뒤로 정렬해 보낸다. 섞어 두면 신청할 수 있는 것처럼 읽히므로 따로 묶는다.
+  const open = items.filter((i) => !i.closed)
+  const closed = items.filter((i) => i.closed)
+  // 조건 일치순에서는 조건이 등록되지 않은 지원금을 따로 모은다(점수를 매길 수 없어 맨 뒤다).
+  // 다른 정렬에서는 사용자가 고른 순서가 우선이라 한 목록으로 둔다.
+  const splitUnsure = filters.sort === 'match'
+  const matched = splitUnsure ? open.filter((i) => i.hasConditions) : open
+  const unsure = splitUnsure ? open.filter((i) => !i.hasConditions) : []
+  const select = 'min-h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900'
   const firstLoad = loading && !loaded
   const countText = loaded ? `총 ${total.toLocaleString()}개` : error ? '불러오지 못함' : '검색 중…'
 
@@ -163,11 +198,40 @@ export default function DiagnosisResults() {
         </Link>
       </div>
 
+      {/* 결과 필터. 요청만 다시 보낼 뿐 페이지를 옮기지 않으므로 값을 바꾸는 즉시 반영한다
+          (초점이 그대로 남아 키보드로 옵션을 넘겨도 끊기지 않는다). */}
+      <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="결과 필터">
+        <label>
+          <span className="sr-only">정렬</span>
+          <select value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as SearchSort }))} className={select}>
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">대상</span>
+          <select value={filters.seg} onChange={(e) => setFilters((f) => ({ ...f, seg: e.target.value }))} className={select}>
+            <option value="">대상 전체</option>
+            {BROWSE_SEGMENTS.map((s) => <option key={s.path} value={s.path}>{s.name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">지역</span>
+          <select value={d.region ?? ''} onChange={(e) => setRegion(e.target.value)} className={select}>
+            <option value="">지역 전체</option>
+            {REGION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="flex min-h-11 items-center gap-2 px-1 text-sm text-gray-700">
+          <input type="checkbox" checked={filters.closed} onChange={(e) => setFilters((f) => ({ ...f, closed: e.target.checked }))} className="h-4 w-4" />
+          마감된 공고도 보기
+        </label>
+      </div>
+
       {error && (
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           불러오지 못했습니다. 잠시 후 다시 시도해 주세요.{' '}
           {items.length === 0 && (
-            <button type="button" onClick={() => void load(d, 0)} className="font-semibold underline">
+            <button type="button" onClick={() => void load(d, 0, filters)} className="font-semibold underline">
               다시 시도
             </button>
           )}
@@ -207,12 +271,25 @@ export default function DiagnosisResults() {
         </section>
       )}
 
+      {closed.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-2 text-base font-bold text-gray-700">
+            마감된 공고 <span className="text-sm font-normal text-gray-500">— 지금은 신청할 수 없습니다. 다음 공고를 기다릴 때 참고하세요</span>
+          </h2>
+          <div className="grid gap-3 opacity-75 sm:grid-cols-2">
+            {closed.map((i) => (
+              <BenefitCard key={i.slug} row={toRow(i)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {items.length < total && (
         <div className="mt-6 text-center">
           <button
             type="button"
             disabled={loading}
-            onClick={() => void load(d, items.length)}
+            onClick={() => void load(d, items.length, filters)}
             className="rounded-lg border px-5 py-2.5 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
           >
             {loading ? '불러오는 중…' : `더 보기 (${items.length}/${total})`}
