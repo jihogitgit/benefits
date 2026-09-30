@@ -92,6 +92,15 @@ describe('queries', () => {
     expect(c.order).toHaveBeenCalledWith('apply_end', { ascending: true, nullsFirst: false })
   })
 
+  it('listBrowse 새로 등록순은 created_at 내림차순, 동률은 slug로 고정', async () => {
+    const c = chain()
+    c.range.mockResolvedValue({ data: [], count: 0, error: null })
+    from.mockReturnValue(c)
+    await listBrowse({ ...BROWSE_DEFAULTS, sort: 'new' })
+    expect(c.order).toHaveBeenNthCalledWith(1, 'created_at', { ascending: false })
+    expect(c.order).toHaveBeenLastCalledWith('slug', { ascending: true })
+  })
+
   it('listBrowse는 범위 밖 페이지(PGRST103)를 오류로 보지 않고 건수만 돌려준다', async () => {
     const c = chain()
     c.range.mockResolvedValue({ data: null, count: null, error: { code: 'PGRST103', message: 'Requested range not satisfiable' } })

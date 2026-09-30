@@ -56,6 +56,37 @@ export function article(g: {
   }
 }
 
+/**
+ * 홈의 WebSite·Organization. SearchAction은 /benefits의 검색어 칸(q)과 같은 주소를 쓴다 —
+ * 폼이 GET으로 싣는 이름이 바뀌면 여기도 같이 바꿔야 한다.
+ */
+export function website(g: { name: string; description: string }) {
+  const url = absoluteUrl('/')
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: g.name,
+      url,
+      description: g.description,
+      inLanguage: 'ko',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: { '@type': 'EntryPoint', urlTemplate: `${absoluteUrl('/benefits')}?q={search_term_string}` },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: g.name,
+      url,
+      // 구글은 로고를 112px 이상만 받는다. icon.png는 64px라 180px인 apple-icon을 쓴다.
+      logo: absoluteUrl('/apple-icon.png'),
+    },
+  ]
+}
+
 export function breadcrumbs(items: { name: string; path: string }[]) {
   return {
     '@context': 'https://schema.org',

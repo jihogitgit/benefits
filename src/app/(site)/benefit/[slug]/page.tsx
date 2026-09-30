@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers } from '@/lib/benefits/queries'
+import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers, listWithArticles } from '@/lib/benefits/queries'
 import { buildChecklist } from '@/lib/benefits/checklist'
 import { firstLine, deadlineLabel } from '@/lib/benefits/format'
 import { daysUntil } from '@/lib/benefits/status'
@@ -54,11 +54,14 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
   const now = new Date()
   const seg = SEGMENT_BY_SLUG[b.segments[0] ?? 'other'] ?? SEGMENT_OTHER
-  const [related, guides, peers] = await Promise.all([
+  const [related, guides, peers, explainedAll] = await Promise.all([
     listRelated(seg.slug, b.region_code, b.slug, 6),
     getGuidesForBenefit(b.slug),
     listPeers(b.slug),
+    // 기타 분야는 해설이 드물어 같은 분야로만 고르면 거의 비므로 전체에서 고른다.
+    listWithArticles(seg.slug === 'other' ? null : seg.slug, 7),
   ])
+  const explained = explainedAll.filter((r) => r.slug !== b.slug).slice(0, 6)
   const article = b.benefit_articles
   const published = benefitIndexable({ status: b.status, article })
   const checklist = buildChecklist(b.benefit_conditions, article?.checklist_json ?? null)
@@ -198,6 +201,29 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
             <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
               {related.map((r) => <div key={r.slug} className="w-[78%] shrink-0 snap-start sm:w-auto"><BenefitCard row={r} now={now} /></div>)}
             </div>
+          </section>
+          )}
+
+          {/*
+            해설이 있는 상세끼리 잇는 링크. 해설 상세 25장이 받는 내부 링크가 1~3개뿐이라
+            (2026-09-30 실측) 사이트맵에만 기대고 있었고, 그중 20장이 색인되지 않았다.
+            해설 없는 상세 수천 장에서도 이리로 링크가 나가므로 크롤러가 해설 쪽으로 모인다.
+          */}
+          {explained.length > 0 && (
+          <section className="mt-8" aria-labelledby="explained-heading">
+            <h2 id="explained-heading" className="mb-3 text-lg font-bold">자세히 정리한 다른 지원금</h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {explained.map((r) => (
+                <li key={r.slug}>
+                  <Link
+                    href={`/benefit/${r.slug}`}
+                    className="block rounded-xl border border-gray-200 px-4 py-3 text-[15px] font-medium text-gray-900 hover:border-brand-300 hover:bg-brand-50/40"
+                  >
+                    {r.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
           )}
 

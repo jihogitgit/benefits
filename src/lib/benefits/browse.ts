@@ -32,6 +32,8 @@ export type BrowseStatus = (typeof BROWSE_STATUSES)[number]['key']
 export const BROWSE_SORTS = [
   { key: 'deadline', label: '마감 임박순' },
   { key: 'recent', label: '최근 갱신순' },
+  // created_at은 처음 들어온 날이다. 원문 문구만 고쳐도 바뀌는 갱신순과 달리 새 사업만 앞에 온다.
+  { key: 'new', label: '새로 등록순' },
 ] as const
 export type BrowseSort = (typeof BROWSE_SORTS)[number]['key']
 

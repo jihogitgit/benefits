@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, COMPARE_MIN_REGIONS } from '../index-policy'
+import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, compareEligible, COMPARE_MIN_REGIONS, COMPARE_INDEX_ENABLED } from '../index-policy'
+import { compareEntries } from '../sitemap-entries'
 
 describe('index policy', () => {
   it('상세: 게재된 해설이 있고 open일 때만 색인', () => {
@@ -28,14 +29,21 @@ describe('index policy', () => {
 })
 
 describe('compareIndexable', () => {
-  it('지역 수가 임계값 이상이면 색인한다', () => {
-    expect(compareIndexable({ regionCount: COMPARE_MIN_REGIONS })).toBe(true)
-    expect(compareIndexable({ regionCount: COMPARE_MIN_REGIONS - 1 })).toBe(false)
+  it('지역 수가 임계값 이상이면 비교할 거리가 있다', () => {
+    expect(compareEligible({ regionCount: COMPARE_MIN_REGIONS })).toBe(true)
+    expect(compareEligible({ regionCount: COMPARE_MIN_REGIONS - 1 })).toBe(false)
+  })
+
+  // 본문이 목록뿐이라 색인을 꺼 두었다(index-policy.ts 주석). 스위치가 꺼져 있으면 임계값을 넘어도 색인하지 않는다.
+  it('색인 스위치가 꺼져 있으면 어떤 묶음도 색인하지 않는다', () => {
+    expect(COMPARE_INDEX_ENABLED).toBe(false)
+    expect(compareIndexable({ regionCount: 17 })).toBe(false)
+    expect(compareEntries([{ key: '산모신생아건강관리', regionCount: 17 }])).toEqual([])
   })
 
   // 건수가 아니라 지역 수를 본다. 한 지자체가 대상별로 쪼개 등록한 사업 여러 건은
   // "여러 곳이 하는 같은 사업"이 아니라서 비교할 것이 없다.
   it('건수가 많아도 지역이 적으면 색인하지 않는다', () => {
-    expect(compareIndexable({ regionCount: 2 })).toBe(false)
+    expect(compareEligible({ regionCount: 2 })).toBe(false)
   })
 })

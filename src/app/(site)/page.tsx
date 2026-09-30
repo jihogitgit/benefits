@@ -3,9 +3,11 @@ import Link from 'next/link'
 import DiagnosisPanel from '@/components/diagnosis/DiagnosisPanel'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import AdPlacement from '@/components/benefits/AdPlacement'
-import { listDeadlineSoon, listRecentlyUpdated, getLastSyncAt, listWithArticles, listGuides } from '@/lib/benefits/queries'
+import { listDeadlineSoon, listRecentlyUpdated, listRecentlyCreated, getLastSyncAt, listWithArticles, listGuides } from '@/lib/benefits/queries'
 import { formatKstDate } from '@/lib/benefits/format'
-import { absoluteUrl } from '@/lib/seo/site'
+import { absoluteUrl, siteName, SITE_DESCRIPTION } from '@/lib/seo/site'
+import { website } from '@/lib/seo/jsonld'
+import JsonLd from '@/components/JsonLd'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 
 export const revalidate = 3600
@@ -17,20 +19,27 @@ export const revalidate = 3600
 // alternates는 병합되지 않고 교체되므로 루트 레이아웃의 RSS 링크를 여기서도 적는다(layout.tsx 주석 참고).
 export const metadata: Metadata = { alternates: { canonical: absoluteUrl('/'), types: { 'application/rss+xml': absoluteUrl('/rss.xml') } } }
 
+/** 홈에 펴는 해설 수. 나머지는 /guide의 해설 목록이 받는다. */
+const HOME_EXPLAINED = 12
+
 export default async function HomePage() {
   // listDeadlineSoon/listRecentlyUpdated는 현재 시각을 인자로 받지 않는다(unstable_cache 키 오염 방지).
   // D-day 표시용 기준 시각만 여기서 한 번 만들어 카드에 내려준다.
   const now = new Date()
-  const [soon, recent, lastSync, explained, guides] = await Promise.all([
+  const [soon, recent, fresh, lastSync, explainedAll, guides] = await Promise.all([
     listDeadlineSoon(14, 8),
     listRecentlyUpdated(48, 8),
+    listRecentlyCreated(14, 8),
     getLastSyncAt(),
-    listWithArticles(null, 6),
+    // 하나 더 읽어 "전체 보기" 링크를 낼지 판단한다.
+    listWithArticles(null, HOME_EXPLAINED + 1),
     listGuides(),
   ])
+  const explained = explainedAll.slice(0, HOME_EXPLAINED)
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      <JsonLd data={website({ name: siteName(), description: SITE_DESCRIPTION })} />
       <DiagnosisPanel />
 
       <AdPlacement slot="home" />
@@ -60,6 +69,14 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
+              {explainedAll.length > HOME_EXPLAINED && (
+                <Link
+                  href="/guide#explained"
+                  className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50 sm:min-h-0 sm:py-2"
+                >
+                  해설 전체 보기 →
+                </Link>
+              )}
             </div>
           )}
 
@@ -101,6 +118,19 @@ export default async function HomePage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {soon.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
+          </div>
+        </section>
+      )}
+
+      {/* 새로 올라온 사업. 한 주에 열 건 안팎이라 없는 주가 있어 항목이 있을 때만 낸다. */}
+      {fresh.length > 0 && (
+        <section className="mt-10">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-xl font-bold">새로 등록된 지원금 (2주 이내)</h2>
+            <Link href="/benefits?sort=new" className="text-sm text-brand-700 hover:underline">전체 보기</Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {fresh.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
           </div>
         </section>
       )}

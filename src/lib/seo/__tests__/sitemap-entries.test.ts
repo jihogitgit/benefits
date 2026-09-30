@@ -1,4 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// 비교 페이지 색인은 스위치로 꺼 두었다(index-policy.ts의 COMPARE_INDEX_ENABLED). 아래 compareEntries
+// 테스트는 스위치를 켰을 때의 모양(임계값·인코딩·lastmod)을 지키므로 판정만 켠 상태로 바꿔 끼운다.
+// 꺼진 실제 정책으로 사이트맵이 비는지는 index-policy.test.ts가 본다.
+vi.mock('../index-policy', async (orig) => {
+  const real = await orig<typeof import('../index-policy')>()
+  return { ...real, compareIndexable: real.compareEligible }
+})
+
 import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths, compareEntries } from '../sitemap-entries'
 
 beforeEach(() => { process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com' })

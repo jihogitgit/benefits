@@ -156,7 +156,9 @@ export const listBrowse = unstable_cache(
     let q = applyBrowseFilters(createPublicClient().from('benefits').select(cols as '*', { count: 'exact' }), input)
     q = input.sort === 'recent'
       ? q.order('source_updated_at', { ascending: false, nullsFirst: false })
-      : q.order('apply_end', { ascending: true, nullsFirst: false })
+      : input.sort === 'new'
+        ? q.order('created_at', { ascending: false })
+        : q.order('apply_end', { ascending: true, nullsFirst: false })
     const from = (input.page - 1) * BROWSE_PAGE_SIZE
     const { data, count, error } = await q.order('slug', { ascending: true }).range(from, from + BROWSE_PAGE_SIZE - 1)
     // 결과보다 뒤 페이지를 요청하면 PostgREST는 행 대신 416(PGRST103)을 준다. 필터를 좁힌 뒤 남은 주소나
@@ -232,6 +234,12 @@ const countBrowseBySegmentCached = unstable_cache(
  *   빈 segments를 가진 지원금은 어느 쪽에도 들지 않는다. 기타를 넣는 이유는 허브(/other)가 없어
  *   홈이 그 상세로 가는 거의 유일한 내부 링크이기 때문이다(주거급여 등).
  */
+/**
+ * 해설 전체 목록(/guide·llms.txt)의 상한. 지금 해설은 25건이다. 이 값에 닿으면 목록이 조용히
+ * 잘리므로 그 전에 range로 끝까지 도는 방식으로 바꿔야 한다 — 닿으면 경고를 남긴다.
+ */
+export const EXPLAINED_ALL_LIMIT = 200
+
 export const listWithArticles = unstable_cache(
   async (segment: Segment | null, limit = 12): Promise<BenefitListRow[]> => {
     let q = createPublicClient()
@@ -303,6 +311,30 @@ export const listRecentlyUpdated = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['recently-updated'],
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
+)
+
+/**
+ * 최근 새로 등록된 사업. created_at은 동기화가 행을 처음 넣을 때만 찍히고 갱신에는 바뀌지 않는다
+ * (최초 적재분 1만여 건은 2026-09 초 한날에 몰려 있어 창을 좁게 잡으면 빠진다).
+ * "최근 갱신"과 다르다 — 원문의 문구 수정도 갱신에 걸리므로 갱신 목록에는 새 사업이 묻힌다.
+ */
+export const listRecentlyCreated = unstable_cache(
+  // listDeadlineSoon과 같은 이유로 현재 시각을 인자로 받지 않는다.
+  async (days: number, limit = 8): Promise<BenefitListRow[]> => {
+    const since = new Date(Date.now() - days * 86_400_000).toISOString()
+    const { data, error } = await createPublicClient()
+      .from('benefits')
+      .select(LIST_COLS)
+      .eq('status', 'open')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .order('slug', { ascending: true })
+      .limit(limit)
+    if (error) throw error
+    return (data ?? []) as unknown as BenefitListRow[]
+  },
+  ['recently-created'],
   { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
 )
 

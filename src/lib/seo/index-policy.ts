@@ -62,6 +62,23 @@ export function regionHubIndexable(r: { localCount: number; description_md: stri
  */
 export const COMPARE_MIN_REGIONS = 5
 
-export function compareIndexable(g: { regionCount: number }): boolean {
+/** 지역 수 기준으로 비교할 거리가 있는 묶음인가. 색인 스위치와 별개로 판정만 한다. */
+export function compareEligible(g: { regionCount: number }): boolean {
   return g.regionCount >= COMPARE_MIN_REGIONS
+}
+
+/**
+ * 비교 페이지 색인 스위치. 지금은 끈다(2026-09-30).
+ *
+ * 사이트맵에 66장을 올린 뒤 GSC에서 한 장도 색인되지 않았다. 실측하니 본문이 평균 780자 —
+ * 시·도 이름과 지자체 이름이 줄지어 있을 뿐이고, 링크 대상도 전부 noindex 상세다. 색인된
+ * 페이지 어디에서도 이리로 오는 링크가 없어(0건) 사이트맵에만 있는 고아였다. 신생 사이트에서
+ * 162장 중 66장이 이런 목록이면 사이트 전체가 얇게 평가된다. 금액·조건을 나란히 놓는 본문이
+ * 생기기 전까지 사이트맵에서 빼고 noindex로 둔다. 페이지는 그대로 남아 상세의 "다른 지역"
+ * 링크는 계속 동작한다.
+ */
+export const COMPARE_INDEX_ENABLED = false
+
+export function compareIndexable(g: { regionCount: number }): boolean {
+  return COMPARE_INDEX_ENABLED && compareEligible(g)
 }

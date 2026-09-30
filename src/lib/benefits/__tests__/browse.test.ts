@@ -26,6 +26,11 @@ describe('/benefits 필터 입력', () => {
     expect(browseHref(BROWSE_DEFAULTS, { seg: 'youth', page: 2 })).toBe('/benefits?seg=youth&page=2')
   })
 
+  it('새로 등록순을 읽는다', () => {
+    expect(parseBrowseParams({ sort: 'new' }).sort).toBe('new')
+    expect(browseHref(BROWSE_DEFAULTS, { sort: 'new' })).toBe('/benefits?sort=new')
+  })
+
   it('주소 → 입력 → 주소가 왕복한다', () => {
     const href = browseHref(BROWSE_DEFAULTS, { seg: 'parenting', region: 'national', status: 'always', sort: 'recent', explained: true, q: '출산 지원', page: 4 })
     const back = parseBrowseParams(Object.fromEntries(new URLSearchParams(href.split('?')[1])))

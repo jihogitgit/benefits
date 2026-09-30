@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { listGuides } from '@/lib/benefits/queries'
+import { listGuides, listWithArticles, EXPLAINED_ALL_LIMIT } from '@/lib/benefits/queries'
 import { absoluteUrl } from '@/lib/seo/site'
 import { breadcrumbs, itemList } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
@@ -22,7 +22,9 @@ function segmentName(segment: string | null): string | null {
 }
 
 export default async function GuideIndexPage() {
-  const guides = await listGuides()
+  // 해설이 있는 상세 전체. 홈에는 일부만 펴므로 나머지가 닿는 자리가 여기다(홈의 "해설 전체 보기").
+  const [guides, explained] = await Promise.all([listGuides(), listWithArticles(null, EXPLAINED_ALL_LIMIT)])
+  if (explained.length >= EXPLAINED_ALL_LIMIT) console.warn(`해설 목록이 상한 ${EXPLAINED_ALL_LIMIT}건에 닿았다 — 잘린 행이 있다`)
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
@@ -67,6 +69,25 @@ export default async function GuideIndexPage() {
             )
           })}
         </ul>
+      )}
+
+      {explained.length > 0 && (
+        <section id="explained" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-bold">자세히 정리한 지원금</h2>
+          <p className="mt-1 text-sm text-gray-600">공고문을 쉬운 말로 풀고 신청 순서·자주 묻는 질문을 붙인 지원금입니다.</p>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {explained.map((r) => (
+              <li key={r.slug}>
+                <Link
+                  href={`/benefit/${r.slug}`}
+                  className="block rounded-xl border border-gray-200 px-4 py-3 text-[15px] font-medium text-gray-900 hover:border-brand-300 hover:bg-brand-50/40"
+                >
+                  {r.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <AdPlacement slot="list" />

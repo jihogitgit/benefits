@@ -20,7 +20,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
   const input = parseBrowseParams(await searchParams)
   return {
     title: `${kstYear()} 정부·지자체 지원금 전체 보기 · 분야·지역·마감 필터`,
-    description: '정부·지자체 지원금 전체를 분야·지역·신청 상태로 걸러 보고, 마감 임박순이나 최근 갱신순으로 정렬합니다.',
+    description: '정부·지자체 지원금 전체를 분야·지역·신청 상태로 걸러 보고, 마감 임박순·최근 갱신순·새로 등록순으로 정렬합니다.',
     // canonical은 기본 목록에만 단다. 필터 주소에 canonical=/benefits와 noindex를 함께 달면
     // 서로 다른 신호가 되어(대표 주소는 저기 / 이 주소는 색인 말라) 검색엔진이 한쪽을 무시한다.
     ...(isDefaultBrowse(input) ? { alternates: { canonical: absoluteUrl('/benefits'), types: { 'application/rss+xml': '/rss.xml' } } } : {
