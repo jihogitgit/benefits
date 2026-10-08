@@ -273,7 +273,8 @@ export default function DiagnosisResults() {
 
       {matched.length > 0 &&
         (splitUnsure ? (
-          <BenefitList rows={matched.map(toRow)} />
+          // /my는 noindex라 광고를 싣지 않는다(AdsenseScript 주석).
+          <BenefitList rows={matched.map(toRow)} showAd={false} />
         ) : (
           // 사용자가 고른 정렬 순서를 지키느라 한 목록에 두므로, 조건이 등록되지 않은 카드는 카드에 표시한다.
           <div className="grid gap-3 sm:grid-cols-2">

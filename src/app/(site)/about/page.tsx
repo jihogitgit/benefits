@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { siteName } from '@/lib/seo/site'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const metadata: Metadata = { title: '서비스 소개', description: '정부·지자체 지원금을 조건별로 찾아주는 서비스 소개' }
 
@@ -8,6 +9,7 @@ export default function AboutPage() {
   const name = siteName()
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 prose prose-gray">
+      <AdsenseScript />
       <h1>{name} 소개</h1>
       <p>
         {name}은 행정안전부 보조금24에 등록된 약 1만 건의 정부·지자체 지원금을 나이·상황·지역 조건으로 걸러

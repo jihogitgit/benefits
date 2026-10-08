@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { ADSENSE_CLIENT } from '@/lib/adsense'
 import { GTM_ID, gtmSnippet, analyticsPath } from '@/lib/gtm'
 import Script from 'next/script'
 import './globals.css'
@@ -28,7 +27,6 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const gaId = process.env.NEXT_PUBLIC_GA_ID
-  const adsense = ADSENSE_CLIENT
   const gtm = GTM_ID
   // 계측은 한 경로만 쓴다. 판정과 근거는 lib/gtm.ts의 analyticsPath에 있다.
   const analytics = analyticsPath({ gtm, gaId })
@@ -63,21 +61,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               />
             </noscript>
           </>
-        )}
-        {/*
-          next/script가 아니라 평범한 script 태그를 쓴다. strategy="afterInteractive"는 HTML에
-          preload 링크만 남기고 실제 태그는 하이드레이션 이후 JS로 주입하는데, 그러면 HTML만 읽는
-          크롤러에는 스니펫이 아예 없는 것으로 보인다(애드센스 코드 스니펫 방식 사이트 확인이 이래서
-          실패했다). React 19는 async가 붙은 script를 head로 올리고 중복도 제거하므로, 구글이 준
-          스니펫과 같은 모양이 서버 렌더 HTML에 그대로 박힌다. 광고 로드도 하이드레이션을 기다리지
-          않는다.
-        */}
-        {adsense && (
-          <script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense}`}
-            crossOrigin="anonymous"
-          />
         )}
         {/*
           gtag 직접 연결. GTM이 켜져 있으면 analyticsPath가 'gtm'을 내므로 이 분기는 죽는다.

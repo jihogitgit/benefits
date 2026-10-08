@@ -20,6 +20,7 @@ import StickyRail from '@/components/benefits/StickyRail'
 import SectionNav from '@/components/benefits/SectionNav'
 import SourceFooter from '@/components/benefits/SourceFooter'
 import AdPlacement from '@/components/benefits/AdPlacement'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 import BenefitCard from '@/components/benefits/BenefitCard'
 import PeerList from '@/components/benefits/PeerList'
 import JsonLd from '@/components/JsonLd'
@@ -83,6 +84,8 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      {/* 해설 없는 상세는 보조금24 원문을 옮긴 페이지라 광고를 싣지 않는다(AdsenseScript 주석). */}
+      {published && <AdsenseScript />}
       <JsonLd data={[
         governmentService({ title: b.title, summary: withDisplayOverrides(b).summary, agency: b.agency, region_name: b.region_code === 'ALL' ? null : regionName(b.region_code), apply_url: b.apply_url, slug: b.slug }),
         breadcrumbs([{ name: '홈', path: '/' }, ...(seg.slug !== 'other' ? [{ name: seg.name, path: `/${seg.path}` }] : []), { name: b.title, path: `/benefit/${b.slug}` }]),
@@ -116,7 +119,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
           <div className="mt-5"><Checklist items={checklist} cond={b.benefit_conditions} /></div>
 
-          <AdPlacement slot="detail-1" />
+          {published && <AdPlacement slot="detail-1" />}
 
           {article?.explainer_md ? (
             <section id="explainer" className="mt-2">
@@ -193,7 +196,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
           </section>
           )}
 
-          <AdPlacement slot="detail-2" />
+          {published && <AdPlacement slot="detail-2" />}
 
           {related.length > 0 && (
           <section id="related" className="mt-2">
@@ -231,7 +234,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
         </article>
 
         {/* 모바일 하단 바와 같은 기준으로 숨긴다. 한쪽만 숨기면 뷰포트에 따라 안내가 모순된다. */}
-        <StickyRail applyUrl={closed ? null : b.apply_url} sections={sections} />
+        <StickyRail applyUrl={closed ? null : b.apply_url} sections={sections} showAd={published} />
       </div>
 
       {b.apply_url && !closed && (

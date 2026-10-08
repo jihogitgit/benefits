@@ -4,6 +4,7 @@ import { groupByWeek } from '@/lib/benefits/calendar'
 import { kstYear } from '@/lib/seo/hub-meta'
 import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 3600
 
@@ -23,6 +24,7 @@ export default async function DeadlinePage() {
   const groups = groupByWeek(rows, now)
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      <AdsenseScript />
       <h1 className="text-2xl font-extrabold sm:text-3xl">마감 임박 지원금</h1>
       <p className="mt-2 text-gray-600">앞으로 45일 안에 신청이 끝나는 지원금입니다. 상시 신청 지원금은 분야별 페이지에서 확인하세요.</p>
       {groups.length === 0 && <p className="mt-8 text-gray-500">현재 마감 예정인 지원금이 없습니다.</p>}

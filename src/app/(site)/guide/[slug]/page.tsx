@@ -8,6 +8,7 @@ import { metaDescription } from '@/lib/seo/meta-description'
 import JsonLd from '@/components/JsonLd'
 import Markdown from '@/components/benefits/Markdown'
 import AdPlacement from '@/components/benefits/AdPlacement'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 86400
 export const dynamicParams = true
@@ -39,6 +40,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   if (!g || !g.published_at) notFound()
   return (
     <article className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
+      <AdsenseScript />
       {/*
         가이드에는 JSON-LD가 하나도 없었다. 상세(GovernmentService)와 지역 허브(ItemList)에는
         넣었는데, 정작 검색에서 이기려는 페이지가 비어 있었다. Article은 datePublished가 있어야

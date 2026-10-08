@@ -10,6 +10,7 @@ import {
 } from '../../../../data/median-income'
 import { amountAt } from '@/lib/benefits/income'
 import { absoluteUrl } from '@/lib/seo/site'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 /** 고시값은 해마다 한 번 바뀐다. 매시간 다시 만들 이유가 없다. */
 export const revalidate = 86400
@@ -26,6 +27,7 @@ const won = (n: number) => n.toLocaleString('ko-KR')
 export default function MedianIncomePage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      <AdsenseScript />
       <h1 className="text-2xl font-extrabold sm:text-3xl">{MEDIAN_INCOME_YEAR}년 기준 중위소득 계산기</h1>
       <p className="mt-2 max-w-2xl text-gray-600">
         거의 모든 지원금이 &ldquo;중위소득 몇 % 이하&rdquo;로 자격을 정합니다. 가구원 수와 월 소득을 넣으면

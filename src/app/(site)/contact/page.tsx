@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const metadata: Metadata = { title: '문의하기' }
 
@@ -8,6 +9,7 @@ export default function ContactPage() {
   const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim()
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 prose prose-gray">
+      <AdsenseScript />
       <h1>문의하기</h1>
       <p>정보 오류 신고, 제휴, 광고 문의는 아래 이메일로 보내 주세요. 영업일 기준 3일 안에 답변합니다.</p>
       <p>

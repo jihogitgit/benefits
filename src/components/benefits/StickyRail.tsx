@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import AdPlacement from './AdPlacement'
 
-export default function StickyRail({ applyUrl, sections }: { applyUrl: string | null; sections: { id: string; label: string }[] }) {
+export default function StickyRail({ applyUrl, sections, showAd }: { applyUrl: string | null; sections: { id: string; label: string }[]; showAd: boolean }) {
   return (
     <aside className="hidden lg:block">
       <div className="sticky top-20 space-y-4">
@@ -18,7 +18,7 @@ export default function StickyRail({ applyUrl, sections }: { applyUrl: string | 
             공식 사이트에서 신청 →
           </a>
         )}
-        <AdPlacement slot="rail" />
+        {showAd && <AdPlacement slot="rail" />}
         <Link href="/my" className="block rounded-xl border bg-white py-2.5 text-center text-sm font-semibold hover:bg-gray-50">내 진단 결과 보기</Link>
       </div>
     </aside>

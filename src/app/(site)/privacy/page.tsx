@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { siteName } from '@/lib/seo/site'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const metadata: Metadata = { title: '개인정보처리방침' }
 
@@ -8,6 +9,7 @@ export default function PrivacyPage() {
   const name = siteName()
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 prose prose-gray">
+      <AdsenseScript />
       <h1>개인정보처리방침</h1>
       <p>시행일: 2026-09-10</p>
       <h2>1. 수집하는 개인정보</h2>

@@ -7,6 +7,7 @@ import { LIFE_EVENTS } from '../../../../data/life-events'
 import { kstYear } from '@/lib/seo/hub-meta'
 import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 import BrowseFilters from '@/components/benefits/BrowseFilters'
 
 type SP = Promise<Record<string, string | string[] | undefined>>
@@ -59,8 +60,12 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
     }`
   const countTone = (active: boolean) => (active ? 'text-brand-100' : 'text-gray-400')
 
+  // 광고는 색인 대상에만 싣는다(AdsenseScript 주석). generateMetadata와 같은 판정이다.
+  const indexable = isDefaultBrowse(input)
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      {indexable && <AdsenseScript />}
       <nav className="text-xs text-gray-500" aria-label="현재 위치">
         <Link href="/" className="hover:underline">홈</Link> › 지원금 찾기
       </nav>
@@ -96,7 +101,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
         <b className="font-semibold text-gray-900">{total.toLocaleString()}개</b>
         {total > BROWSE_PAGE_SIZE && <> · {input.page} / {pages.toLocaleString()} 페이지</>}
       </p>
-      <BenefitList rows={rows} now={now} emptyText="조건에 맞는 지원금이 없습니다. 필터를 줄이거나 검색어를 바꿔 보세요." />
+      <BenefitList rows={rows} now={now} showAd={indexable} emptyText="조건에 맞는 지원금이 없습니다. 필터를 줄이거나 검색어를 바꿔 보세요." />
 
       {pages > 1 && (
         <nav aria-label="페이지" className="mt-6 flex items-center justify-center gap-2 text-sm">

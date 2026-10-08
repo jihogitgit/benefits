@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { siteName } from '@/lib/seo/site'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const metadata: Metadata = { title: '이용약관' }
 
@@ -7,6 +8,7 @@ export default function TermsPage() {
   const name = siteName()
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 prose prose-gray">
+      <AdsenseScript />
       <h1>이용약관</h1>
       <p>시행일: 2026-09-10</p>
       <h2>1. 목적</h2>

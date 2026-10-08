@@ -9,6 +9,7 @@ import { absoluteUrl, siteName, SITE_DESCRIPTION } from '@/lib/seo/site'
 import { website } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 3600
 
@@ -39,6 +40,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      <AdsenseScript />
       <JsonLd data={website({ name: siteName(), description: SITE_DESCRIPTION })} />
       <DiagnosisPanel />
 

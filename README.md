@@ -99,6 +99,10 @@
 `AdPlacement` 컴포넌트가 유일한 진입점. `NEXT_PUBLIC_ADSENSE_CLIENT`와 해당 슬롯 ID가 **둘 다** 있으면
 애드센스, 없고 `NEXT_PUBLIC_ADFIT_UNIT_*`가 있으면 애드핏, 둘 다 없으면 렌더하지 않는다.
 
+애드센스 스크립트(`AdsenseScript`)는 루트 레이아웃이 아니라 **색인 대상 페이지에만** 넣는다. noindex 상세
+1만여 건에 자동 광고가 붙으면 심사에서 "가치가 별로 없는 콘텐츠"로 거절된다(2026-10). 새 페이지를 만들면
+색인 판정과 같은 조건으로 `<AdsenseScript />`를 넣는다. 범위는 `src/app/__tests__/adsense-scope.test.ts`가 지킨다.
+
 ## 테스트
 
     npm run test:run

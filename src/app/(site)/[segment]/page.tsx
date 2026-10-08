@@ -11,6 +11,7 @@ import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
 import SectionNav from '@/components/benefits/SectionNav'
 import JsonLd from '@/components/JsonLd'
+import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 3600
 
@@ -72,6 +73,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+      <AdsenseScript />
       <JsonLd
         data={[
           breadcrumbs([{ name: '홈', path: '/' }, { name: seg.name, path: `/${seg.path}` }]),
