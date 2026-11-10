@@ -15,6 +15,7 @@ async function main() {
     fetchApplyhome: (opts) => fetchApplyhomeDetails(since, { ...opts, onPage: (op, p, t) => console.log(`${op} ${p}/${t}`) }),
     fetchUnits: (kind, h, p, opts) => fetchApplyhomeUnits(kind, h, p, opts),
     fetchLh: (opts) => fetchLhNotices({ ...opts, onPage: (cd, p, t) => console.log(`lh ${cd} p${p} (${t ?? '?'})`) }),
+    since,
     log: console.log,
   })
   const brief = (r: typeof result.applyhome) => ({ ...r, changedSlugs: r.changedSlugs.length, removedSlugs: r.removedSlugs.length })

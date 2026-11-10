@@ -113,6 +113,7 @@ async function housingStep(deadlineMs: number): Promise<Record<string, unknown>>
       fetchApplyhome: (opts) => fetchApplyhomeDetails(since, opts),
       fetchUnits: (kind, h, p, opts) => fetchApplyhomeUnits(kind, h, p, opts),
       fetchLh: (opts) => fetchLhNotices(opts),
+      since,
       deadlineMs,
     })
     // 목록·홈/my 블록은 매번. 상세는 바뀐 슬러그만(removed 포함 — 내려간 공고 페이지도 갱신돼야 한다).

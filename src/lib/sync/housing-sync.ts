@@ -20,6 +20,11 @@ export interface HousingSyncDeps {
   fetchUnits: (kind: 'apt' | 'remainder', houseManageNo: string, pblancNo: string, opts: HousingFetchOpts) => Promise<MdlItem[]>
   fetchLh: (opts: HousingFetchOpts) => Promise<LhNoticeItem[]>
   now?: Date
+  /**
+   * 동기화 창의 시작(YYYY-MM-DD, 설계 4절: 최근 180일). 청약홈은 fetcher가 API 조건으로 걸고,
+   * LH는 날짜 조건을 믿을 수 없어 syncLh가 공고일로 거른다.
+   */
+  since: string
   batchSize?: number
   /**
    * 시간 예산의 끝(epoch ms). 넘으면 남은 공고는 upsert하지 않고 다음 실행으로 미룬다.
@@ -199,14 +204,18 @@ const syncLh: SourceBody = async (deps, now, result, log) => {
     result.aborted_reason = `건수 급감: 직전 ${last ?? '없음'} → 이번 ${result.fetched}`
     return
   }
-  const candidates: Candidate[] = []
+  const inScope: HousingNoticeRow[] = []
   for (const i of items) {
     const row = normalizeLh(i, '', now)
-    if (row) candidates.push({ row })
+    if (row) inScope.push(row)
   }
-  if (items.length > 0 && candidates.length === 0) {
+  if (items.length > 0 && inScope.length === 0) {
     result.aborted_reason = '정규화 결과 0건(유형 코드 변경?)'
     return
   }
+  // 창 밖 공고는 후보가 아니다(markRemoved의 keep에도 넣지 않는다). 공고일이 없으면 판단할 수 없어 둔다.
+  // 문자열 비교가 안전한 이유: notice_date는 toIsoDate가 만든 YYYY-MM-DD다.
+  const candidates: Candidate[] = inScope.filter((row) => row.notice_date == null || row.notice_date >= deps.since).map((row) => ({ row }))
+  if (candidates.length < inScope.length) log(`since ${deps.since} 이전 공고 ${inScope.length - candidates.length}건 제외`)
   await upsertChanged('lh', candidates, candidates.map((c) => c.row.source_id), deps, result, log)
 }

@@ -137,13 +137,13 @@ describe('LH 클라이언트', () => {
     expect(firstCodeCalls()).toBe(2)
   })
 
-  it('페이지 상한(50)을 넘으면 던진다', async () => {
+  it('페이지 상한(10)을 넘으면 던진다', async () => {
     fetchMock.mockImplementation(async () => json(body(rows('a', 100))))
     const err = await fetchLhNotices(opts).catch((e: Error) => e)
     expect((err as Error).message).toContain('페이지 상한 초과')
     expect((err as Error).message).not.toContain('serviceKey')
     expect((err as Error).message).not.toContain('test-key')
-    expect(firstCodeCalls()).toBe(50)
+    expect(firstCodeCalls()).toBe(10)
   })
 
   it('전체 건수와 정확히 맞게 찬 마지막 페이지에서 멈춘다', async () => {

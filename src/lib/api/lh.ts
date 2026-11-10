@@ -18,8 +18,11 @@ export interface LhFetchOptions {
   onPage?: (cd: string, page: number, total: number | null) => void
 }
 
-/** 코드 하나당 페이지 상한. 응답이 계속 가득 차는 이상 상황에서 무한히 돌지 않게 한다. */
-const MAX_PAGES = 50
+/**
+ * 코드 하나당 페이지 상한. 응답이 계속 가득 차는 이상 상황에서 무한히 돌지 않게 한다.
+ * 10페이지×100건 = 코드당 1,000건. 날짜 조건 없이 받으므로 넉넉히 두되 cron 시간 예산을 넘지 않게 낮게 둔다.
+ */
+const MAX_PAGES = 10
 
 type Page = { items: LhNoticeItem[]; total: number | null }
 
@@ -82,7 +85,10 @@ async function fetchPage(key: string, cd: string, page: number, pageSize: number
   }
 }
 
-/** 유형 4종의 공고 전체. 페이지는 ALL_CNT로 센다. 게시일 필터는 API가 믿을 만하지 않아 정규화 단계에서 거른다. */
+/**
+ * 유형 4종의 공고 전체. 페이지는 ALL_CNT로 센다. 게시일 조건은 API가 믿을 만하지 않아 걸지 않고,
+ * 동기화(housing-sync의 syncLh)가 공고일로 최근 180일만 남긴다.
+ */
 export async function fetchLhNotices(opts: LhFetchOptions = {}): Promise<LhNoticeItem[]> {
   const key = housingApiKey() // 요청 전에 키 누락을 먼저 드러낸다
   const pageSize = opts.pageSize ?? 100

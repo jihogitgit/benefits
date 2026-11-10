@@ -62,6 +62,7 @@ const deps = (repo: HousingRepo, over: Partial<Parameters<typeof runHousingSync>
   fetchUnits: vi.fn(async (_k: 'apt' | 'remainder', id: string) => [mdl(id)]),
   fetchLh: async () => [lh('L1')],
   now,
+  since: '2025-07-24', // now - 180일
   ...over,
 })
 
@@ -160,6 +161,17 @@ describe('runHousingSync', () => {
     expect(r.lh.changed).toBe(1)
     expect(calls.notices.filter((n) => n.source === 'lh')).toHaveLength(1)
     expect(calls.units.every((u) => !u.noticeId.startsWith('id-L'))).toBe(true)
+  })
+
+  // 청약홈은 API가 모집공고일로 거르지만 LH는 날짜 조건을 믿을 수 없어 여기서 거른다(설계 4절: 최근 180일).
+  it('LH는 공고일이 since보다 이른 공고를 넣지 않고, 공고일이 없는 공고는 넣는다', async () => {
+    const { repo, calls } = fakeRepo()
+    const r = await runHousingSync(deps(repo, {
+      fetchLh: async () => [lh('OLD', { PAN_NT_ST_DT: '2025.07.23' }), lh('EDGE', { PAN_NT_ST_DT: '2025.07.24' }), lh('NODATE'), lh('NEW', { PAN_NT_ST_DT: '20260110' })],
+    }))
+    expect(r.lh.fetched).toBe(4)
+    expect(calls.notices.filter((n) => n.source === 'lh').map((n) => n.source_id).sort()).toEqual(['EDGE', 'NEW', 'NODATE'])
+    expect(calls.removedKeep.lh).not.toContain('OLD')
   })
 
   it('한 소스가 던져도 다른 소스는 끝까지 돌고 run에 error를 남긴다', async () => {
