@@ -208,14 +208,19 @@ describe('runHousingSync', () => {
     expect(slugs).toEqual(['같은-이름', '같은-이름-2'])
   })
 
-  // 주택형 조회 실패는 그 공고만 건너뛴다. 해시가 저장되지 않으므로 다음 실행이 다시 시도한다.
-  it('주택형 조회가 실패한 공고는 upsert하지 않고 failed로 센다', async () => {
+  // 주택형 조회 실패가 공고를 목록에서 감추면 안 된다. 공고는 빈 해시로 넣어 보이게 하고, 다음 실행이 해시 불일치로 다시 시도한다.
+  it('주택형 조회가 실패한 공고는 빈 해시로 upsert하고 주택형은 저장하지 않으며 failed로 센다', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { repo, calls } = fakeRepo()
     const fetchUnits = vi.fn(async (_k: 'apt' | 'remainder', id: string) => { if (id === 'A2') throw new Error('mdl 500'); return [mdl(id)] })
     const r = await runHousingSync(deps(repo, { fetchApplyhome: async () => ({ apt: [apt('A1'), apt('A2')], remainder: [], urbty: [] }), fetchUnits }))
-    expect(r.applyhome).toMatchObject({ changed: 2, upserted: 1, failed: 1, error: null })
-    expect(calls.notices.filter((n) => n.source === 'applyhome').map((n) => n.source_id)).toEqual(['A1:A1'])
+    expect(r.applyhome).toMatchObject({ changed: 2, upserted: 2, failed: 1, error: null })
+    const rows = calls.notices.filter((n) => n.source === 'applyhome')
+    expect(rows.map((n) => n.source_id).sort()).toEqual(['A1:A1', 'A2:A2'])
+    expect(rows.find((n) => n.source_id === 'A2:A2')).toMatchObject({ content_hash: '', sp_newlywed_units: 0, sp_first_life_units: 0, sp_multi_child_units: 0 })
+    expect(rows.find((n) => n.source_id === 'A1:A1')!.content_hash).not.toBe('')
+    expect(calls.units.map((u) => u.noticeId)).toEqual(['id-A1:A1'])
+    expect(r.applyhome.changedSlugs).toContain('단지-A2')
     expect(calls.runs.find((x) => x.source === 'applyhome')?.failed).toBe(1)
   })
   it('저장된 상태가 removed이면 해시가 같아도 다시 upsert한다', async () => {

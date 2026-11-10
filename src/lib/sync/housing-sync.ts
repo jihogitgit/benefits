@@ -85,7 +85,7 @@ interface Candidate {
 /**
  * 공통 적재. 후보마다 기존 행과 해시·상태를 비교해 바뀐 것만 upsert한다.
  * 슬러그는 기존 행이 있으면 그대로, 없으면 제목에서 만들고 충돌 시 접미를 붙인다.
- * 주택형 조회가 실패한 공고는 이번 배치에서 빼고 failed로 센다(해시가 저장되지 않아 다음 실행이 다시 시도한다).
+ * 주택형 조회가 실패한 공고는 빈 해시(집계 0)로 넣고 failed로 센다. 목록에는 보이고, 다음 실행이 해시 불일치로 다시 시도한다.
  */
 async function upsertChanged(source: HousingSource, candidates: Candidate[], keepIds: string[], deps: HousingSyncDeps, result: HousingSourceResult, log: (m: string) => void) {
   const batchSize = deps.batchSize ?? 100
@@ -123,6 +123,10 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
         } catch (err) {
           result.failed++
           console.error(`[housing-sync:${source}] 주택형 조회 실패 ${c.row.source_id}:`, errorMessage(err))
+          // 공고 자체는 넣는다 — 주택형 API 하나의 실패가 공고를 목록에서 감추지 않게. 집계는 정규화 때의 0 그대로이고
+          // replaceUnitTypes는 부르지 않는다. 빈 해시라 다음 실행이 "변경"으로 잡아 주택형을 다시 받는다.
+          c.row.content_hash = ''
+          batch.push(c)
           continue
         }
         unitRows.set(c.row.source_id, units)
