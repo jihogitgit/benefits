@@ -149,7 +149,7 @@ export default async function HomePage() {
       {housing.length > 0 && (
         <section className="mt-10">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-xl font-bold">접수 중인 청약·임대 공고</h2>
+            <h2 className="text-xl font-bold">접수중·예정 청약·임대 공고</h2>
             <Link href="/housing" className="text-sm text-brand-700 hover:underline">전체 보기</Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

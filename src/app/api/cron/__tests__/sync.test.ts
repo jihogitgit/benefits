@@ -15,6 +15,7 @@ vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
 import { GET } from '@/app/api/cron/sync/route'
 import { revalidateTag } from 'next/cache'
 import { benefitTag, housingTag } from '@/lib/cache-tags'
+import type { HousingSyncResult } from '@/lib/sync/housing-types'
 
 const ok = {
   fetched: 10, changed: 2, upserted: 2, skipped: 8, failed: 0, closed: 0, removed: 0, aborted_reason: null,
@@ -136,7 +137,7 @@ describe('GET /api/cron/sync', () => {
 const housingOk = {
   applyhome: { source: 'applyhome', fetched: 10, changed: 2, upserted: 2, skipped: 8, failed: 0, removed: 1, aborted_reason: null, error: null, changedSlugs: ['h1', 'h2'], removedSlugs: ['h3'] },
   lh: { source: 'lh', fetched: 5, changed: 0, upserted: 0, skipped: 5, failed: 0, removed: 0, aborted_reason: null, error: null, changedSlugs: [], removedSlugs: [] },
-}
+} satisfies HousingSyncResult
 const housingReq = () => new NextRequest('http://localhost/api/cron/sync?housing=1', { headers: { authorization: 'Bearer secret' } })
 
 describe('GET /api/cron/sync — 공고', () => {

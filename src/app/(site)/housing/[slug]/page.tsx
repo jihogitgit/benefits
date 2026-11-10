@@ -59,7 +59,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     }
   }
   const d = await getHousingBySlug(slug)
-  if (!d) return {}
+  if (!d || d.source === 'lh') return {}
   return {
     title: `${d.title} 청약 일정·공급 내역`,
     description: [KIND_LABEL[d.kind], (d.region_code !== 'UNKNOWN' && regionName(d.region_code)) || '지역 미상', d.total_units ? `${d.total_units}세대` : null, d.receipt_start ? `접수 ${d.receipt_start.replace(/-/g, '.')}부터` : null].filter(Boolean).join(' · '),
@@ -75,7 +75,8 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
   const reg = region(slug)
   if (reg) return <RegionPage slug={reg.slug} name={reg.name} />
   const d = await getHousingBySlug(slug)
-  if (!d) notFound()
+  // LH 공고는 상세 페이지가 없다 — API에 일정·주택형이 없어 옮길 내용이 없고, 카드는 원문으로 바로 보낸다.
+  if (!d || d.source === 'lh') notFound()
   const now = new Date()
   const closed = d.status === 'closed' || d.status === 'removed'
 
@@ -122,8 +123,9 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
         </section>
       )}
 
+      {/* synced_at은 원문이나 상태가 바뀌어 행을 다시 쓸 때만 갱신된다(변경 없는 실행은 건너뜀). 그래서 '확인'이 아니라 '변경'. */}
       <footer className="mt-8 rounded-xl bg-gray-50 p-4 text-xs text-gray-500">
-        <p>출처: 한국부동산원 청약홈 분양정보(공공데이터포털) · 최종 확인 {d.synced_at.slice(0, 10).replace(/-/g, '.')}</p>
+        <p>출처: 한국부동산원 청약홈 분양정보(공공데이터포털) · 최종 변경 {d.synced_at.slice(0, 10).replace(/-/g, '.')}</p>
         {d.detail_url && (
           <p className="mt-1"><a href={d.detail_url} target="_blank" rel="noopener noreferrer" className="underline">공고 원문·사업주체 홈페이지 보기<span className="sr-only">(새 창)</span></a></p>
         )}

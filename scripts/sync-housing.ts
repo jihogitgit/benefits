@@ -20,6 +20,10 @@ async function main() {
   })
   const brief = (r: typeof result.applyhome) => ({ ...r, changedSlugs: r.changedSlugs.length, removedSlugs: r.removedSlugs.length })
   console.log(JSON.stringify({ applyhome: brief(result.applyhome), lh: brief(result.lh) }, null, 2))
+  // 스크립트는 Next 밖에서 돌아 revalidateTag를 부를 수 없다. 넣은 행이 페이지에 보이려면 캐시를 따로 비워야 한다.
+  if (result.applyhome.upserted + result.lh.upserted > 0) {
+    console.log('\n캐시는 비우지 않았다. /api/revalidate에 {"tags":["housing:lists","housing:all"]}를 보내거나 다음 cron을 기다린다.')
+  }
   if (result.applyhome.error || result.lh.error) process.exit(1)
   if (result.applyhome.aborted_reason || result.lh.aborted_reason) process.exit(2)
 }

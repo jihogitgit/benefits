@@ -26,7 +26,8 @@
 - 운영 첫 적재: `supabase/migrations/006_housing.sql`을 Supabase SQL Editor에서 실행한 뒤 `npm run sync:housing`으로 첫 적재. LH API(15058530)는 공공데이터포털 활용신청이 필요하다. `HOUSING_API_KEY`는 선택(비우면 `GOV24_API_KEY`).
 - 공고 수동 적재: `npm run sync:housing` (청약홈 모집공고일 최근 180일 + LH 분양·임대·주거복지·신혼희망타운).
   변경 감지는 원문 해시(`content_hash`)와 날짜로 계산한 상태 비교. 주택형은 바뀐 APT·무순위 공고만 받는다.
-  매 실행 `housing:lists`를 비우고 상세는 `housing:{slug}` 태그로 한 장씩. 샘플 응답은 `npm run fixtures:housing`.
+  스크립트는 캐시를 비우지 않는다(cron만 `housing:lists`와 바뀐 `housing:{slug}`를 비운다). 첫 적재 뒤에는
+  `/api/revalidate`에 `{"tags":["housing:lists","housing:all"]}`를 보내거나 다음 cron을 기다린다. 샘플 응답은 `npm run fixtures:housing`.
 - 안전장치: 직전 성공 대비 30% 이상 건수 감소 시 중단(409), `sync_runs.aborted_reason` 기록
 - 마감·소멸 항목은 삭제하지 않고 `status`만 closed/removed로 변경
 - 매 실행마다 `benefits:home`·`benefits:lists`(홈·목록 수십 장)를 비우고, 상세는 **바뀐 슬러그만**
