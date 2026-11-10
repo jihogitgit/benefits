@@ -30,6 +30,8 @@ export interface HousingSourceResult {
   changed: number
   upserted: number
   skipped: number
+  /** 주택형 조회·저장 실패 건수. 조회 실패 공고는 upsert하지 않아 다음 실행이 다시 시도한다. */
+  failed: number
   removed: number
   aborted_reason: string | null
   /** 이 소스가 예외로 끝났으면 메시지. 다른 소스는 계속 돈다. */

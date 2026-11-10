@@ -10,6 +10,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "sync:gov24": "tsx --env-file=.env.local scripts/sync-gov24.ts",
+    "sync:housing": "tsx --env-file=.env.local scripts/sync-housing.ts",
     "seed:static": "tsx --env-file=.env.local scripts/seed-static.ts",
     "seed:curated": "tsx --env-file=.env.local scripts/seed-curated.ts",
     "fixtures:housing": "tsx --env-file=.env.local scripts/capture-housing-fixtures.ts",
