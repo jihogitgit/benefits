@@ -16,6 +16,22 @@ export function toIsoDate(v: string | null | undefined): string | null {
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso ? null : iso
 }
 
+/**
+ * 원천 URL을 링크로 내보내도 되는 http(s) 주소로. detail_url은 상세 페이지의 <a href>가 되므로
+ * javascript:·data: 같은 스킴은 버린다(null). 'www.x.kr'처럼 스킴 없이 호스트만 오면 https://를 붙인다.
+ */
+export function safeHttpUrl(v: string | null | undefined): string | null {
+  const t = v?.trim()
+  if (!t) return null
+  const withScheme = !t.includes('://') && /^[\w.-]+\.[a-z]{2,}/i.test(t) ? `https://${t}` : t
+  try {
+    const u = new URL(withScheme)
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null
+  } catch {
+    return null
+  }
+}
+
 const ORDERED = REGIONS.flatMap((r) => r.keywords.map((kw) => ({ kw, slug: r.slug }))).sort((a, b) => b.kw.length - a.kw.length)
 
 /**
@@ -137,7 +153,7 @@ function applyhomeBase(item: AptDetailItem | RemainderDetailItem | UrbtyDetailIt
     contract_start: toIsoDate(item.CNTRCT_CNCLS_BGNDE),
     contract_end: toIsoDate(item.CNTRCT_CNCLS_ENDDE),
     move_in_ym: item.MVN_PREARNGE_YM ?? null,
-    detail_url: item.PBLANC_URL ?? item.HMPG_ADRES ?? null,
+    detail_url: safeHttpUrl(item.PBLANC_URL) ?? safeHttpUrl(item.HMPG_ADRES),
     raw: item,
     content_hash: contentHash(item),
     synced_at: now.toISOString(),
@@ -215,7 +231,7 @@ export function normalizeLh(item: LhNoticeItem, slug: string, now: Date): Housin
     receipt_start: null, receipt_end: null,
     sp_newlywed_units: 0, sp_first_life_units: 0, sp_multi_child_units: 0,
     status: mapLhStatus(item.PAN_SS),
-    detail_url: item.DTL_URL ?? null,
+    detail_url: safeHttpUrl(item.DTL_URL),
     raw: item,
     content_hash: contentHash(item),
     synced_at: now.toISOString(),

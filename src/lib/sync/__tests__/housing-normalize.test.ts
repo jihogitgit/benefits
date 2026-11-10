@@ -16,6 +16,7 @@ import {
   normalizeUrbty,
   normalizeLh,
   unitsFromMdl,
+  safeHttpUrl,
 } from '../housing-normalize'
 import { aptDetailResponse, remainderDetailResponse, urbtyDetailResponse, aptMdlResponse } from '@/lib/api/applyhome-schema'
 import { REGIONS } from '../../../../data/regions'
@@ -196,7 +197,7 @@ describe('normalizeApt', () => {
       source: 'applyhome', source_id: '2026000001:2026000001', slug: '래미안-테스트', title: '래미안 테스트', kind: 'apt', kind_detail: '민영',
       region_code: 'seoul', total_units: 320, notice_date: '2026-01-10', special_start: '2026-01-21', rank1_start: '2026-01-22', rank1_end: '2026-01-22',
       rank2_start: '2026-01-23', rank2_end: '2026-01-23', winner_date: '2026-01-28', contract_start: '2026-02-10', move_in_ym: '202812',
-      receipt_start: '2026-01-21', receipt_end: '2026-01-23', status: 'upcoming', detail_url: 'https://example.com',
+      receipt_start: '2026-01-21', receipt_end: '2026-01-23', status: 'upcoming', detail_url: 'https://example.com/',
     })
     expect(row.content_hash).toHaveLength(40)
     expect(row.synced_at).toBe(now.toISOString())
@@ -234,6 +235,32 @@ describe('normalizeRemainder / normalizeUrbty', () => {
     expect(row.receipt_start).toBe('2026-02-01')
     expect(row.receipt_end).toBe('2026-02-03')
     expect(row.sp_newlywed_units).toBe(0)
+  })
+})
+
+// detail_url은 상세 페이지의 <a href>로 나간다. 원천 값이 javascript: 등이면 클릭 한 번에 스크립트가 돈다.
+describe('safeHttpUrl', () => {
+  it('http·https가 아닌 스킴은 null', () => {
+    expect(safeHttpUrl('javascript:alert(1)')).toBeNull()
+    expect(safeHttpUrl(' JavaScript:alert(1)')).toBeNull()
+    expect(safeHttpUrl('data:text/html,<script>alert(1)</script>')).toBeNull()
+    expect(safeHttpUrl('ftp://x.kr/a')).toBeNull()
+  })
+  it('스킴 없는 호스트는 https://를 붙인다', () => {
+    expect(safeHttpUrl('www.x.kr')).toBe('https://www.x.kr/')
+  })
+  it('올바른 http(s) 주소는 그대로', () => {
+    expect(safeHttpUrl('https://apply.lh.or.kr/x?a=1')).toBe('https://apply.lh.or.kr/x?a=1')
+    expect(safeHttpUrl('  http://x.kr/a  ')).toBe('http://x.kr/a')
+  })
+  it('비었거나 읽을 수 없으면 null', () => {
+    expect(safeHttpUrl(null)).toBeNull()
+    expect(safeHttpUrl('   ')).toBeNull()
+    expect(safeHttpUrl('홈페이지 없음')).toBeNull()
+  })
+  it('정규화가 detail_url에 적용한다(청약홈은 PBLANC_URL이 위험하면 HMPG_ADRES로)', () => {
+    expect(normalizeLh(lh({ DTL_URL: 'javascript:alert(1)' }), 's', now)!.detail_url).toBeNull()
+    expect(normalizeApt(apt({ PBLANC_URL: 'javascript:alert(1)', HMPG_ADRES: 'www.x.kr' }), [], 's', now).detail_url).toBe('https://www.x.kr/')
   })
 })
 
