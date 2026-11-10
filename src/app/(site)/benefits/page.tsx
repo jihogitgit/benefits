@@ -118,6 +118,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
       <section className="mt-10 border-t pt-6" aria-label="다른 방법으로 찾기">
         <h2 className="text-base font-bold">다른 방법으로 찾기</h2>
         <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+          <li><Link href="/housing" className="inline-flex min-h-10 items-center rounded-full border bg-white px-3 hover:border-brand-400">청약·임대 공고</Link></li>
           <li><Link href="/deadline" className="inline-flex min-h-10 items-center rounded-full border bg-white px-3 hover:border-brand-400">마감 임박 캘린더</Link></li>
           {BROWSE_SEGMENTS.filter((s) => s.slug !== 'other').map((s) => (
             <li key={s.path}><Link href={`/${s.path}`} className="inline-flex min-h-10 items-center rounded-full border bg-white px-3 hover:border-brand-400">{s.name} 지원금 모아보기</Link></li>

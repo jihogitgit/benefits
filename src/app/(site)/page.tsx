@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import DiagnosisPanel from '@/components/diagnosis/DiagnosisPanel'
 import BenefitCard from '@/components/benefits/BenefitCard'
+import HousingCard from '@/components/housing/HousingCard'
+import { listHousing, type HousingCardRow } from '@/lib/housing/queries'
 import { listDeadlineSoon, listRecentlyUpdated, listRecentlyCreated, getLastSyncAt, listWithArticles, listGuides } from '@/lib/benefits/queries'
 import { formatKstDate } from '@/lib/benefits/format'
 import { absoluteUrl, siteName, SITE_DESCRIPTION } from '@/lib/seo/site'
@@ -32,7 +34,7 @@ export default async function HomePage() {
   // listDeadlineSoon/listRecentlyUpdated는 현재 시각을 인자로 받지 않는다(unstable_cache 키 오염 방지).
   // D-day 표시용 기준 시각만 여기서 한 번 만들어 카드에 내려준다.
   const now = new Date()
-  const [soon, recent, fresh, lastSync, explainedAll, guides] = await Promise.all([
+  const [soon, recent, fresh, lastSync, explainedAll, guides, housing] = await Promise.all([
     listDeadlineSoon(14, 8),
     listRecentlyUpdated(48, 8),
     listRecentlyCreated(14, 8),
@@ -40,6 +42,10 @@ export default async function HomePage() {
     // 하나 더 읽어 "전체 보기" 링크를 낼지 판단한다.
     listWithArticles(null, HOME_EXPLAINED + 1),
     listGuides(),
+    listHousing({ status: 'active', kind: null, region: null, limit: 4 }).catch((e) => {
+      console.error('[home] housing list failed:', e)
+      return [] as HousingCardRow[]
+    }),
   ])
   const explained = explainedAll.slice(0, HOME_EXPLAINED)
 
@@ -135,6 +141,19 @@ export default async function HomePage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {fresh.map((r) => <BenefitCard key={r.slug} row={r} now={now} />)}
+          </div>
+        </section>
+      )}
+
+      {/* 공고는 매일 바뀌어 홈을 살아 있게 한다. 0건인 날(연휴)이나 조회 실패면 섹션을 내지 않는다. */}
+      {housing.length > 0 && (
+        <section className="mt-10">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-xl font-bold">접수 중인 청약·임대 공고</h2>
+            <Link href="/housing" className="text-sm text-brand-700 hover:underline">전체 보기</Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {housing.map((r) => <HousingCard key={r.slug} row={r} now={now} />)}
           </div>
         </section>
       )}
