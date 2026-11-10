@@ -100,6 +100,24 @@ describe('runHousingSync', () => {
     expect(calls.removedKeep.applyhome).toEqual(['A1:A1', 'A2:A2', 'A3:A3'])
   })
 
+  // 주택형 조회가 없는 공고(도시형·LH)는 시간이 거의 안 든다. 먼저 넣어야 마감에 걸려도 그것들은 저장된다.
+  it('시간 예산에 걸려도 주택형 조회가 필요 없는 공고는 먼저 처리해 저장한다', async () => {
+    const { repo, calls } = fakeRepo()
+    const u: UrbtyDetailItem = { ...apt('U1'), SEARCH_HOUSE_SECD: '0201', SUBSCRPT_RCEPT_BGNDE: '2026-02-01', SUBSCRPT_RCEPT_ENDDE: '2026-02-03' }
+    const d = deps(repo, {
+      deadlineMs: Date.now() + 3_600_000,
+      fetchApplyhome: async () => {
+        d.deadlineMs = Date.now() - 1
+        return { apt: [apt('A1'), apt('A2')], remainder: [], urbty: [u] }
+      },
+    })
+    const r = await runHousingSync(d)
+    expect(calls.notices.filter((n) => n.source === 'applyhome').map((n) => n.source_id)).toEqual(['U1:U1'])
+    expect(r.applyhome).toMatchObject({ changed: 3, upserted: 1 })
+    expect(r.applyhome.aborted_reason).toBe('시간 예산 초과: 2건은 다음 실행에서')
+    expect(d.fetchUnits).not.toHaveBeenCalled()
+  })
+
   it('마감이 이미 지났으면 두 소스 모두 fetch 없이 건너뛰고 markRemoved도 부르지 않는다', async () => {
     const { repo } = fakeRepo()
     const fetchApplyhome = vi.fn(async () => ({ apt: [], remainder: [], urbty: [] }))

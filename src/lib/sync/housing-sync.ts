@@ -101,6 +101,9 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
     c.row.slug = prev?.slug ?? allocateSlug(housingSlugBase(c.row.title), usedSlugs)
     changed.push(c)
   }
+  // 주택형 조회가 없는 공고(도시형·LH)를 앞에 둔다. 시간은 주택형 조회가 먹으므로, 마감에 걸려도 이것들은 저장된다.
+  // 슬러그는 위에서 원래 순서로 이미 정했다(같은 제목의 접미가 실행마다 바뀌지 않게).
+  changed.sort((a, b) => Number(!!a.units) - Number(!!b.units)) // Array.prototype.sort는 안정 정렬이라 같은 쪽 안의 순서는 유지된다
   result.changed = changed.length
 
   let outOfTime = false
