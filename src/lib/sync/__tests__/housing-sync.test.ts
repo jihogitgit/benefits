@@ -173,7 +173,7 @@ describe('runHousingSync', () => {
     expect(r.applyhome).toMatchObject({ failed: 1, upserted: 1, error: null })
     const aptCalls = (repo.upsertNotices as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0][0].source === 'applyhome')
     expect(aptCalls).toHaveLength(2)
-    expect(aptCalls[1][0]).toMatchObject([{ source_id: 'A1:A1', content_hash: '' }])
+    expect(aptCalls[1][0]).toEqual([{ ...aptCalls[0][0][0], content_hash: '' }])
     expect(calls.notices.length).toBeGreaterThan(0)
   })
 
@@ -191,7 +191,7 @@ describe('runHousingSync', () => {
     const r = await runHousingSync(deps(repo, { fetchLh: async () => [lh('L1', { UPP_AIS_TP_CD: '01' })] }))
     expect(r.lh.aborted_reason).toMatch(/정규화 결과 0건/)
     expect(r.lh.upserted).toBe(0)
-    expect(repo.markRemoved).not.toHaveBeenCalledWith('lh', expect.anything())
+    expect((repo.markRemoved as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0] === 'lh')).toHaveLength(0)
   })
 
   it('도시형 공고는 주택형 조회 없이 upsert한다', async () => {
@@ -211,5 +211,6 @@ describe('runHousingSync', () => {
     const r = await runHousingSync(deps(repo))
     expect(r.applyhome.upserted).toBe(1)
     expect(r.lh).toMatchObject({ upserted: 1, error: null })
+    expect(repo.recordRun).toHaveBeenCalledWith(expect.objectContaining({ source: 'lh' }))
   })
 })
