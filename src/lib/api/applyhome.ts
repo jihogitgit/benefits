@@ -42,6 +42,11 @@ export const isTimeoutError = (e: unknown): e is Error => e instanceof Error && 
 
 export class RetryableError extends Error {}
 
+/** 시간 예산(deadlineMs)이 다 돼 요청하지 않았다. 재시도 대상이 아니고, 호출자는 실패가 아니라 "다음 실행으로 미룸"으로 다룬다. */
+export class DeadlineError extends Error {
+  override name = 'DeadlineError'
+}
+
 export const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 /** 재시도는 백오프 뒤에도 이만큼은 남아 있어야 한다. 못 미치면 기다리지 않고 바로 던진다. */
@@ -54,7 +59,7 @@ const MIN_RETRY_HEADROOM_MS = 1_000
 export function remainingBudgetMs(deadlineMs: number | undefined, label: string): number {
   if (deadlineMs == null) return Infinity
   const remaining = deadlineMs - Date.now()
-  if (remaining <= 0) throw new Error(`${label} 시간 예산 초과`)
+  if (remaining <= 0) throw new DeadlineError(`${label} 시간 예산 초과`)
   return remaining
 }
 

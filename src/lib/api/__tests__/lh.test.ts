@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fetchLhNotices } from '../lh'
+import { DeadlineError } from '../applyhome'
 
 const row = (id: string, all = 1) => ({ PAN_ID: id, PAN_NM: `공고 ${id}`, ALL_CNT: String(all) })
 const body = (rows: unknown[]) => [{ resHeader: [{ SS_CODE: 'Y' }] }, { dsList: rows }]
@@ -169,7 +170,7 @@ describe('LH 클라이언트', () => {
 
   it('시간 예산이 이미 지났으면 요청 없이 시간 예산 초과로 던진다', async () => {
     fetchMock.mockImplementation(async () => empty())
-    await expect(fetchLhNotices({ ...opts, deadlineMs: Date.now() - 1 })).rejects.toThrow('시간 예산 초과')
+    await expect(fetchLhNotices({ ...opts, deadlineMs: Date.now() - 1 })).rejects.toThrow(DeadlineError)
     expect(fetchMock).toHaveBeenCalledTimes(0)
   })
 

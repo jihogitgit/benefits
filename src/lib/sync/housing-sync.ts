@@ -3,6 +3,7 @@ import type { LhNoticeItem } from '@/lib/api/lh-schema'
 import type { SyncRunRow } from '@/types/database'
 import type { HousingNoticeRow, HousingSource, HousingUnitTypeInput } from '@/types/housing'
 import { allocateSlug } from '@/lib/benefits/slug'
+import { DeadlineError } from '@/lib/api/applyhome'
 import { errorMessage } from './gov24-sync'
 import { shouldAbortForDrop } from './diff'
 import { housingSlugBase, normalizeApt, normalizeLh, normalizeRemainder, normalizeUrbty, unitsFromMdl } from './housing-normalize'
@@ -124,6 +125,12 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
         try {
           units = unitsFromMdl(await deps.fetchUnits(c.units.kind, c.units.houseManageNo, c.units.pblancNo, { deadlineMs: deps.deadlineMs }))
         } catch (err) {
+          if (err instanceof DeadlineError) {
+            // 요청 전에 마감이 와서 끊겼다 — 실패가 아니다. 위의 마감 검사와 같이 이 공고부터 다음 실행으로 미룬다.
+            outOfTime = true
+            result.aborted_reason = `시간 예산 초과: ${changed.length - i - j}건은 다음 실행에서`
+            break
+          }
           result.failed++
           console.error(`[housing-sync:${source}] 주택형 조회 실패 ${c.row.source_id}:`, errorMessage(err))
           // 공고 자체는 넣는다 — 주택형 API 하나의 실패가 공고를 목록에서 감추지 않게. 집계는 기존 행이 있으면 직전 값을

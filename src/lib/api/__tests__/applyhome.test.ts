@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchApplyhomeDetails, fetchApplyhomeUnits } from '../applyhome'
+import { DeadlineError, fetchApplyhomeDetails, fetchApplyhomeUnits } from '../applyhome'
 
 const row = (n: number) => ({ HOUSE_MANAGE_NO: '1', PBLANC_NO: '1', MODEL_NO: String(n) })
 const body = (data: unknown[], totalCount: number) => ({ currentCount: data.length, matchCount: totalCount, page: 1, perPage: 100, totalCount, data })
@@ -118,7 +118,7 @@ describe('청약홈 클라이언트', () => {
 
   it('시간 예산이 이미 지났으면 요청 없이 시간 예산 초과로 던진다', async () => {
     fetchMock.mockImplementation(async () => json(body([], 0)))
-    await expect(fetchApplyhomeUnits('apt', '1', '1', { ...opts, deadlineMs: Date.now() - 1 })).rejects.toThrow('시간 예산 초과')
+    await expect(fetchApplyhomeUnits('apt', '1', '1', { ...opts, deadlineMs: Date.now() - 1 })).rejects.toThrow(DeadlineError)
     expect(fetchMock).toHaveBeenCalledTimes(0)
   })
 

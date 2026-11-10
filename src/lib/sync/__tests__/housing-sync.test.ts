@@ -6,6 +6,7 @@ import type { SyncRunRow } from '@/types/database'
 import type { AptDetailItem, MdlItem, UrbtyDetailItem } from '@/lib/api/applyhome-schema'
 import type { LhNoticeItem } from '@/lib/api/lh-schema'
 import { contentHash } from '../housing-normalize'
+import { DeadlineError } from '@/lib/api/applyhome'
 
 const now = new Date('2026-01-20T03:00:00Z')
 
@@ -264,6 +265,18 @@ describe('runHousingSync', () => {
     expect(r.applyhome).toMatchObject({ upserted: 1, failed: 1 })
     expect(calls.notices.find((n) => n.source_id === 'A1:A1')).toMatchObject({ content_hash: '', sp_newlywed_units: 7, sp_first_life_units: 3, sp_multi_child_units: 2, slug: '단지-A1' })
     expect(repo.replaceUnitTypes).not.toHaveBeenCalled()
+  })
+
+  // 마감으로 끊긴 요청은 실패가 아니다. 빈 해시로 넣지 않고 남은 공고와 함께 다음 실행으로 미룬다.
+  it('주택형 조회가 시간 예산 초과(DeadlineError)로 끊기면 failed로 세지 않고 그 뒤를 미룬다', async () => {
+    const { repo, calls } = fakeRepo()
+    const fetchUnits = vi.fn(async (_k: 'apt' | 'remainder', id: string) => { if (id === 'A2') throw new DeadlineError('applyhome getAPTLttotPblancMdl 시간 예산 초과'); return [mdl(id)] })
+    const r = await runHousingSync(deps(repo, { fetchApplyhome: async () => ({ apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }), fetchUnits }))
+    expect(r.applyhome).toMatchObject({ changed: 3, upserted: 1, failed: 0, error: null })
+    expect(r.applyhome.aborted_reason).toMatch(/시간 예산/)
+    expect(r.applyhome.aborted_reason).toContain('2건')
+    expect(calls.notices.filter((n) => n.source === 'applyhome').map((n) => n.source_id)).toEqual(['A1:A1'])
+    expect(fetchUnits).toHaveBeenCalledTimes(2)
   })
 
   it('저장된 상태가 removed이면 해시가 같아도 다시 upsert한다', async () => {
