@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { runHousingSync } from '../housing-sync'
 import type { HousingRepo, HousingExisting } from '../housing-types'
 import type { HousingNoticeRow, HousingSource, HousingUnitTypeInput } from '@/types/housing'
 import type { SyncRunRow } from '@/types/database'
-import type { AptDetailItem, MdlItem } from '@/lib/api/applyhome-schema'
+import type { AptDetailItem, MdlItem, UrbtyDetailItem } from '@/lib/api/applyhome-schema'
 import type { LhNoticeItem } from '@/lib/api/lh-schema'
 import { contentHash } from '../housing-normalize'
 
@@ -66,6 +66,8 @@ const deps = (repo: HousingRepo, over: Partial<Parameters<typeof runHousingSync>
 })
 
 describe('runHousingSync', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   it('신규 공고를 upsert하고 APT는 주택형을 받아 붙인다', async () => {
     const { repo, calls } = fakeRepo()
     const d = deps(repo)
@@ -155,5 +157,59 @@ describe('runHousingSync', () => {
     expect(r.applyhome).toMatchObject({ changed: 2, upserted: 1, failed: 1, error: null })
     expect(calls.notices.filter((n) => n.source === 'applyhome').map((n) => n.source_id)).toEqual(['A1:A1'])
     expect(calls.runs.find((x) => x.source === 'applyhome')?.failed).toBe(1)
+  })
+  it('저장된 상태가 removed이면 해시가 같아도 다시 upsert한다', async () => {
+    const item = apt('A1')
+    const { repo } = fakeRepo({ applyhome: { 'A1:A1': { id: 'x', slug: '단지-A1', content_hash: contentHash(item), status: 'removed' } } })
+    const r = await runHousingSync(deps(repo, { fetchApplyhome: async () => ({ apt: [item], remainder: [], urbty: [] }) }))
+    expect(r.applyhome).toMatchObject({ changed: 1, upserted: 1 })
+  })
+
+  it('주택형 저장이 실패하면 해시를 비워 다시 upsert해 다음 실행이 재시도하게 한다', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { repo, calls } = fakeRepo()
+    repo.replaceUnitTypes = vi.fn(async () => { throw new Error('db 500') })
+    const r = await runHousingSync(deps(repo))
+    expect(r.applyhome).toMatchObject({ failed: 1, upserted: 1, error: null })
+    const aptCalls = (repo.upsertNotices as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0][0].source === 'applyhome')
+    expect(aptCalls).toHaveLength(2)
+    expect(aptCalls[1][0]).toMatchObject([{ source_id: 'A1:A1', content_hash: '' }])
+    expect(calls.notices.length).toBeGreaterThan(0)
+  })
+
+  it('upsert가 id를 돌려주지 않으면 failed로 세고 주택형을 저장하지 않는다', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { repo } = fakeRepo()
+    repo.upsertNotices = vi.fn(async (rows: HousingNoticeRow[]) => new Map<string, string>(rows.filter((x) => x.source === 'lh').map((x) => [x.source_id, 'id-lh'])))
+    const r = await runHousingSync(deps(repo))
+    expect(r.applyhome).toMatchObject({ failed: 1, upserted: 1 })
+    expect(repo.replaceUnitTypes).not.toHaveBeenCalled()
+  })
+
+  it('LH가 전부 대상 밖이면 중단하고 markRemoved를 부르지 않는다', async () => {
+    const { repo } = fakeRepo()
+    const r = await runHousingSync(deps(repo, { fetchLh: async () => [lh('L1', { UPP_AIS_TP_CD: '01' })] }))
+    expect(r.lh.aborted_reason).toMatch(/정규화 결과 0건/)
+    expect(r.lh.upserted).toBe(0)
+    expect(repo.markRemoved).not.toHaveBeenCalledWith('lh', expect.anything())
+  })
+
+  it('도시형 공고는 주택형 조회 없이 upsert한다', async () => {
+    const { repo, calls } = fakeRepo()
+    const u: UrbtyDetailItem = { ...apt('U1'), SEARCH_HOUSE_SECD: '0201', SUBSCRPT_RCEPT_BGNDE: '2026-02-01', SUBSCRPT_RCEPT_ENDDE: '2026-02-03' }
+    const d = deps(repo, { fetchApplyhome: async () => ({ apt: [], remainder: [], urbty: [u] }) })
+    const r = await runHousingSync(d)
+    expect(r.applyhome.upserted).toBe(1)
+    expect(d.fetchUnits).not.toHaveBeenCalled()
+    expect(calls.notices.some((n) => n.source === 'applyhome')).toBe(true)
+  })
+
+  it('recordRun이 던져도 다음 소스는 돈다', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { repo } = fakeRepo()
+    repo.recordRun = vi.fn(async (run: SyncRunRow) => { if (run.source === 'applyhome') throw new Error('sync_runs down') })
+    const r = await runHousingSync(deps(repo))
+    expect(r.applyhome.upserted).toBe(1)
+    expect(r.lh).toMatchObject({ upserted: 1, error: null })
   })
 })

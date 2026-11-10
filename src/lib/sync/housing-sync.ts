@@ -51,7 +51,11 @@ async function runSource(source: HousingSource, deps: HousingSyncDeps, now: Date
     run.aborted_reason = result.aborted_reason
     run.error = result.error
     run.finished_at = new Date().toISOString()
-    await deps.repo.recordRun(run)
+    try {
+      await deps.repo.recordRun(run)
+    } catch (err) {
+      console.error(`[housing-sync:${source}] recordRun 실패:`, errorMessage(err))
+    }
   }
   return result
 }
@@ -105,15 +109,27 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
       batch.push(c)
     }
     if (!batch.length) continue
+    const byId = new Map(batch.map((c) => [c.row.source_id, c]))
     const ids = await deps.repo.upsertNotices(batch.map((c) => c.row))
     for (const [sourceId, units] of unitRows) {
       const id = ids.get(sourceId)
-      if (!id) continue
+      if (!id) {
+        result.failed++
+        console.error(`[housing-sync:${source}] upsert 결과에 id 없음 ${sourceId}`)
+        continue
+      }
       try {
         await deps.repo.replaceUnitTypes(id, units)
       } catch (err) {
         result.failed++
         console.error(`[housing-sync:${source}] 주택형 저장 실패 ${sourceId}:`, errorMessage(err))
+        // 행은 이미 새 해시로 저장돼 다음 실행이 "변경 없음"으로 건너뛴다.
+        // 해시를 비워 다시 쓰면 다음 실행에서 불일치로 잡혀 주택형을 재시도한다.
+        try {
+          await deps.repo.upsertNotices([{ ...byId.get(sourceId)!.row, content_hash: '' }])
+        } catch (err2) {
+          console.error(`[housing-sync:${source}] 해시 초기화 실패 ${sourceId}:`, errorMessage(err2))
+        }
       }
     }
     result.upserted += batch.length
@@ -139,6 +155,10 @@ const syncApplyhome: SourceBody = async (deps, now, result, log) => {
     ...remainder.map((i) => ({ row: normalizeRemainder(i, [], '', now), units: { kind: 'remainder' as const, houseManageNo: i.HOUSE_MANAGE_NO, pblancNo: i.PBLANC_NO } })),
     ...urbty.map((i) => ({ row: normalizeUrbty(i, '', now) })),
   ]
+  if (result.fetched > 0 && candidates.length === 0) {
+    result.aborted_reason = '정규화 결과 0건(유형 코드 변경?)'
+    return
+  }
   await upsertChanged('applyhome', candidates, candidates.map((c) => c.row.source_id), deps, result, log)
 }
 
@@ -155,6 +175,10 @@ const syncLh: SourceBody = async (deps, now, result, log) => {
   for (const i of items) {
     const row = normalizeLh(i, '', now)
     if (row) candidates.push({ row })
+  }
+  if (items.length > 0 && candidates.length === 0) {
+    result.aborted_reason = '정규화 결과 0건(유형 코드 변경?)'
+    return
   }
   await upsertChanged('lh', candidates, candidates.map((c) => c.row.source_id), deps, result, log)
 }
