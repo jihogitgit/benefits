@@ -12,6 +12,7 @@
     "sync:gov24": "tsx --env-file=.env.local scripts/sync-gov24.ts",
     "seed:static": "tsx --env-file=.env.local scripts/seed-static.ts",
     "seed:curated": "tsx --env-file=.env.local scripts/seed-curated.ts",
+    "fixtures:housing": "tsx --env-file=.env.local scripts/capture-housing-fixtures.ts",
     "fixtures:capture": "tsx --env-file=.env.local scripts/capture-fixtures.ts",
     "verify:search": "tsx --env-file=.env.local scripts/verify-search-parity.ts",
     "verify:figures": "tsx --env-file=.env.local scripts/verify-guide-figures.ts",
