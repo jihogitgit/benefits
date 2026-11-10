@@ -12,16 +12,24 @@ export function toIsoDate(v: string | null | undefined): string | null {
   const m = v.trim().match(/^(\d{4})[.-]?(\d{2})[.-]?(\d{2})/)
   if (!m) return null
   const iso = `${m[1]}-${m[2]}-${m[3]}`
-  return Number.isNaN(new Date(iso).getTime()) ? null : iso
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso ? null : iso
 }
 
 const ORDERED = REGIONS.flatMap((r) => r.keywords.map((kw) => ({ kw, slug: r.slug }))).sort((a, b) => b.kw.length - a.kw.length)
+
+/**
+ * 청약홈 시도명은 '광주'처럼 짧다. regions.ts는 보조금24의 '광주시'(경기 광주시) 혼동 때문에 맨 '광주'를 키워드에서 뺐으므로,
+ * 공고 쪽에서만 첫 토큰이 정확히 일치할 때 먼저 푼다. '경기도 광주시'는 첫 토큰이 '경기도'라 여기 걸리지 않는다.
+ */
+const HOUSING_EXACT: Record<string, string> = { 광주: 'gwangju' }
 
 /** 시도명 → REGIONS slug. '전국'은 ALL, 못 맞추면 UNKNOWN(ALL과 구별). 긴 키워드부터 본다. */
 export function mapHousingRegion(name: string | null | undefined): string {
   if (!name) return HOUSING_REGION_UNKNOWN
   const head = name.trim().split(/\s+/)[0]
   if (head === '전국') return REGION_ALL
+  if (Object.hasOwn(HOUSING_EXACT, head)) return HOUSING_EXACT[head]
   for (const { kw, slug } of ORDERED) if (head.startsWith(kw)) return slug
   return HOUSING_REGION_UNKNOWN
 }
@@ -108,9 +116,11 @@ export function aggregateUnits(units: HousingUnitTypeInput[]): Pick<HousingNotic
   return { sp_newlywed_units: sum((u) => u.sp_newlywed), sp_first_life_units: sum((u) => u.sp_first_life), sp_multi_child_units: sum((u) => u.sp_multi_child) }
 }
 
+// 문자열 정렬이 안전한 이유: 입력이 모두 toIsoDate가 만든 ISO(YYYY-MM-DD)다.
 const minDate = (...ds: (string | null)[]): string | null => ds.filter((d): d is string => !!d).sort()[0] ?? null
 const maxDate = (...ds: (string | null)[]): string | null => ds.filter((d): d is string => !!d).sort().at(-1) ?? null
 
+// 해시는 상세 항목만 덮는다. 주택형(MdlItem)만 고쳐진 경우는 감지하지 않는다(설계 4절: 주택형은 바뀐 공고만 받는다).
 function applyhomeBase(item: AptDetailItem | RemainderDetailItem | UrbtyDetailItem, slug: string, now: Date) {
   return {
     source: 'applyhome' as const,

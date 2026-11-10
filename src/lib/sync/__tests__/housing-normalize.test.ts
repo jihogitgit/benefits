@@ -17,20 +17,25 @@ import {
   normalizeLh,
   unitsFromMdl,
 } from '../housing-normalize'
-import { aptDetailResponse } from '@/lib/api/applyhome-schema'
-import type { AptDetailItem, MdlItem } from '@/lib/api/applyhome-schema'
+import { aptDetailResponse, remainderDetailResponse, urbtyDetailResponse, aptMdlResponse } from '@/lib/api/applyhome-schema'
+import { REGIONS } from '../../../../data/regions'
+import type { AptDetailItem, RemainderDetailItem, UrbtyDetailItem, MdlItem } from '@/lib/api/applyhome-schema'
 import type { LhNoticeItem } from '@/lib/api/lh-schema'
 
 const now = new Date('2026-01-20T03:00:00Z') // KST 2026-01-20 12:00
 
-function apt(over: Partial<AptDetailItem> = {}): AptDetailItem {
-  return {
+const common = {
     HOUSE_MANAGE_NO: '2026000001', PBLANC_NO: '2026000001', HOUSE_NM: '래미안 테스트', HOUSE_SECD: '01', HOUSE_SECD_NM: 'APT',
     HOUSE_DTL_SECD: '01', HOUSE_DTL_SECD_NM: '민영', RENT_SECD: '0', RENT_SECD_NM: '분양주택', SUBSCRPT_AREA_CODE: '100', SUBSCRPT_AREA_CODE_NM: '서울',
     HSSPLY_ZIP: null, HSSPLY_ADRES: '서울특별시 서초구 반포동 1-1', TOT_SUPLY_HSHLDCO: '320', RCRIT_PBLANC_DE: '2026-01-10', PRZWNER_PRESNATN_DE: '2026-01-28',
     CNTRCT_CNCLS_BGNDE: '2026-02-10', CNTRCT_CNCLS_ENDDE: '2026-02-12', MVN_PREARNGE_YM: '202812', BSNS_MBY_NM: '테스트건설', CNSTRCT_ENTRPS_NM: null, MDHS_TELNO: null,
     HMPG_ADRES: 'https://example.com', NSPRC_NM: null, PBLANC_URL: null, SPECLT_RDN_EARTH_AT: 'Y', MDAT_TRGET_AREA_SECD: 'Y', PARCPRC_ULS_AT: 'N', PUBLIC_HOUSE_EARTH_AT: 'N',
-    LRSCL_BLDLND_AT: 'N', NPLN_PRVOPR_PUBLIC_HOUSE_AT: 'N', IMPRMN_BSNS_AT: 'N',
+    LRSCL_BLDLND_AT: 'N', NPLN_PRVOPR_PUBLIC_HOUSE_AT: 'N', IMPRMN_BSNS_AT: 'N'
+}
+
+function apt(over: Partial<AptDetailItem> = {}): AptDetailItem {
+  return {
+    ...common,
     SPSPLY_RCEPT_BGNDE: '2026-01-21', SPSPLY_RCEPT_ENDDE: '2026-01-21', RCEPT_BGNDE: '2026-01-21', RCEPT_ENDDE: '2026-01-23',
     GNRL_RNK1_CRSPAREA_RCPTDE: '2026-01-22', GNRL_RNK1_CRSPAREA_ENDDE: '2026-01-22',
     GNRL_RNK1_ETC_GG_RCPTDE: null, GNRL_RNK1_ETC_GG_ENDDE: null,
@@ -40,6 +45,18 @@ function apt(over: Partial<AptDetailItem> = {}): AptDetailItem {
     GNRL_RNK2_ETC_AREA_RCPTDE: null, GNRL_RNK2_ETC_AREA_ENDDE: null,
     ...over,
   }
+}
+
+function remainder(over: Partial<RemainderDetailItem> = {}): RemainderDetailItem {
+  return {
+    ...common, SPSPLY_RCEPT_BGNDE: '2026-01-21', SPSPLY_RCEPT_ENDDE: '2026-01-21',
+    GNRL_RCEPT_BGNDE: '2026-01-25', GNRL_RCEPT_ENDDE: '2026-01-26', SUBSCRPT_RCEPT_BGNDE: null, SUBSCRPT_RCEPT_ENDDE: null,
+    ...over,
+  }
+}
+
+function urbty(over: Partial<UrbtyDetailItem> = {}): UrbtyDetailItem {
+  return { ...common, SEARCH_HOUSE_SECD: '0201', SUBSCRPT_RCEPT_BGNDE: '2026-02-01', SUBSCRPT_RCEPT_ENDDE: '2026-02-03', ...over }
 }
 
 function lh(over: Partial<LhNoticeItem> = {}): LhNoticeItem {
@@ -55,6 +72,8 @@ describe('toIsoDate', () => {
     ['', null],
     [null, null],
     ['미정', null],
+    ['2026-02-30', null],
+    ['2026-02-28', '2026-02-28'],
   ])('%s → %s', (input, expected) => {
     expect(toIsoDate(input)).toBe(expected)
   })
@@ -67,6 +86,8 @@ describe('mapHousingRegion', () => {
     ['경기도', 'gyeonggi'],
     ['전북특별자치도', 'jeonbuk'],
     ['전국', 'ALL'],
+    ['광주', 'gwangju'],
+    ['광주광역시', 'gwangju'],
     ['해외', 'UNKNOWN'],
     [null, 'UNKNOWN'],
   ])('%s → %s', (input, expected) => {
@@ -75,6 +96,12 @@ describe('mapHousingRegion', () => {
   // 긴 이름을 먼저 보지 않으면 "경기도 광주시"가 광주로 잡힌다(regions/extract.ts와 같은 이유).
   it('"경기도 광주시"는 경기다', () => {
     expect(mapHousingRegion('경기도 광주시')).toBe('gyeonggi')
+  })
+  it('모든 지역의 짧은 이름과 첫 키워드가 자기 slug로 돌아온다', () => {
+    for (const r of REGIONS) {
+      expect(mapHousingRegion(r.name), r.name).toBe(r.slug)
+      expect(mapHousingRegion(r.keywords[0]), r.keywords[0]).toBe(r.slug)
+    }
   })
 })
 
@@ -187,19 +214,19 @@ describe('normalizeApt', () => {
 
 describe('normalizeRemainder / normalizeUrbty', () => {
   it('무순위는 일반공급 접수일로 구간을 만든다', () => {
-    const row = normalizeRemainder({ ...apt(), GNRL_RCEPT_BGNDE: '2026-01-25', GNRL_RCEPT_ENDDE: '2026-01-26', SUBSCRPT_RCEPT_BGNDE: null, SUBSCRPT_RCEPT_ENDDE: null } as never, [], 's', now)
+    const row = normalizeRemainder(remainder(), [], 's', now)
     expect(row.kind).toBe('apt_remainder')
     expect(row.receipt_start).toBe('2026-01-21') // 특별공급이 더 이르다
     expect(row.receipt_end).toBe('2026-01-26')
   })
   it('실측처럼 GNRL이 null이고 SUBSCRPT에만 접수일이 있어도 같다', () => {
-    const row = normalizeRemainder({ ...apt(), GNRL_RCEPT_BGNDE: null, GNRL_RCEPT_ENDDE: null, SUBSCRPT_RCEPT_BGNDE: '2026-01-25', SUBSCRPT_RCEPT_ENDDE: '2026-01-26' } as never, [], 's', now)
+    const row = normalizeRemainder(remainder({ GNRL_RCEPT_BGNDE: null, GNRL_RCEPT_ENDDE: null, SUBSCRPT_RCEPT_BGNDE: '2026-01-25', SUBSCRPT_RCEPT_ENDDE: '2026-01-26' }), [], 's', now)
     expect(row.kind).toBe('apt_remainder')
     expect(row.receipt_start).toBe('2026-01-21')
     expect(row.receipt_end).toBe('2026-01-26')
   })
   it('오피스텔은 SUBSCRPT 접수일만 쓴다', () => {
-    const row = normalizeUrbty({ ...apt(), SEARCH_HOUSE_SECD: '0201', SUBSCRPT_RCEPT_BGNDE: '2026-02-01', SUBSCRPT_RCEPT_ENDDE: '2026-02-03' } as never, 's', now)
+    const row = normalizeUrbty(urbty(), 's', now)
     expect(row.kind).toBe('officetel_etc')
     expect(row.receipt_start).toBe('2026-02-01')
     expect(row.receipt_end).toBe('2026-02-03')
@@ -218,18 +245,40 @@ describe('normalizeLh', () => {
 })
 
 describe('실측 fixture', () => {
-  it('getAPTLttotPblancDetail 샘플 전 행이 정규화된다', () => {
-    const json = JSON.parse(readFileSync(resolve(process.cwd(), 'fixtures/housing/getAPTLttotPblancDetail.sample.json'), 'utf8'))
-    const rows = aptDetailResponse.parse(json).data
+  const load = (name: string) => JSON.parse(readFileSync(resolve(process.cwd(), `fixtures/housing/${name}.sample.json`), 'utf8'))
+  const check = (row: ReturnType<typeof normalizeApt>, id: string, kinds: string[]) => {
+    expect(row.source_id).toBe(id)
+    expect(row.region_code, `${id} region`).not.toBe('UNKNOWN')
+    expect(['upcoming', 'open', 'closed']).toContain(row.status)
+    if (row.receipt_start && row.receipt_end) expect(row.receipt_start <= row.receipt_end).toBe(true)
+    expect(row.content_hash).toHaveLength(40)
+    expect(kinds, `${id} kind ${row.kind}`).toContain(row.kind)
+  }
+  it('APT 상세', () => {
+    const rows = aptDetailResponse.parse(load('getAPTLttotPblancDetail')).data
     expect(rows.length).toBeGreaterThan(0)
-    for (const item of rows) {
-      const row = normalizeApt(item, [], 's', now)
-      expect(row.source_id).toBe(`${item.HOUSE_MANAGE_NO}:${item.PBLANC_NO}`)
-      expect(row.region_code).not.toBe('UNKNOWN')
+    for (const i of rows) {
+      const row = normalizeApt(i, [], 's', now)
+      check(row, `${i.HOUSE_MANAGE_NO}:${i.PBLANC_NO}`, ['apt', 'newlywed_town'])
       expect(row.notice_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-      if (row.receipt_start && row.receipt_end) expect(row.receipt_start <= row.receipt_end).toBe(true)
-      expect(row.content_hash).toHaveLength(40)
-      expect(['upcoming', 'open', 'closed']).toContain(row.status)
+    }
+  })
+  it('무순위 상세', () => {
+    const rows = remainderDetailResponse.parse(load('getRemndrLttotPblancDetail')).data
+    expect(rows.length).toBeGreaterThan(0)
+    for (const i of rows) check(normalizeRemainder(i, [], 's', now), `${i.HOUSE_MANAGE_NO}:${i.PBLANC_NO}`, ['apt_remainder'])
+  })
+  it('오피스텔·도시형 상세', () => {
+    const rows = urbtyDetailResponse.parse(load('getUrbtyOfctlLttotPblancDetail')).data
+    expect(rows.length).toBeGreaterThan(0)
+    for (const i of rows) check(normalizeUrbty(i, 's', now), `${i.HOUSE_MANAGE_NO}:${i.PBLANC_NO}`, ['officetel_etc'])
+  })
+  it.each(['getAPTLttotPblancMdl', 'getRemndrLttotPblancMdl'])('%s 주택형', (name) => {
+    const rows = aptMdlResponse.parse(load(name)).data
+    expect(rows.length).toBeGreaterThan(0)
+    for (const u of unitsFromMdl(rows)) {
+      expect(u.house_type.length).toBeGreaterThan(0)
+      if (u.supply_area != null) expect(Math.round(u.supply_area * 100) / 100).toBe(u.supply_area)
     }
   })
 })
