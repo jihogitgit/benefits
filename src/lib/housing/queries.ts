@@ -58,7 +58,7 @@ export interface HousingListInput {
   limit: number
 }
 
-/** 상한. 180일 창의 공고는 수백 건이라 전체를 한 번에 받아도 된다(홈·my 블록이 이 목록을 메모리에서 거른다). */
+/** 상한. PostgREST 단일 응답이 1000행으로 잘리므로 1000 이하로 유지해야 한다. 180일 창의 공고는 수백 건이라 전체를 한 번에 받아도 된다(홈·my 블록이 이 목록을 메모리에서 거른다). */
 export const HOUSING_LIST_LIMIT = 500
 
 /**
@@ -86,13 +86,24 @@ export const listHousing = unstable_cache(
 /** 지역별 접수중+예정 건수(그 지역 전용만, ALL 제외). 색인 판정(housingRegionIndexable)과 사이트맵이 쓴다. */
 export const countActiveHousingByRegion = unstable_cache(
   async (): Promise<Record<string, number>> => {
-    const { data, error } = await createPublicClient().from('housing_notices').select('region_code').in('status', ['open', 'upcoming']).limit(5000)
-    if (error) throw error
+    // PostgREST는 한 응답을 1000행에서 조용히 자른다. limit을 키워도 소용없으므로 slug 순으로 페이지를 넘긴다.
+    const PAGE = 1000
     const out: Record<string, number> = {}
-    for (const r of data ?? []) {
-      const code = r.region_code as string
-      if (code === REGION_ALL) continue
-      out[code] = (out[code] ?? 0) + 1
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await createPublicClient()
+        .from('housing_notices')
+        .select('region_code')
+        .in('status', ['open', 'upcoming'])
+        .order('slug')
+        .range(from, from + PAGE - 1)
+      if (error) throw error
+      const rows = data ?? []
+      for (const r of rows) {
+        const code = r.region_code as string
+        if (code === REGION_ALL) continue
+        out[code] = (out[code] ?? 0) + 1
+      }
+      if (rows.length < PAGE) break
     }
     return out
   },
@@ -104,19 +115,21 @@ export const countActiveHousingByRegion = unstable_cache(
 export const getHousingBySlug = cache(async (slug: string): Promise<HousingDetail | null> => {
   if (!isSlugLike(slug)) return null
   return unstable_cache(
-    async (s: string) => {
-      const { data, error } = await createPublicClient()
-        .from('housing_notices')
-        .select('*, housing_unit_types(*)')
-        .eq('slug', s)
-        .maybeSingle()
-      if (error) throw error
-      if (!data) return null
-      const d = data as unknown as HousingDetail
-      d.housing_unit_types = [...(d.housing_unit_types ?? [])].sort((a, b) => a.house_type.localeCompare(b.house_type))
-      return d
-    },
+    fetchHousingBySlug,
     ['housing-by-slug', slug],
     { tags: [CACHE_TAGS.housingAll, housingTag(slug)], revalidate: WEEK },
   )(slug)
 })
+
+const fetchHousingBySlug = async (slug: string): Promise<HousingDetail | null> => {
+  const { data, error } = await createPublicClient()
+    .from('housing_notices')
+    .select('*, housing_unit_types(*)')
+    .eq('slug', slug)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const d = data as unknown as HousingDetail
+  d.housing_unit_types = [...(d.housing_unit_types ?? [])].sort((a, b) => a.house_type.localeCompare(b.house_type, 'ko'))
+  return d
+}

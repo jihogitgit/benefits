@@ -7,6 +7,7 @@ describe('공고 라벨', () => {
     for (const s of ['upcoming', 'open', 'closed', 'removed'] as const) expect(STATUS_LABEL[s]).toBeTruthy()
   })
   it('필터 칩은 종류 전부를 한 번씩 덮는다', () => {
+    expect(KIND_FILTERS).toHaveLength(Object.keys(KIND_LABEL).length)
     expect(KIND_FILTERS.map((f) => f.kind).sort()).toEqual(Object.keys(KIND_LABEL).sort())
   })
   it('URL에서 온 값은 검사한다', () => {
