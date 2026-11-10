@@ -99,14 +99,16 @@
 
 | 경로 | 내용 | 색인 |
 |---|---|---|
-| `/` | 조건 진단 + 마감 임박 + 분야 + 해설 링크 한 줄 | O |
+| `/` | 조건 진단 + 마감 임박 + 분야 + 해설 링크 한 줄 (광고 없음. 애드센스 사이트 확인은 `google-adsense-account` 메타 태그) | O |
 | `/my` | 진단 결과 (localStorage 기반) | X |
 | `/benefits` | 전체 목록 — 분야 탭·지역·신청 상태·해설 필터, 마감 임박/최근 갱신 정렬, 20건씩 페이지 (필터를 건 주소는 noindex·follow) | 기본 주소만 O |
-| `/youth` `/parenting` `/small-biz` | 세그먼트 허브 | O |
-| `/{segment}/{region}` | 세그먼트×지역 (항목 3개 이상 + 지역 안내문 있을 때만) | 조건부 |
+| `/youth` `/parenting` `/small-biz` | 세그먼트 허브 (연결된 게재 해설 3편 이상일 때만, `HUB_MIN_EXPLAINED`) | 조건부 |
+| `/{segment}/{region}` | 세그먼트×지역 (그 지역 전용 항목 10개 이상 + 지역 안내문 있을 때만) | 조건부 |
 | `/benefit/{slug}` | 상세 (검수 게재된 해설이 있을 때만) | 조건부 |
 | `/deadline` | 마감 캘린더 | O |
 | `/guide/{slug}` | 가이드 | O |
+| `/about` `/contact` `/privacy` `/terms` | 소개·편집 원칙, 문의, 개인정보처리방침, 약관. 운영 주체는 `NEXT_PUBLIC_OPERATOR_NAME`이 있을 때만 적는다 | O |
+| 404 | `src/app/not-found.tsx`(루트)와 `(site)/not-found.tsx`가 같은 한국어 본문을 낸다. 루트 레이아웃에 robots를 적지 않는 이유가 여기 있다(적으면 404에 index와 noindex가 같이 나간다) | X |
 | `/sitemap.xml` | 사이트맵 인덱스 | — |
 | `/rss.xml` | 발행 해설·가이드 최신 50건 (네이버 서치어드바이저 RSS 제출용, 사이트맵과 같은 색인 기준) | — |
 
@@ -129,9 +131,16 @@
 `AdPlacement` 컴포넌트가 유일한 진입점. `NEXT_PUBLIC_ADSENSE_CLIENT`와 해당 슬롯 ID가 **둘 다** 있으면
 애드센스, 없고 `NEXT_PUBLIC_ADFIT_UNIT_*`가 있으면 애드핏, 둘 다 없으면 렌더하지 않는다.
 
-애드센스 스크립트(`AdsenseScript`)는 루트 레이아웃이 아니라 **색인 대상 페이지에만** 넣는다. noindex 상세
-1만여 건에 자동 광고가 붙으면 심사에서 "가치가 별로 없는 콘텐츠"로 거절된다(2026-10). 새 페이지를 만들면
-색인 판정과 같은 조건으로 `<AdsenseScript />`를 넣는다. 범위는 `src/app/__tests__/adsense-scope.test.ts`가 지킨다.
+애드센스 스크립트(`AdsenseScript`)와 광고 슬롯은 **해설이 게재된 상세(`/benefit/{slug}`)와 가이드(`/guide/{slug}`)에만**
+넣는다. 홈을 포함한 허브·목록·마감·계산기·정책 페이지에는 둘 다 없다(애드센스 사이트 확인은 홈의
+`google-adsense-account` 메타 태그와 `/ads.txt`가 맡는다) — 카드 반복이 본문의 대부분인 페이지에 광고가 붙으면 심사에서 "가치가 별로 없는 콘텐츠"로
+거절된다(2026-10, 2026-11 두 번). `BenefitList`의 `showAd` 기본값도 이 때문에 꺼져 있다. 범위는
+`src/app/__tests__/adsense-scope.test.ts`가 **허용 목록**으로 지킨다 — 모든 `page.tsx`를 훑어 상세·가이드 외에
+광고 관련 식별자(`showAd` 포함)가 보이면 실패하므로 새 페이지는 기본적으로 광고가 없다.
+
+상세는 검수된 해설(`review_status`가 published·stale, `indexable`)만 본문에 싣는다. 초안은 DB에 있어도 페이지에
+나오지 않는다(`/about#editorial`의 약속). 해설·가이드 상단의 검수 표기는 `EditorialByline`이 낸다. 이름은 `NEXT_PUBLIC_EDITOR_NAME`, 없으면
+"{SITE_NAME} 편집팀". 편집 원칙 본문은 `/about#editorial`.
 
 ## 테스트
 

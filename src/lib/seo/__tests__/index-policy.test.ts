@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, compareEligible, COMPARE_MIN_REGIONS, COMPARE_INDEX_ENABLED } from '../index-policy'
+import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, compareEligible, COMPARE_MIN_REGIONS, COMPARE_INDEX_ENABLED, HUB_MIN_EXPLAINED } from '../index-policy'
 import { compareEntries } from '../sitemap-entries'
 
 describe('index policy', () => {
@@ -10,8 +10,11 @@ describe('index policy', () => {
     expect(benefitIndexable({ status: 'open', article: null })).toBe(false)
     expect(benefitIndexable({ status: 'closed', article: { review_status: 'published', indexable: true } })).toBe(false)
   })
-  it('세그먼트 허브는 항상 색인', () => {
-    expect(hubIndexable()).toBe(true)
+  // 허브는 카드 목록이 본문의 대부분이라 해설이 걸려 있어야 보조금24 재나열과 구별된다.
+  it('세그먼트 허브: 연결된 게재 해설이 임계값 이상일 때만 색인', () => {
+    expect(hubIndexable({ explainedCount: HUB_MIN_EXPLAINED })).toBe(true)
+    expect(hubIndexable({ explainedCount: HUB_MIN_EXPLAINED - 1 })).toBe(false)
+    expect(hubIndexable({ explainedCount: 0 })).toBe(false)
   })
   it('세그먼트×지역: 그 지역에만 있는 항목이 10개 이상이고 안내문이 있을 때', () => {
     expect(regionHubIndexable({ localCount: 10, description_md: '서울 안내' })).toBe(true)

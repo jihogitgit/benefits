@@ -2,11 +2,10 @@ import type { ReactNode } from 'react'
 import AdSlot from '@/components/ads/AdSlot'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
 
-export type AdPlacementSlot = 'home' | 'list' | 'detail-1' | 'detail-2' | 'rail'
+export type AdPlacementSlot = 'list' | 'detail-1' | 'detail-2' | 'rail'
 
 // NEXT_PUBLIC_* 는 정적 참조만 빌드 시 치환되므로 동적 인덱싱 대신 슬롯별로 나열한다.
 const ADSENSE_SLOT: Record<AdPlacementSlot, string | undefined> = {
-  home: process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME,
   list: process.env.NEXT_PUBLIC_ADSENSE_SLOT_LIST,
   'detail-1': process.env.NEXT_PUBLIC_ADSENSE_SLOT_DETAIL_1,
   'detail-2': process.env.NEXT_PUBLIC_ADSENSE_SLOT_DETAIL_2,

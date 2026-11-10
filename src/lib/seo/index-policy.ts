@@ -21,8 +21,25 @@ export function benefitIndexable(b: { status: string; article: ArticleFlags | nu
   return b.article.indexable && (INDEXABLE_REVIEW_STATUSES as readonly string[]).includes(b.article.review_status)
 }
 
-export function hubIndexable(): boolean {
-  return true
+/**
+ * 분야 허브(/youth 등)의 색인 임계값. 세는 대상은 **그 분야에 연결된 게재 해설 수**다.
+ *
+ * 허브는 카드 목록이 본문의 대부분이라, 해설이 몇 편 걸려 있지 않으면 보조금24를 다시 나열한
+ * 페이지와 다를 바 없다. 해설이 있어야 "자세히 정리한 지원금" 절이 생기고 그리로 내부 링크가
+ * 이어진다. 2026-11 기준 청년 11·출산육아 11·소상공인 9편이라 셋 다 통과하지만, 새 분야를
+ * 열 때 해설 없이 색인부터 되는 일을 막는다. 사이트맵(staticEntries)도 같은 판정을 쓴다.
+ */
+export const HUB_MIN_EXPLAINED = 3
+
+/**
+ * 허브가 "자세히 정리한 지원금" 절에 펴는 해설 수. 허브 본문·generateMetadata·사이트맵이 전부
+ * 이 limit으로 listWithArticles를 불러 unstable_cache 항목 하나를 나눠 쓴다(limit이 다르면 키가 갈린다).
+ * HUB_MIN_EXPLAINED보다 커야 판정이 잘리지 않는다.
+ */
+export const HUB_EXPLAINED_LIMIT = 8
+
+export function hubIndexable(h: { explainedCount: number }): boolean {
+  return h.explainedCount >= HUB_MIN_EXPLAINED
 }
 
 /**
@@ -44,6 +61,11 @@ export function guideIndexable(g: { published_at: string | null }): boolean {
  */
 export const REGION_HUB_MIN_LOCAL_ITEMS = 10
 
+/**
+ * 지역 허브는 분야 허브(hubIndexable)와 독립으로 판정한다. 분야 허브의 기준은 해설 수인데
+ * 해설은 전부 전국 공통이라 지역 허브에는 적용할 수 없고, 지역 허브의 가치는 그 지역에만 있는
+ * 목록과 손으로 쓴 안내문이다. 분야 허브가 noindex여도 지역 허브는 자기 기준으로 색인될 수 있다 — 의도한 것.
+ */
 export function regionHubIndexable(r: { localCount: number; description_md: string | null }): boolean {
   return r.localCount >= REGION_HUB_MIN_LOCAL_ITEMS && !!r.description_md?.trim()
 }

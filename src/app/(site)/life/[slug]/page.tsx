@@ -9,7 +9,6 @@ import BenefitCard from '@/components/benefits/BenefitCard'
 import type { BenefitListRow } from '@/lib/benefits/queries'
 import { breadcrumbs } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
-import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 3600
 
@@ -55,7 +54,6 @@ export default async function LifeEventPage({ params }: { params: Promise<{ slug
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-      <AdsenseScript />
       <JsonLd data={breadcrumbs([{ name: '홈', path: '/' }, { name: '생애 이벤트', path: '/life' }, { name: e.title, path: `/life/${e.slug}` }])} />
 
       <p className="text-sm text-gray-600">

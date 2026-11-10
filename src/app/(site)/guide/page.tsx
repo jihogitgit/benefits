@@ -4,9 +4,7 @@ import { listGuides, listWithArticles, EXPLAINED_ALL_LIMIT } from '@/lib/benefit
 import { absoluteUrl } from '@/lib/seo/site'
 import { breadcrumbs, itemList } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
-import AdPlacement from '@/components/benefits/AdPlacement'
 import { PUBLIC_SEGMENTS } from '../../../../data/segments'
-import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 86400
 
@@ -29,7 +27,6 @@ export default async function GuideIndexPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-      <AdsenseScript />
       <JsonLd
         data={[
           breadcrumbs([
@@ -91,8 +88,6 @@ export default async function GuideIndexPage() {
           </ul>
         </section>
       )}
-
-      <AdPlacement slot="list" />
     </div>
   )
 }

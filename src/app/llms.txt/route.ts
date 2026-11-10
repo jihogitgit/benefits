@@ -1,6 +1,7 @@
 import { listGuides, listWithArticles, EXPLAINED_ALL_LIMIT } from '@/lib/benefits/queries'
 import { absoluteUrl, siteName, SITE_DESCRIPTION } from '@/lib/seo/site'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
+import { hubIndexable } from '@/lib/seo/index-policy'
 
 /**
  * llms.txt(llmstxt.org 제안 형식). AI 검색·답변 엔진이 사이트의 요지와 읽을 만한 페이지를
@@ -21,7 +22,9 @@ export async function GET(): Promise<Response> {
     '',
     '## 찾기',
     line('지원금 전체 목록(분야·지역·신청 상태 필터)', '/benefits'),
-    ...PUBLIC_SEGMENTS.map((s) => line(`${s.name} 지원금`, `/${s.path}`)),
+    // 분야 허브도 사이트맵과 같은 판정(해설 수)을 거친다. 여기서 센 해설은 limit 안의 전체 목록이라 정확하다.
+    ...PUBLIC_SEGMENTS.filter((s) => hubIndexable({ explainedCount: explained.filter((r) => r.segments.includes(s.slug)).length }))
+      .map((s) => line(`${s.name} 지원금`, `/${s.path}`)),
     line('마감 임박 지원금', '/deadline'),
     line('기준 중위소득 계산기', '/median-income'),
     '',

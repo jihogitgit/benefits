@@ -22,7 +22,8 @@ export const metadata: Metadata = {
   // 네이버 서치어드바이저 소유확인. 네이버는 DNS 방식을 지원하지 않아 메타 태그로만 가능하다.
   // 공개값이라 env로 숨길 이유가 없고, 태그가 사라지면 소유확인이 풀리므로 코드에 고정한다.
   verification: { other: { 'naver-site-verification': 'cb12820b99e82998654bf1693726ced03349fb33' } },
-  robots: { index: true, follow: true },
+  // robots를 여기에 적지 않는다. 적지 않으면 색인 허용이 기본값이고, 적어 두면 not-found가 내는
+  // noindex와 함께 나가 한 문서에 index와 noindex가 공존한다(프로덕션 404에서 실측).
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -9,6 +9,7 @@ import JsonLd from '@/components/JsonLd'
 import Markdown from '@/components/benefits/Markdown'
 import AdPlacement from '@/components/benefits/AdPlacement'
 import AdsenseScript from '@/components/ads/AdsenseScript'
+import EditorialByline from '@/components/benefits/EditorialByline'
 
 export const revalidate = 86400
 export const dynamicParams = true
@@ -60,6 +61,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         홈 › <Link href="/guide" className="hover:text-brand-700 hover:underline">가이드</Link>
       </nav>
       <h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">{g.title}</h1>
+      <EditorialByline publishedAt={g.published_at} updatedAt={g.updated_at} />
       <div className="mt-6"><Markdown text={g.body_md} /></div>
       <AdPlacement slot="detail-2" />
       <p className="mt-10 border-t pt-6">

@@ -1,16 +1,14 @@
 import type { Metadata } from 'next'
-import { siteName } from '@/lib/seo/site'
-import AdsenseScript from '@/components/ads/AdsenseScript'
+import { siteName, absoluteUrl } from '@/lib/seo/site'
 
-export const metadata: Metadata = { title: '이용약관' }
+export const metadata: Metadata = { title: '이용약관', alternates: { canonical: absoluteUrl('/terms') } }
 
 export default function TermsPage() {
   const name = siteName()
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 prose prose-gray">
-      <AdsenseScript />
       <h1>이용약관</h1>
-      <p>시행일: 2026-09-10</p>
+      <p>시행일: 2026-09-10 · 최근 개정: 2026-11-10</p>
       <h2>1. 목적</h2>
       <p>이 약관은 {name}(이하 &ldquo;서비스&rdquo;)의 이용 조건을 정합니다.</p>
       <h2>2. 서비스 내용</h2>
@@ -21,7 +19,7 @@ export default function TermsPage() {
         이용자는 신청 전 공식 페이지에서 확인해야 하며, 서비스는 정보 오류로 인한 손해에 책임지지 않습니다.
       </p>
       <h2>4. 광고</h2>
-      <p>서비스에는 Google AdSense, Kakao AdFit 광고가 게재됩니다. 광고 내용은 광고주의 책임입니다.</p>
+      <p>서비스에는 Google AdSense, Kakao AdFit 광고가 게재됩니다. 광고는 해설이 게재된 지원금 페이지와 가이드에만 싣고 &ldquo;광고&rdquo;로 표시합니다. 광고 내용은 광고주의 책임이며 서비스의 추천이 아닙니다.</p>
       <h2>5. 지적재산권</h2>
       <p>공공데이터 원문은 해당 기관의 공공누리 조건을 따르며, 서비스가 작성한 해설은 서비스에 권리가 있습니다. 출처를 밝히면 비상업적 인용은 허용합니다.</p>
       <h2>6. 약관 변경</h2>

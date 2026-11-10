@@ -6,12 +6,12 @@ import { REGIONS } from '../../../../data/regions'
 import { SEGMENT_FAQ } from '../../../../data/segment-faq'
 import { listBySegment, countByRegion, listWithArticles, listGuides } from '@/lib/benefits/queries'
 import { hubTitle, hubDescription, kstYear } from '@/lib/seo/hub-meta'
+import { hubIndexable, HUB_EXPLAINED_LIMIT } from '@/lib/seo/index-policy'
 import { breadcrumbs, itemList, faqPage } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
 import SectionNav from '@/components/benefits/SectionNav'
 import JsonLd from '@/components/JsonLd'
-import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron이 benefits:lists·home 태그로 매일 비운다
 
@@ -27,11 +27,14 @@ export async function generateMetadata({ params }: { params: Promise<{ segment: 
   const { segment } = await params
   const seg = SEGMENT_BY_PATH[segment]
   if (!seg || seg.slug === 'other') return {}
-  const counts = await countByRegion(seg.slug)
+  // 본문·사이트맵과 같은 limit으로 불러 캐시 항목 하나를 나눠 쓴다(index-policy.ts의 HUB_EXPLAINED_LIMIT).
+  const [counts, explained] = await Promise.all([countByRegion(seg.slug), listWithArticles(seg.slug, HUB_EXPLAINED_LIMIT)])
   return {
     title: hubTitle(seg.name, kstYear()),
     description: hubDescription(seg.name, totalOf(counts)),
     alternates: { canonical: absoluteUrl(`/${seg.path}`) },
+    // 해설이 임계값 미만인 분야는 카드 목록뿐이라 색인하지 않는다(index-policy.ts). 사이트맵도 같은 판정.
+    robots: { index: hubIndexable({ explainedCount: explained.length }), follow: true },
   }
 }
 
@@ -44,7 +47,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
   const [rows, counts, explained, allGuides] = await Promise.all([
     listBySegment(seg.slug, { limit: 40 }),
     countByRegion(seg.slug),
-    listWithArticles(seg.slug, 8),
+    listWithArticles(seg.slug, HUB_EXPLAINED_LIMIT),
     listGuides(),
   ])
   const total = totalOf(counts)
@@ -73,7 +76,6 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-      <AdsenseScript />
       <JsonLd
         data={[
           breadcrumbs([{ name: '홈', path: '/' }, { name: seg.name, path: `/${seg.path}` }]),
@@ -109,7 +111,7 @@ export default async function SegmentHubPage({ params }: { params: Promise<{ seg
         <section id="explained" className="mt-8">
           <h2 className="mb-1 text-lg font-bold">자세히 정리한 지원금</h2>
           <p className="mb-3 text-sm text-gray-500">신청 방법과 자격 요건을 직접 확인해 정리한 제도입니다.</p>
-          <BenefitList rows={explained} now={now} showAd={false} />
+          <BenefitList rows={explained} now={now} />
         </section>
       )}
 

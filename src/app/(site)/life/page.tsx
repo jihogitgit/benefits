@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { LIFE_EVENTS } from '../../../../data/life-events'
 import { absoluteUrl } from '@/lib/seo/site'
-import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 86400
 
@@ -15,7 +14,6 @@ export const metadata: Metadata = {
 export default function LifeIndexPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-      <AdsenseScript />
       <h1 className="text-2xl font-extrabold sm:text-3xl">생애 이벤트로 찾기</h1>
       <p className="mt-2 max-w-2xl text-gray-600">
         나이·지역보다 &ldquo;무슨 일이 있었는지&rdquo;가 먼저인 경우가 많습니다. 사건을 고르면 해당하는

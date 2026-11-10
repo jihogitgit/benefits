@@ -11,7 +11,6 @@ import { kstYear } from '@/lib/seo/hub-meta'
 import { eulReul } from '@/lib/korean'
 import { regionName } from '@/components/benefits/BenefitCard'
 import JsonLd from '@/components/JsonLd'
-import AdsenseScript from '@/components/ads/AdsenseScript'
 
 export const revalidate = 86400 // 하루. 다만 peerIndex(benefits:all, 일주일)만 쓰므로 묶음 변경은 최대 일주일 늦게 반영된다
 export const dynamicParams = true
@@ -92,8 +91,6 @@ export default async function ComparePage({ params }: { params: Promise<{ key: s
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
-      {/* 광고는 색인 대상에만 싣는다(AdsenseScript 주석). */}
-      {compareIndexable({ regionCount: groups.length }) && <AdsenseScript />}
       <JsonLd data={[breadcrumbs([{ name: '홈', path: '/' }, { name: name, path: `/compare/${name}` }])]} />
 
       <nav className="text-xs text-gray-500"><Link href="/">홈</Link></nav>

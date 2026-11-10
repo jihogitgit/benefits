@@ -30,8 +30,11 @@ describe('sitemap entries', () => {
     )
     expect(e.map((x) => x.url)).toEqual(['https://example.com/youth/seoul', 'https://example.com/parenting/seoul'])
   })
+  // 세 분야 모두 해설이 임계값 이상인 지금 상태
+  const EXPLAINED = { youth: 11, parenting: 11, small_biz: 9 }
+
   it('정적 항목에 홈·세그먼트 3개·마감·필수 페이지 포함, /my 제외', () => {
-    const urls = staticEntries().map((x) => x.url)
+    const urls = staticEntries(EXPLAINED).map((x) => x.url)
     expect(urls).toContain('https://example.com/')
     expect(urls).toContain('https://example.com/small-biz')
     expect(urls).toContain('https://example.com/deadline')
@@ -44,8 +47,19 @@ describe('sitemap entries', () => {
     expect(urls).toContain('https://example.com/about')
     expect(urls.some((u) => u.endsWith('/my'))).toBe(false)
   })
+  // 페이지 robots(hubIndexable)와 사이트맵이 갈라지면 noindex 페이지를 사이트맵에 신고하게 된다.
+  it('해설이 임계값 미만인 분야 허브는 사이트맵에 넣지 않는다', () => {
+    const urls = staticEntries({ youth: 11, parenting: 2, small_biz: 0 }).map((x) => x.url)
+    expect(urls).toContain('https://example.com/youth')
+    expect(urls).not.toContain('https://example.com/parenting')
+    expect(urls).not.toContain('https://example.com/small-biz')
+    // 홈과 나머지 정적 페이지는 영향을 받지 않는다
+    expect(urls).toContain('https://example.com/')
+    expect(urls).toContain('https://example.com/guide')
+  })
+
   it('정적·지역 허브 항목은 lastmod를 신고하지 않는다 (매시간 갱신으로 보이면 신호가 무시된다)', () => {
-    expect(staticEntries().every((e) => e.lastModified === undefined)).toBe(true)
+    expect(staticEntries(EXPLAINED).every((e) => e.lastModified === undefined)).toBe(true)
     const hubs = regionHubEntries([{ segmentPath: 'youth', regionSlug: 'seoul', localCount: 51 }], { seoul: '서울 안내' })
     expect(hubs.every((e) => e.lastModified === undefined)).toBe(true)
   })

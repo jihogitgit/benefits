@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { absoluteUrl } from './site'
-import { benefitIndexable, compareIndexable, guideIndexable, regionHubIndexable } from './index-policy'
+import { benefitIndexable, compareIndexable, guideIndexable, hubIndexable, regionHubIndexable } from './index-policy'
 import { LIFE_EVENTS } from '../../../data/life-events'
 import { PUBLIC_SEGMENTS, SEGMENT_OTHER } from '../../../data/segments'
 
@@ -84,10 +84,18 @@ export function compareEntries(groups: { key: string; regionCount: number }[]): 
     .map((g) => ({ url: absoluteUrl(`/compare/${g.key}`), changeFrequency: 'weekly' as const, priority: 0.6 }))
 }
 
-export function staticEntries(): Entry[] {
+/**
+ * 정적 항목. 분야 허브는 세그먼트 slug별 게재 해설 수를 받아 hubIndexable로 거른다 —
+ * 페이지의 robots와 사이트맵이 같은 함수를 봐야 noindex 페이지를 사이트맵에 신고하지 않는다.
+ */
+export function staticEntries(explainedBySegment: Record<string, number>): Entry[] {
   return [
     { url: absoluteUrl('/'), changeFrequency: 'daily', priority: 1.0 },
-    ...PUBLIC_SEGMENTS.map((s) => ({ url: absoluteUrl(`/${s.path}`), changeFrequency: 'daily' as const, priority: 0.9 })),
+    ...PUBLIC_SEGMENTS.filter((s) => hubIndexable({ explainedCount: explainedBySegment[s.slug] ?? 0 })).map((s) => ({
+      url: absoluteUrl(`/${s.path}`),
+      changeFrequency: 'daily' as const,
+      priority: 0.9,
+    })),
     { url: absoluteUrl('/benefits'), changeFrequency: 'daily', priority: 0.9 },
     { url: absoluteUrl('/guide'), changeFrequency: 'weekly', priority: 0.8 },
     { url: absoluteUrl('/deadline'), changeFrequency: 'daily', priority: 0.8 },

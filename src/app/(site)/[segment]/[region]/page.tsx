@@ -9,7 +9,6 @@ import { regionHubIndexable } from '@/lib/seo/index-policy'
 import { breadcrumbs, itemList } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
-import AdsenseScript from '@/components/ads/AdsenseScript'
 import JsonLd from '@/components/JsonLd'
 
 export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron이 benefits:lists·home 태그로 매일 비운다
@@ -74,12 +73,8 @@ export default async function RegionHubPage({ params }: { params: Promise<{ segm
   // 색인되는 지역 허브 46개가 서로 연결되지 않으면 크롤러도 사용자도 매번 분야 허브를 거쳐야 한다.
   // 건수 0인 지역은 빈 페이지로 가는 죽은 링크라 제외한다(분야 허브의 지역 칩과 같은 규칙).
   const siblings = REGIONS.filter((r) => (counts[r.slug] ?? 0) > 0)
-  // 광고는 색인 대상에만 싣는다(AdsenseScript 주석). generateMetadata의 robots와 같은 판정이다.
-  const indexable = regionHubIndexable({ localCount: localTotal, description_md: meta?.description_md ?? null })
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-      {indexable && <AdsenseScript />}
       <JsonLd
         data={[
           breadcrumbs([
@@ -106,7 +101,6 @@ export default async function RegionHubPage({ params }: { params: Promise<{ segm
         <BenefitList
           rows={localRows}
           now={now}
-          showAd={indexable}
           emptyText={`${reg.name} 지자체가 따로 운영하는 ${seg.name} 지원금은 아직 없습니다. 아래 전국 공통 지원금을 확인하세요.`}
         />
         {/* 목록은 limit으로 잘린다. 제목의 전체 건수와 카드 수가 다르면 사용자가 누락을 의심하므로
@@ -171,7 +165,7 @@ export default async function RegionHubPage({ params }: { params: Promise<{ segm
         <h2 className="mb-3 text-lg font-bold">
           전국 어디서나 받을 수 있는 지원금 <span className="text-sm font-normal text-gray-500">{nationalTotal.toLocaleString()}개</span>
         </h2>
-        <BenefitList rows={nationalRows} now={now} showAd={indexable} emptyText={`전국 공통 ${seg.name} 지원금이 없습니다.`} />
+        <BenefitList rows={nationalRows} now={now} emptyText={`전국 공통 ${seg.name} 지원금이 없습니다.`} />
         {nationalTotal > nationalRows.length && (
           <p className="mt-4 text-sm text-gray-500">
             마감이 가까운 {nationalRows.length.toLocaleString()}개만 보여줍니다. 전체는{' '}

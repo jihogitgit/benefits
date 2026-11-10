@@ -2,14 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import DiagnosisPanel from '@/components/diagnosis/DiagnosisPanel'
 import BenefitCard from '@/components/benefits/BenefitCard'
-import AdPlacement from '@/components/benefits/AdPlacement'
 import { listDeadlineSoon, listRecentlyUpdated, listRecentlyCreated, getLastSyncAt, listWithArticles, listGuides } from '@/lib/benefits/queries'
 import { formatKstDate } from '@/lib/benefits/format'
 import { absoluteUrl, siteName, SITE_DESCRIPTION } from '@/lib/seo/site'
 import { website } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
-import AdsenseScript from '@/components/ads/AdsenseScript'
+import { ADSENSE_CLIENT } from '@/lib/adsense'
 
 export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron이 benefits:lists·home 태그로 매일 비운다
 
@@ -18,7 +17,13 @@ export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron
 // 풀린다. 존재하지 않는 URL을 정본으로 선언하게 되고, 빌드 시점 HTML에는 나타나지 않아
 // 로컬·프리뷰에서는 보이지 않는다(프로덕션 도메인에서 실측으로 발견).
 // alternates는 병합되지 않고 교체되므로 루트 레이아웃의 RSS 링크를 여기서도 적는다(layout.tsx 주석 참고).
-export const metadata: Metadata = { alternates: { canonical: absoluteUrl('/'), types: { 'application/rss+xml': absoluteUrl('/rss.xml') } } }
+export const metadata: Metadata = {
+  alternates: { canonical: absoluteUrl('/'), types: { 'application/rss+xml': absoluteUrl('/rss.xml') } },
+  // 애드센스 사이트 확인은 메타 태그 방식으로 한다. 예전에는 홈에 광고 스크립트를 실어 확인했는데,
+  // 그 스크립트가 있으면 승인 뒤 자동 광고가 홈(카드 목록이 대부분)에 붙어 "광고는 해설·가이드에만"이
+  // 거짓이 된다. ads.txt도 같은 게시자 ID를 낸다(app/ads.txt/route.ts).
+  ...(ADSENSE_CLIENT ? { other: { 'google-adsense-account': ADSENSE_CLIENT } } : {}),
+}
 
 /** 홈에 펴는 해설 수. 나머지는 /guide의 해설 목록이 받는다. */
 const HOME_EXPLAINED = 12
@@ -40,11 +45,8 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-      <AdsenseScript />
       <JsonLd data={website({ name: siteName(), description: SITE_DESCRIPTION })} />
       <DiagnosisPanel />
-
-      <AdPlacement slot="home" />
 
       {/* 홈에서 해설·가이드로 가는 유일한 경로. 이 링크가 없으면 두 곳 다 사이트맵에만
           존재하는 고아 페이지가 된다(listWithArticles 주석 참고).

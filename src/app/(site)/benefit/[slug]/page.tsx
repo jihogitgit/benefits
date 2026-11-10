@@ -5,7 +5,7 @@ import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers, listWith
 import { buildChecklist } from '@/lib/benefits/checklist'
 import { firstLine, deadlineLabel } from '@/lib/benefits/format'
 import { withDisplayOverrides, hasSummaryOverride } from '@/lib/benefits/display-overrides'
-import { benefitIndexable } from '@/lib/seo/index-policy'
+import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
 import { governmentService, breadcrumbs, faqPage } from '@/lib/seo/jsonld'
 import { absoluteUrl } from '@/lib/seo/site'
 import { kstYear } from '@/lib/seo/hub-meta'
@@ -18,6 +18,7 @@ import Markdown from '@/components/benefits/Markdown'
 import StickyRail from '@/components/benefits/StickyRail'
 import SectionNav from '@/components/benefits/SectionNav'
 import SourceFooter from '@/components/benefits/SourceFooter'
+import EditorialByline from '@/components/benefits/EditorialByline'
 import AdPlacement from '@/components/benefits/AdPlacement'
 import AdsenseScript from '@/components/ads/AdsenseScript'
 import BenefitCard from '@/components/benefits/BenefitCard'
@@ -66,15 +67,20 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
   const explained = explainedAll.filter((r) => r.slug !== b.slug).slice(0, 6)
   const article = b.benefit_articles
   const published = benefitIndexable({ status: b.status, article })
-  const checklist = buildChecklist(b.benefit_conditions, article?.checklist_json ?? null)
-  const faq = article?.faq_json ?? []
+  // 초안은 공개하지 않는다(/about#editorial의 약속). 초안 생성이 자동화되어 있어 검수 전 본문이
+  // 쌓이는 것이 정상인데, 예전에는 review_status와 무관하게 explainer_md가 있으면 그대로 냈다.
+  // published와 다른 점은 마감(closed)된 제도의 검수 해설은 계속 보여준다는 것 — 광고·색인만 끈다.
+  const reviewed = !!article && article.indexable && (INDEXABLE_REVIEW_STATUSES as readonly string[]).includes(article.review_status)
+  const content = reviewed ? article : null
+  const checklist = buildChecklist(b.benefit_conditions, content?.checklist_json ?? null)
+  const faq = content?.faq_json ?? []
   const closed = b.status !== 'open'
 
   const sections = [
     { id: 'summary', label: '한눈에 보기' },
     { id: 'check', label: '대상 체크' },
-    ...(article?.explainer_md ? [{ id: 'explainer', label: '해설' }] : [{ id: 'original', label: '원문 안내' }]),
-    ...(article?.steps_md ? [{ id: 'steps', label: '신청 순서' }] : []),
+    ...(content?.explainer_md ? [{ id: 'explainer', label: '해설' }] : [{ id: 'original', label: '원문 안내' }]),
+    ...(content?.steps_md ? [{ id: 'steps', label: '신청 순서' }] : []),
     ...(faq.length ? [{ id: 'faq', label: '자주 묻는 질문' }] : []),
     ...(peers ? [{ id: 'peers', label: '다른 지역' }] : []),
     ...(guides.length ? [{ id: 'guides', label: '관련 가이드' }] : []),
@@ -105,6 +111,8 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
             {seg.slug !== 'other' && <span>· {seg.name}</span>}
             {article?.review_status === 'stale' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">내용 확인 중</span>}
           </div>
+          {/* 검수된 해설이 있는 상세에만. 원문을 옮긴 상세는 검수한 글이 아니라 바이라인을 달 수 없다. */}
+          {content && <EditorialByline reviewedAt={content.reviewed_at} />}
 
           {/* 첫 화면에서 이 글에 무엇이 들어있는지 보이게 한다. PC는 우측 StickyRail이 같은 역할을 한다. */}
           <SectionNav sections={sections} />
@@ -121,10 +129,10 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
 
           {published && <AdPlacement slot="detail-1" />}
 
-          {article?.explainer_md ? (
+          {content?.explainer_md ? (
             <section id="explainer" className="mt-2">
               <h2 className="mb-2 text-lg font-bold">쉽게 풀어쓴 해설</h2>
-              <Markdown text={article.explainer_md} />
+              <Markdown text={content.explainer_md} />
             </section>
           ) : (
             <section id="original" className="mt-2 space-y-4">
@@ -135,14 +143,14 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
             </section>
           )}
 
-          {article?.steps_md && (
+          {content?.steps_md && (
             <section id="steps" className="mt-8">
               <h2 className="mb-2 text-lg font-bold">신청 순서</h2>
-              <Markdown text={article.steps_md} />
+              <Markdown text={content.steps_md} />
             </section>
           )}
 
-          {b.apply_method && !article?.steps_md && (
+          {b.apply_method && !content?.steps_md && (
             <p className="mt-6 text-sm text-gray-700"><span className="font-semibold">신청 방법:</span> {b.apply_method.replace(/\|\|/g, ', ')}{b.contact ? ` · 문의 ${b.contact.replace(/\|\|/g, ', ')}` : ''}</p>
           )}
 
