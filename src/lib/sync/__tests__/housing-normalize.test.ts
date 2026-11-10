@@ -73,6 +73,8 @@ describe('toIsoDate', () => {
     [null, null],
     ['미정', null],
     ['2026-02-30', null],
+    ['20260230', null],
+    ['2026.02.30', null],
     ['2026-02-28', '2026-02-28'],
   ])('%s → %s', (input, expected) => {
     expect(toIsoDate(input)).toBe(expected)
@@ -88,6 +90,7 @@ describe('mapHousingRegion', () => {
     ['전국', 'ALL'],
     ['광주', 'gwangju'],
     ['광주광역시', 'gwangju'],
+    ['광주 북구', 'gwangju'],
     ['해외', 'UNKNOWN'],
     [null, 'UNKNOWN'],
   ])('%s → %s', (input, expected) => {
