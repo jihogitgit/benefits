@@ -20,10 +20,10 @@ export interface BenefitsRepo {
   upsertBenefits(rows: BenefitRow[]): Promise<Map<string, string>>
   upsertConditions(rows: ConditionRow[]): Promise<void>
   /** period 마감이 지난 open 행을 closed로. 바뀐 수 반환 */
-  /** 기한이 지난 행을 closed로. source로 좁힌다 — 다른 출처의 행을 이 동기화가 닫으면 안 된다. */
-  closeExpired(source: string, todayKst: string): Promise<number>
-  /** source 안에서 keep에 없는 source_id를 removed로. 바뀐 수 반환 */
-  markRemoved(source: string, keepSourceIds: string[]): Promise<number>
+  /** 기한이 지난 행을 closed로. source로 좁힌다 — 다른 출처의 행을 이 동기화가 닫으면 안 된다. 바뀐 행의 slug 반환 */
+  closeExpired(source: string, todayKst: string): Promise<string[]>
+  /** source 안에서 keep에 없는 source_id를 removed로. 바뀐 행의 slug 반환(캐시를 한 장씩 비우는 데 쓴다) */
+  markRemoved(source: string, keepSourceIds: string[]): Promise<string[]>
   recordRun(run: SyncRunRow): Promise<void>
   lastSuccessfulFetched(source: string): Promise<number | null>
 }
@@ -38,5 +38,8 @@ export interface SyncResult {
   removed: number
   aborted_reason: string | null
   changedSlugs: string[]
+  /** 이번 실행에서 closed·removed로 바뀐 슬러그. changedSlugs와 함께 상세 캐시를 한 장씩 비운다. */
+  closedSlugs: string[]
+  removedSlugs: string[]
   changedSegments: string[]
 }

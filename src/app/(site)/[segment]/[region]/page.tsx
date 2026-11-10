@@ -12,7 +12,7 @@ import BenefitList from '@/components/benefits/BenefitList'
 import AdsenseScript from '@/components/ads/AdsenseScript'
 import JsonLd from '@/components/JsonLd'
 
-export const revalidate = 21600
+export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron이 benefits:lists·home 태그로 매일 비운다
 
 export function generateStaticParams() {
   return PUBLIC_SEGMENTS.flatMap((s) => REGIONS.map((r) => ({ segment: s.path, region: r.slug })))

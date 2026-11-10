@@ -6,7 +6,7 @@ import { absoluteUrl } from '@/lib/seo/site'
 import BenefitList from '@/components/benefits/BenefitList'
 import AdsenseScript from '@/components/ads/AdsenseScript'
 
-export const revalidate = 3600
+export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron이 benefits:lists·home 태그로 매일 비운다
 
 export const metadata: Metadata = {
   title: `${kstYear()} 마감 임박 지원금 캘린더`,

@@ -46,10 +46,10 @@ function fakeRepo(
     upsertConditions: vi.fn(async (rows: ConditionRow[]) => {
       calls.conditions.push(...rows)
     }),
-    closeExpired: vi.fn(async () => 2),
+    closeExpired: vi.fn(async () => ['closed-1', 'closed-2']),
     markRemoved: vi.fn(async (_s: string, keep: string[]) => {
       calls.removedKeep = keep
-      return 1
+      return ['removed-1']
     }),
     recordRun: vi.fn(async (run: SyncRunRow) => {
       calls.runs.push(run)
@@ -86,6 +86,8 @@ describe('runGov24Sync', () => {
     expect([...calls.removedKeep].sort()).toEqual(['A', 'B'])
     expect(result.closed).toBe(2)
     expect(result.removed).toBe(1)
+    expect(result.closedSlugs).toEqual(['closed-1', 'closed-2'])
+    expect(result.removedSlugs).toEqual(['removed-1'])
     expect(calls.runs[0]).toMatchObject({ source: 'gov24', fetched: 2, upserted: 1, skipped: 1, error: null })
     expect(calls.runs[0].finished_at).not.toBeNull()
   })

@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers, listWithArticles } from '@/lib/benefits/queries'
+import { getBenefitBySlug, getGuidesForBenefit, listRelated, listPeers, listWithArticlesForDetail } from '@/lib/benefits/queries'
 import { buildChecklist } from '@/lib/benefits/checklist'
 import { firstLine, deadlineLabel } from '@/lib/benefits/format'
-import { daysUntil } from '@/lib/benefits/status'
 import { withDisplayOverrides, hasSummaryOverride } from '@/lib/benefits/display-overrides'
 import { benefitIndexable } from '@/lib/seo/index-policy'
 import { governmentService, breadcrumbs, faqPage } from '@/lib/seo/jsonld'
@@ -25,7 +24,9 @@ import BenefitCard from '@/components/benefits/BenefitCard'
 import PeerList from '@/components/benefits/PeerList'
 import JsonLd from '@/components/JsonLd'
 
-export const revalidate = 21600
+// 일주일. 원문 변경은 cron이 benefit:{slug} 태그로 바로 비우고, D-day는 클라이언트에서 다시 센다.
+// 짧게 두면 크롤러 방문마다 재생성(ISR 쓰기)되어 Hobby 한도를 넘긴다(queries.ts의 getBenefitBySlug 주석).
+export const revalidate = 604800
 export const dynamicParams = true
 export function generateStaticParams() {
   return [] // 요청 시 생성 (1만 건 전체 빌드는 하지 않음)
@@ -60,7 +61,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
     getGuidesForBenefit(b.slug),
     listPeers(b.slug),
     // 기타 분야는 해설이 드물어 같은 분야로만 고르면 거의 비므로 전체에서 고른다.
-    listWithArticles(seg.slug === 'other' ? null : seg.slug, 7),
+    listWithArticlesForDetail(seg.slug === 'other' ? null : seg.slug, 7),
   ])
   const explained = explainedAll.filter((r) => r.slug !== b.slug).slice(0, 6)
   const article = b.benefit_articles
@@ -68,7 +69,6 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
   const checklist = buildChecklist(b.benefit_conditions, article?.checklist_json ?? null)
   const faq = article?.faq_json ?? []
   const closed = b.status !== 'open'
-  const dday = daysUntil(b.apply_end, now)
 
   const sections = [
     { id: 'summary', label: '한눈에 보기' },
@@ -240,7 +240,7 @@ export default async function BenefitPage({ params }: { params: Promise<{ slug: 
       {b.apply_url && !closed && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 p-3 backdrop-blur lg:hidden">
           <a href={b.apply_url} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-brand-600 py-3 text-center font-bold text-white">
-            공식 사이트에서 신청 →{dday !== null && dday >= 0 ? ` (D-${dday})` : ''}
+            공식 사이트에서 신청 →
           </a>
         </div>
       )}

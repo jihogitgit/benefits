@@ -1,4 +1,4 @@
-import { CACHE_TAGS, type CacheTag } from '@/lib/cache-tags'
+import { CACHE_TAGS, benefitTag, type CacheTag } from '@/lib/cache-tags'
 import { PUBLIC_SEGMENTS } from '../../data/segments'
 
 /**
@@ -74,8 +74,10 @@ export function buildTargets({ slugs, guides }: Pick<RevalidateArgs, 'slugs' | '
   for (const s of slugs) assertSlug(s)
   for (const g of guides) assertSlug(g)
 
-  // 상세·목록·집계는 benefits:all, 홈 전용 목록은 benefits:home을 달고 있다.
-  const tags: CacheTag[] = [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsHome]
+  // 목록·집계는 benefits:lists, 홈 전용 목록은 benefits:home, 상세는 benefit:{slug}를 달고 있다.
+  // benefits:all은 보내지 않는다 — 상세 1만 장이 전부 낡은 것으로 표시되어 그 뒤 크롤러 방문마다
+  // 재생성되고, 해설 하나 발행할 때마다 ISR 쓰기 한도를 갉아먹는다. 발행한 슬러그만 한 장씩 비운다.
+  const tags: CacheTag[] = [CACHE_TAGS.benefitsLists, CACHE_TAGS.benefitsHome, ...slugs.map(benefitTag)]
   // 가이드를 건드릴 때만 guides를 더한다. 가이드 조회 함수(listGuides·getGuide)가 이 태그를
   // 달고 있어서, 경로만 비우고 태그를 빼면 HTML은 다시 만들어지는데 내용이 캐시에서 나온다.
   if (guides.length) tags.push(CACHE_TAGS.guides)

@@ -1,16 +1,25 @@
 import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
 import { buildGuideBacklinks, type GuideRef } from './guide-backlinks'
 import { createPublicClient } from '@/lib/supabase/server'
 import { kstDateString } from './status'
 import { queryTokens } from './query-text'
 import { benefitIndexable, INDEXABLE_REVIEW_STATUSES } from '@/lib/seo/index-policy'
-import { CACHE_TAGS } from '@/lib/cache-tags'
+import { CACHE_TAGS, benefitTag, isSlugLike } from '@/lib/cache-tags'
 import { groupPeers, type PeerItem } from './peer-group'
 import type { FactRow } from './compare-facts'
 import type { FeedArticleRow, FeedGuideRow } from '@/lib/seo/rss'
 import { SITEMAP_SEGMENTS } from '@/lib/seo/sitemap-entries'
 import { BROWSE_PAGE_SIZE, BROWSE_SEGMENTS, REGION_NATIONAL, SOON_DAYS, regionFilterOf, segmentSlugOf, type BrowseInput } from './browse'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
+
+/**
+ * 캐시 TTL. 데이터 변경은 cron·발행 스크립트가 태그로 비우므로 TTL은 안전망이다.
+ * 목록(DAY)은 D-day가 서버에서 찍히고 cron이 매일 benefits:lists·home을 비우므로 하루면 된다.
+ * 상세(WEEK)는 방문(대부분 크롤러)마다 재생성되지 않도록 길게 둔다 — 비용 근거는 getBenefitBySlug 주석.
+ */
+const DAY = 86400
+const WEEK = 604800
 
 export interface BenefitListRow {
   slug: string
@@ -75,17 +84,35 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v
 }
 
-export const getBenefitBySlug = unstable_cache(
-  async (slug: string): Promise<BenefitDetail | null> => {
-    const { data, error } = await createPublicClient().from('benefits').select(DETAIL_COLS).eq('slug', slug).maybeSingle()
-    if (error) throw error
-    if (!data) return null
-    const d = data as unknown as BenefitDetail & { benefit_conditions: ConditionJoin | ConditionJoin[] | null; benefit_articles: ArticleJoin | ArticleJoin[] | null }
-    return { ...d, benefit_conditions: one(d.benefit_conditions), benefit_articles: one(d.benefit_articles) }
-  },
-  ['benefit-by-slug'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
-)
+/**
+ * 상세 한 장. 태그에 benefit:{slug}를 함께 달아 동기화·발행이 바뀐 슬러그만 비울 수 있게 한다.
+ * unstable_cache의 tags는 래퍼를 만들 때 고정되므로 슬러그마다 래퍼를 새로 만든다(키는 같은
+ * 접두사 + 슬러그라 캐시 항목은 전과 같이 슬러그당 하나다). React cache()로 감싸서 generateMetadata와
+ * 페이지가 같은 요청에서 두 번 부를 때 캐시 미스가 DB 조회 두 번이 되지 않게 한다.
+ *
+ * TTL이 일주일인 이유: 이 페이지가 쓰는 캐시 중 가장 짧은 TTL이 페이지의 재생성 주기가 된다.
+ * 원문 변경은 cron이 태그로 바로 비우므로 TTL은 안전망일 뿐이고, 짧게 두면 크롤러 방문마다
+ * 재생성(ISR 쓰기)이 일어나 Hobby 한도(월 20만)를 넘긴다. D-day는 DdayBadge가 클라이언트에서
+ * 다시 계산한다.
+ */
+export const getBenefitBySlug = cache(async (slug: string): Promise<BenefitDetail | null> => {
+  // /benefit/a%20b 같은 봇·오타 주소. 슬러그 모양이 아니면 DB에도 없으니 태그를 만들기 전에 끝낸다
+  // (benefitTag가 던지면 404가 아니라 500이 된다).
+  if (!isSlugLike(slug)) return null
+  return unstable_cache(
+    fetchBenefitBySlug,
+    ['benefit-by-slug', slug],
+    { tags: [CACHE_TAGS.benefitsAll, benefitTag(slug)], revalidate: WEEK },
+  )(slug)
+})
+
+const fetchBenefitBySlug = async (slug: string): Promise<BenefitDetail | null> => {
+  const { data, error } = await createPublicClient().from('benefits').select(DETAIL_COLS).eq('slug', slug).maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const d = data as unknown as BenefitDetail & { benefit_conditions: ConditionJoin | ConditionJoin[] | null; benefit_articles: ArticleJoin | ArticleJoin[] | null }
+  return { ...d, benefit_conditions: one(d.benefit_conditions), benefit_articles: one(d.benefit_articles) }
+}
 
 export interface ListOptions {
   region?: string | null
@@ -103,7 +130,7 @@ export const listBySegment = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['list-by-segment'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsLists], revalidate: DAY },
 )
 
 /** 필터 체인이 쓰는 메서드만. 쿼리 빌더의 전체 제네릭을 끌고 오지 않으려고 구조로 받는다. */
@@ -178,7 +205,7 @@ export const listBrowse = unstable_cache(
     return { rows, total: count ?? 0 }
   },
   ['list-browse'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsLists], revalidate: DAY },
 )
 
 /**
@@ -207,7 +234,7 @@ const countBrowseBySegmentCached = unstable_cache(
     return { all, bySeg: Object.fromEntries(BROWSE_SEGMENTS.map((s, i) => [s.path, each[i]])) }
   },
   ['count-browse-by-segment'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsLists], revalidate: DAY },
 )
 
 /**
@@ -240,36 +267,47 @@ const countBrowseBySegmentCached = unstable_cache(
  */
 export const EXPLAINED_ALL_LIMIT = 200
 
-export const listWithArticles = unstable_cache(
-  async (segment: Segment | null, limit = 12): Promise<BenefitListRow[]> => {
-    let q = createPublicClient()
-      .from('benefit_articles')
-      // status는 benefitIndexable이 다시 보므로 함께 읽는다
-      .select(`review_status, indexable, benefits!inner(${LIST_COLS}, status)`)
-      .eq('indexable', true)
-      .in('review_status', INDEXABLE_REVIEW_STATUSES as unknown as string[])
-      .eq('benefits.status', 'open')
-    q = segment
-      ? q.contains('benefits.segments', [segment])
-      : q.overlaps('benefits.segments', SITEMAP_SEGMENTS.map((s) => s.slug))
-    const { data, error } = await q
-      // 최근 검수 순. 동률일 때 순서가 재생성마다 뒤집히지 않도록 PK로 한 번 더 고정한다.
-      .order('reviewed_at', { ascending: false, nullsFirst: false })
-      .order('benefit_id', { ascending: true })
-      .limit(limit)
-    if (error) throw error
-    type Row = { review_status: ReviewStatus; indexable: boolean; benefits: Parent | Parent[] | null }
-    type Parent = BenefitListRow & { status: BenefitStatus }
-    const out: BenefitListRow[] = []
-    for (const r of (data ?? []) as unknown as Row[]) {
-      const b = one(r.benefits)
-      if (b && benefitIndexable({ status: b.status, article: { review_status: r.review_status, indexable: r.indexable } })) out.push(b)
-    }
-    return out
-  },
-  ['list-with-articles'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
-)
+const fetchWithArticles = async (segment: Segment | null, limit = 12): Promise<BenefitListRow[]> => {
+  let q = createPublicClient()
+    .from('benefit_articles')
+    // status는 benefitIndexable이 다시 보므로 함께 읽는다
+    .select(`review_status, indexable, benefits!inner(${LIST_COLS}, status)`)
+    .eq('indexable', true)
+    .in('review_status', INDEXABLE_REVIEW_STATUSES as unknown as string[])
+    .eq('benefits.status', 'open')
+  q = segment
+    ? q.contains('benefits.segments', [segment])
+    : q.overlaps('benefits.segments', SITEMAP_SEGMENTS.map((s) => s.slug))
+  const { data, error } = await q
+    // 최근 검수 순. 동률일 때 순서가 재생성마다 뒤집히지 않도록 PK로 한 번 더 고정한다.
+    .order('reviewed_at', { ascending: false, nullsFirst: false })
+    .order('benefit_id', { ascending: true })
+    .limit(limit)
+  if (error) throw error
+  type Row = { review_status: ReviewStatus; indexable: boolean; benefits: Parent | Parent[] | null }
+  type Parent = BenefitListRow & { status: BenefitStatus }
+  const out: BenefitListRow[] = []
+  for (const r of (data ?? []) as unknown as Row[]) {
+    const b = one(r.benefits)
+    if (b && benefitIndexable({ status: b.status, article: { review_status: r.review_status, indexable: r.indexable } })) out.push(b)
+  }
+  return out
+}
+
+/** 허브·홈·피드용. 목록 태그를 달아 해설 발행(benefits:lists)에 바로 갱신된다. */
+export const listWithArticles = unstable_cache(fetchWithArticles, ['list-with-articles'], {
+  tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsLists],
+  revalidate: DAY,
+})
+
+/**
+ * 상세 페이지용. 같은 조회지만 benefits:lists를 달지 않는다 — 달면 상세 1만 장이 그 태그를
+ * 물려받아 목록을 비울 때마다 전부 낡은 것으로 표시된다. 대신 발행 후 최대 일주일 늦게 반영된다.
+ */
+export const listWithArticlesForDetail = unstable_cache(fetchWithArticles, ['list-with-articles-detail'], {
+  tags: [CACHE_TAGS.benefitsAll],
+  revalidate: WEEK,
+})
 
 export const listDeadlineSoon = unstable_cache(
   // '오늘'을 인자로 받지 않고 안에서 읽는다. unstable_cache는 인자까지 키에 넣으므로 호출부가
@@ -293,7 +331,7 @@ export const listDeadlineSoon = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['deadline-soon'],
-  { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: DAY },
 )
 
 export const listRecentlyUpdated = unstable_cache(
@@ -311,7 +349,7 @@ export const listRecentlyUpdated = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['recently-updated'],
-  { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: DAY },
 )
 
 /**
@@ -335,7 +373,7 @@ export const listRecentlyCreated = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['recently-created'],
-  { tags: [CACHE_TAGS.benefitsHome], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: DAY },
 )
 
 export const countByRegion = unstable_cache(
@@ -361,7 +399,7 @@ export const countByRegion = unstable_cache(
     return counts
   },
   ['count-by-region'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsLists], revalidate: DAY },
 )
 
 export const listRelated = unstable_cache(
@@ -379,7 +417,7 @@ export const listRelated = unstable_cache(
     return (data ?? []) as unknown as BenefitListRow[]
   },
   ['related'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: WEEK },
 )
 
 /**
@@ -387,7 +425,8 @@ export const listRelated = unstable_cache(
  *
  * 한 번에 open 전체(10,483건)를 읽어 묶음을 통째로 만든다. 슬러그 하나로 좁혀 물을 수가
  * 없기 때문이다 — 열쇠는 제목에서 계산되는 값이라 SQL에 열이 없고, 제목 앞뒤에 지역이
- * 붙는 형태가 제각각이라 LIKE로도 못 잡는다. 대신 6시간에 한 번만 돈다.
+ * 붙는 형태가 제각각이라 LIKE로도 못 잡는다. 대신 일주일(WEEK)에 한 번만 돈다 — 동류 묶음에
+ * 신규·마감이 반영되는 데 그만큼 걸린다(compare 페이지·PeerList·사이트맵 compareEntries).
  *
  * 묶음을 반환할 때 Map이 아니라 평범한 객체를 쓴다. unstable_cache는 값을 JSON으로 저장해
  * Map이 `{}`로 납작해지는데, 오류는 안 나고 모든 페이지에서 동류가 0건으로 보일 뿐이다.
@@ -416,7 +455,7 @@ export const peerIndex = unstable_cache(
     return { keyBySlug, groups }
   },
   ['peer-index'],
-  { tags: [CACHE_TAGS.benefitsAll], revalidate: 21600 },
+  { tags: [CACHE_TAGS.benefitsAll], revalidate: WEEK },
 )
 
 /**
@@ -440,7 +479,7 @@ export async function getPeerGroup(key: string): Promise<PeerItem[] | null> {
 /**
  * 비교에 쓸 사실을 묶음의 지원금만큼 가져온다.
  *
- * peerIndex에 얹지 않는다. 그쪽은 10,488건 전부를 6시간 캐시에 JSON으로 담는데, 행마다
+ * peerIndex에 얹지 않는다. 그쪽은 10,488건 전부를 일주일 캐시에 JSON으로 담는데, 행마다
  * 신청방법·소득 배열을 더하면 비교 페이지 하나 때문에 모든 페이지가 쓰는 캐시가 부푼다.
  * 여기서 필요한 것은 한 번에 최대 45건이라 페이지가 따로 묻는 편이 싸다.
  *
@@ -509,7 +548,7 @@ export const getLastSyncAt = unstable_cache(
     return data?.finished_at ?? null
   },
   ['last-sync'],
-  { tags: [CACHE_TAGS.benefitsHome], revalidate: 600 },
+  { tags: [CACHE_TAGS.benefitsHome], revalidate: DAY },
 )
 
 export interface GuideRow {
@@ -601,7 +640,7 @@ const guideBacklinks = unstable_cache(
     return buildGuideBacklinks(data ?? [])
   },
   ['guide-backlinks'],
-  { tags: [CACHE_TAGS.guides], revalidate: 86400 },
+  { tags: [CACHE_TAGS.guides], revalidate: WEEK },
 )
 
 /** 이 사업을 다룬 발행 가이드. 없으면 빈 배열. */
@@ -661,5 +700,5 @@ export const listFeedSources = unstable_cache(
     return { articles, guides: (g.data ?? []) as FeedGuideRow[] }
   },
   ['feed-sources'],
-  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.guides], revalidate: 3600 },
+  { tags: [CACHE_TAGS.benefitsAll, CACHE_TAGS.benefitsLists, CACHE_TAGS.guides], revalidate: DAY },
 )

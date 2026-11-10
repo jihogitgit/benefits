@@ -11,7 +11,7 @@ import JsonLd from '@/components/JsonLd'
 import { PUBLIC_SEGMENTS } from '../../../data/segments'
 import AdsenseScript from '@/components/ads/AdsenseScript'
 
-export const revalidate = 3600
+export const revalidate = 86400 // 하루. 내용 변경과 D-day 갱신은 cron이 benefits:lists·home 태그로 매일 비운다
 
 // 루트 레이아웃의 './' 기본값을 홈에서만 명시값으로 덮는다. 홈은 revalidate로 서버에서 다시
 // 렌더되는데, 그때 Next가 받는 경로가 '/'가 아니라 '/index'라서 './'가 naemok.com/index로

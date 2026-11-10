@@ -26,7 +26,10 @@ const MAX_ITEMS = 50 // 인증된 입구지만 무한 루프를 돌 이유가 �
 export const maxDuration = 60
 
 export async function POST(request: Request) {
-  if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  // 비어 있으면 `Bearer undefined`가 정답이 되어 누구나 통과한다. 비교보다 먼저 막는다.
+  const secret = process.env.CRON_SECRET
+  if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   const unknownTags = tagList.filter((t) => !isCacheTag(t))
-  if (unknownTags.length) return bad('알 수 없는 태그', { unknown: unknownTags, valid: ALL_CACHE_TAGS })
+  if (unknownTags.length) return bad('알 수 없는 태그', { unknown: unknownTags, valid: [...ALL_CACHE_TAGS, 'benefit:<sha1(slug) 앞 16자리 — scripts/revalidate.ts가 만든다>'] })
 
   // 버리지 않고 거절한다. 버리면 호출자는 자기가 보낸 경로가 처리된 줄 안다.
   const badPaths = pathList.filter((p) => !p.startsWith('/') || p.startsWith('//'))

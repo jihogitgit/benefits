@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { ALL_CACHE_TAGS, isCacheTag, CACHE_TAGS } from '../cache-tags'
+import { ALL_CACHE_TAGS, isCacheTag, CACHE_TAGS, benefitTag } from '../cache-tags'
 
 function tsFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((e) => {
@@ -18,9 +18,28 @@ describe('cache-tags', () => {
     for (const t of ['benefits', 'benefit-articles', 'sitemap', '', 'BENEFITS:ALL']) expect(isCacheTag(t)).toBe(false)
   })
 
+  it('benefit:{slug} 태그는 해시라 헤더에 실을 수 있는 ASCII만 남는다', () => {
+    const t = benefitTag('청년월세-지원')
+    // x-next-cache-tags 헤더에 들어간다. 한글이 섞이면 Node가 ERR_INVALID_CHAR로 거부해 페이지가 500이 된다.
+    expect(t).toMatch(/^benefit:[0-9a-f]{16}$/)
+    expect(isCacheTag(t)).toBe(true)
+    // 같은 슬러그는 같은 태그, 다른 슬러그는 다른 태그(캐시를 다는 쪽과 비우는 쪽이 같은 함수를 쓴다)
+    expect(benefitTag('청년월세-지원')).toBe(t)
+    expect(benefitTag('청년월세-지원-2')).not.toBe(t)
+  })
+
+  it('슬러그 원형이나 주소를 그대로 넣은 태그는 받지 않는다', () => {
+    // 캐시에 달린 적이 없는 태그라 revalidateTag가 조용히 성공만 한다
+    for (const t of ['benefit:', 'benefit:청년월세-지원', 'benefit:a/b', 'benefit:a b', 'benefit:a%20b', 'benefit:https://naemok.com', 'benefit:0123456789abcdef0']) expect(isCacheTag(t)).toBe(false)
+    expect(() => benefitTag('')).toThrow()
+    expect(() => benefitTag('a/b')).toThrow()
+    expect(() => benefitTag('https://naemok.com/benefit/x')).toThrow()
+  })
+
   it('값이 바뀌면 배포된 캐시를 무효화할 수 없게 되므로 고정한다', () => {
     expect(CACHE_TAGS).toEqual({
       benefitsAll: 'benefits:all',
+      benefitsLists: 'benefits:lists',
       benefitsHome: 'benefits:home',
       guides: 'guides',
       regions: 'regions',

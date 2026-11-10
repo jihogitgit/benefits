@@ -12,7 +12,7 @@ async function main() {
     log: console.log,
     force: process.argv.includes('--force'),
   })
-  console.log(JSON.stringify({ ...result, changedSlugs: result.changedSlugs.length }, null, 2))
+  console.log(JSON.stringify({ ...result, changedSlugs: result.changedSlugs.length, closedSlugs: result.closedSlugs.length, removedSlugs: result.removedSlugs.length }, null, 2))
   if (result.aborted_reason) process.exit(2)
 }
 

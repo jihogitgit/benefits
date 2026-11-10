@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseArgs, buildTargets, assertSlug, MAX_ITEMS } from '../revalidate-targets'
+import { benefitTag } from '../cache-tags'
 
 describe('parseArgs', () => {
   it('--url=X 와 --url X 를 모두 받는다', () => {
@@ -41,7 +42,15 @@ describe('assertSlug', () => {
 describe('buildTargets', () => {
   it('가이드가 없으면 guides 태그를 붙이지 않는다', () => {
     const { tags } = buildTargets({ slugs: ['청년월세-지원'], guides: [] })
-    expect(tags).toEqual(['benefits:all', 'benefits:home'])
+    expect(tags).toEqual(['benefits:lists', 'benefits:home', benefitTag('청년월세-지원')])
+  })
+
+  // benefits:all을 보내면 상세 1만 장이 낡은 것으로 표시되어 해설 하나 발행에 ISR 쓰기가 쏟아진다.
+  it('benefits:all 대신 발행한 슬러그의 태그만 보낸다', () => {
+    const { tags } = buildTargets({ slugs: ['a', 'b'], guides: [] })
+    expect(tags).not.toContain('benefits:all')
+    expect(tags).toContain(benefitTag('a'))
+    expect(tags).toContain(benefitTag('b'))
   })
 
   // 경로만 비우고 태그를 빼면 HTML은 다시 만들어지는데 본문이 unstable_cache에서 나온다.

@@ -78,6 +78,8 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
     removed: 0,
     aborted_reason: null,
     changedSlugs: [],
+    closedSlugs: [],
+    removedSlugs: [],
     changedSegments: [],
   }
 
@@ -150,8 +152,10 @@ export async function runGov24Sync(deps: Gov24SyncDeps): Promise<SyncResult> {
       log(`upserted ${result.upserted}/${changedRows.length}`)
     }
 
-    result.closed = await deps.repo.closeExpired(GOV24_SOURCE, kstDateString(now))
-    result.removed = await deps.repo.markRemoved(GOV24_SOURCE, list.map((i) => i.서비스ID))
+    result.closedSlugs = await deps.repo.closeExpired(GOV24_SOURCE, kstDateString(now))
+    result.removedSlugs = await deps.repo.markRemoved(GOV24_SOURCE, list.map((i) => i.서비스ID))
+    result.closed = result.closedSlugs.length
+    result.removed = result.removedSlugs.length
 
     run.upserted = result.upserted
     run.skipped = result.skipped

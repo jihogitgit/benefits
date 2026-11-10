@@ -19,9 +19,36 @@
 - Vercel Cron: `/api/cron/sync-gov24` (KST 03:00, 12:00), `Authorization: Bearer $CRON_SECRET`
 - 안전장치: 직전 성공 대비 30% 이상 건수 감소 시 중단(409), `sync_runs.aborted_reason` 기록
 - 마감·소멸 항목은 삭제하지 않고 `status`만 closed/removed로 변경
-- 변경이 있으면 `benefits:home`·`benefits:all` 두 태그만 재검증한다. `unstable_cache`의 태그는 함수 단위라
-  `benefit:{slug}`·`segment:{seg}` 태그를 가진 캐시 항목은 존재하지 않는다(그런 루프는 no-op이면서
-  전건 변경 시 만 번 넘는 호출이 되어 `maxDuration` 60초를 위협한다)
+- 매 실행마다 `benefits:home`·`benefits:lists`(홈·목록 수십 장)를 비우고, 상세는 **바뀐 슬러그만**
+  `benefit:{slug}` 태그로 한 장씩 비운다(변경·마감·소멸 합산). 300건을 넘는 대량 변경일 때만 `benefits:all`로
+  전부 비운다. 예전처럼 `benefits:all`을 매번 쏘면 상세 1만 장이 낡은 것으로 표시되어 그 뒤 크롤러 방문마다
+  재생성(ISR 쓰기)이 일어나 Vercel Hobby 한도(월 20만)를 넘겼다(2026-11)
+
+## 캐시 TTL과 비용
+
+페이지의 재생성 주기는 그 페이지가 쓰는 `unstable_cache` 중 **가장 짧은** `revalidate`로 내려간다.
+그래서 TTL은 `src/lib/benefits/queries.ts`의 `DAY`·`WEEK` 상수로 모아 두고, 데이터 변경은 TTL이 아니라
+태그 무효화로 반영한다.
+
+| 대상 | TTL | 갱신 경로 |
+|---|---|---|
+| 상세 `/benefit/{slug}` (`getBenefitBySlug`·`listRelated`·`peerIndex`·`listWithArticlesForDetail`) | 일주일 | cron이 바뀐 슬러그의 `benefit:{slug}`를 비움. D-day는 `DdayBadge`가 클라이언트에서 다시 셈 |
+| 홈·세그먼트·지역·전체목록·마감·비교 | 하루 | cron이 매 실행마다 `benefits:lists`·`benefits:home`을 비움 |
+| 가이드 | 하루(백링크는 일주일) | 발행 스크립트가 `guides`를 비움 |
+
+- 상세 페이지의 조회 함수에는 `benefits:lists`를 달지 않는다. 달면 상세 1만 장이 그 태그를 물려받아 목록을
+  비울 때마다 전부 낡은 것으로 표시된다. 그래서 `listWithArticles`(허브용, lists 태그)와
+  `listWithArticlesForDetail`(상세용, all 태그만)이 따로 있다
+- `benefit:{slug}` 태그는 슬러그의 sha1 앞 16자리다. Next가 태그를 `x-next-cache-tags` 응답 헤더로 내보내는데
+  한글은 헤더에 들어갈 수 없다(로컬 `next start`는 이 헤더를 지워서 재현되지 않는다). 태그를 만드는 쪽과
+  비우는 쪽이 모두 `benefitTag()`를 쓴다
+- 가이드 발행(`guides` 태그)은 상세 1만 장의 백링크 캐시(`guideBacklinks`)에도 걸려 상세 전부가 낡은 것으로
+  표시된다. 가이드는 드물게 발행하므로 감수한다
+- 제목의 연도(`kstYear`)는 KST 1월 1일에 cron이 `benefits:all`을 비워서 바꾼다. cron이 중간에 실패한 날도
+  어떤 행이 반영됐는지 알 수 없어 전부 비운다
+- **수동 동기화(`npm run sync:gov24`, `seed:curated`)는 캐시를 비우지 않는다.** 바뀐 슬러그를
+  `npm run revalidate -- --url=https://naemok.com <슬러그> ...`로 비우거나, 대량이면 한 번에:
+  `curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' -d '{"tags":["benefits:all","benefits:lists","benefits:home"]}' https://naemok.com/api/revalidate`
 
 ## 해설 발행
 
@@ -42,6 +69,9 @@
   stale을 받는데, 그 한 번을 크롤러가 가져가면 아직 `noindex`인 HTML이 넘어간다
 - 서버가 처리한 목록을 보낸 것과 대조한다. 이 검사가 없으면 서버가 버린 항목을 성공으로
   출력하게 되어, 없애려던 '거짓 성공'이 스크립트 쪽에 그대로 남는다
+- 태그는 `benefits:lists`·`benefits:home`과 발행한 슬러그의 `benefit:{slug}`를 보낸다. `benefits:all`은 보내지
+  않는다 — 상세 1만 장이 낡은 것으로 표시되어 해설 하나 발행에 ISR 쓰기가 쏟아진다(캐시 TTL과 비용 절 참고).
+  다른 상세 페이지의 "자세히 정리한 지원금" 목록에는 최대 일주일 늦게 오른다
 - 사이트맵은 `revalidate` 1시간이라 따로 손대지 않아도 반영된다. `/rss.xml`은 스크립트가 매번 함께 비운다
 - `/deadline`·`/{segment}/{region}`은 경로 재검증 대상이 아니다. `listWithArticles`를 쓰지 않아
   해설 발행으로 내용이 바뀌지 않는다 — 태그 무효화와 각자의 ISR로 충분하다

@@ -54,16 +54,16 @@ export function createSupabaseRepo(supabase: SupabaseClient): BenefitsRepo {
         .eq('status', 'open')
         .eq('deadline_type', 'period')
         .lt('apply_end', todayKst)
-        .select('id')
+        .select('slug')
       if (error) throw error
-      return data?.length ?? 0
+      return (data ?? []).map((r) => r.slug as string)
     },
 
     async markRemoved(source: string, keepSourceIds: string[]) {
       const keep = new Set(keepSourceIds)
       const existing = await getExisting(source)
       const toRemove = [...existing.keys()].filter((sid) => !keep.has(sid))
-      let count = 0
+      const slugs: string[] = []
       for (let i = 0; i < toRemove.length; i += 200) {
         const chunk = toRemove.slice(i, i + 200)
         const { data, error } = await supabase
@@ -72,11 +72,11 @@ export function createSupabaseRepo(supabase: SupabaseClient): BenefitsRepo {
           .eq('source', source)
           .in('source_id', chunk)
           .neq('status', 'removed')
-          .select('id')
+          .select('slug')
         if (error) throw error
-        count += data?.length ?? 0
+        for (const r of data ?? []) slugs.push(r.slug as string)
       }
-      return count
+      return slugs
     },
 
     async recordRun(run: SyncRunRow) {

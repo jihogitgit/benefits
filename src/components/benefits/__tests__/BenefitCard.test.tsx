@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { BenefitListRow } from '@/lib/benefits/queries'
 import BenefitCard from '../BenefitCard'
@@ -11,6 +11,11 @@ const row: BenefitListRow = {
 const now = new Date('2026-09-10T03:00:00Z')
 
 describe('BenefitCard', () => {
+  // DdayBadge는 마운트 뒤 브라우저의 오늘로 D-day를 다시 센다(상세 ISR이 일주일이라 서버 값이 굳기 때문).
+  // 그래서 서버 now와 시스템 시각을 맞춰 두지 않으면 테스트가 실제 날짜에 따라 흔들린다.
+  beforeEach(() => vi.useFakeTimers({ now, toFake: ['Date'] }))
+  afterEach(() => vi.useRealTimers())
+
   it('제목 링크, D-day, 지역, 본문 첫 줄을 보여준다', () => {
     render(<BenefitCard row={row} now={now} />)
     expect(screen.getByRole('link', { name: /서울시 임산부 교통비 지원/ })).toHaveAttribute('href', '/benefit/서울-임산부-교통비')
@@ -58,5 +63,16 @@ describe('BenefitCard 본문 출처', () => {
     render(<BenefitCard row={real({ summary: null, amount_text: null })} />)
     expect(screen.getByRole('link', { name: /평생교육이용권 지원/ })).toBeInTheDocument()
     expect(screen.queryByText(/개요/)).not.toBeInTheDocument()
+  })
+})
+
+describe('DdayBadge는 마운트 뒤 오늘 기준으로 다시 센다', () => {
+  afterEach(() => vi.useRealTimers())
+  it('서버가 찍은 now가 오래됐어도 화면은 실제 오늘의 D-day를 보여준다', () => {
+    // 서버는 일주일 전 값으로 그렸고(D-12), 사용자는 오늘(2026-09-17) 본다 → D-5
+    vi.useFakeTimers({ now: new Date('2026-09-17T03:00:00Z'), toFake: ['Date'] })
+    render(<BenefitCard row={row} now={now} />)
+    expect(screen.getByText('D-5')).toBeInTheDocument()
+    expect(screen.queryByText('D-12')).not.toBeInTheDocument()
   })
 })

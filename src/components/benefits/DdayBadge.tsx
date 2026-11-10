@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import type { DeadlineType } from '@/types/database'
 import { daysUntil } from '@/lib/benefits/status'
 import { ddayLabel } from '@/lib/benefits/format'
@@ -11,6 +14,9 @@ import { cn } from '@/lib/utils'
  *   연회색(미상)     정보 없음 — 가장 약하게
  * 상시를 초록에서 회색으로 내린 이유: 브랜드가 청록이라 초록 배지와 한 화면에서 구분되지 않는다.
  * 상시는 긍정 속성이지만 긴급하지 않으므로 주의를 끌 이유도 없다.
+ *
+ * 클라이언트 컴포넌트인 이유: 상세 페이지는 ISR 캐시가 일주일이라 서버가 찍은 D-day가 그대로
+ * 굳는다. 서버 값(now)으로 먼저 그려 hydration을 맞추고, 마운트 뒤 사용자의 오늘로 다시 센다.
  */
 export default function DdayBadge({
   deadline_type,
@@ -21,10 +27,14 @@ export default function DdayBadge({
   apply_end: string | null
   now?: Date
 }) {
+  const [d, setD] = useState<number | null>(() => daysUntil(apply_end, now))
+  useEffect(() => {
+    setD(daysUntil(apply_end))
+  }, [apply_end])
+
   if (deadline_type === 'always')
     return <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700">상시</span>
 
-  const d = daysUntil(apply_end, now)
   const label = ddayLabel(d)
   if (!label) return <span className="rounded bg-gray-50 px-1.5 py-0.5 text-xs font-medium text-gray-500">공고 확인</span>
 

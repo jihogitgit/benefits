@@ -13,7 +13,7 @@ import { regionName } from '@/components/benefits/BenefitCard'
 import JsonLd from '@/components/JsonLd'
 import AdsenseScript from '@/components/ads/AdsenseScript'
 
-export const revalidate = 21600
+export const revalidate = 86400 // 하루. 다만 peerIndex(benefits:all, 일주일)만 쓰므로 묶음 변경은 최대 일주일 늦게 반영된다
 export const dynamicParams = true
 export function generateStaticParams() {
   return [] // 요청 시 생성. 묶음 170개를 전부 빌드할 이유가 없다.
