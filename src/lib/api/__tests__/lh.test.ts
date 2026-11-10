@@ -129,7 +129,21 @@ describe('LH 클라이언트', () => {
 
   it('페이지 상한(50)을 넘으면 던진다', async () => {
     fetchMock.mockImplementation(async () => json(body(rows('a', 100))))
-    await expect(fetchLhNotices(opts)).rejects.toThrow('페이지 상한 초과')
+    const err = await fetchLhNotices(opts).catch((e: Error) => e)
+    expect((err as Error).message).toContain('페이지 상한 초과')
+    expect((err as Error).message).not.toContain('serviceKey')
+    expect((err as Error).message).not.toContain('test-key')
+    expect(firstCodeCalls()).toBe(50)
+  })
+
+  it('전체 건수와 정확히 맞게 찬 마지막 페이지에서 멈춘다', async () => {
+    fetchMock
+      .mockImplementationOnce(async () => json(body(rows('a', 100, '200'))))
+      .mockImplementationOnce(async () => json(body(rows('b', 100, '200'))))
+      .mockImplementation(async () => empty())
+    const r = await fetchLhNotices(opts)
+    expect(r).toHaveLength(200)
+    expect(firstCodeCalls()).toBe(2)
   })
 
   it('PAN_ID로 중복을 제거한다(첫 번째 유지)', async () => {

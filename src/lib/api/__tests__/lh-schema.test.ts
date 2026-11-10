@@ -38,4 +38,8 @@ describe('LH 공고문 응답 파서', () => {
     expect(() => parseLhList({ resHeader: { SS_CODE: 'N', RS_MSG: 'x' }, dsList: [row] })).toThrow('API 오류')
     expect(() => parseLhList([{ resHeader: [{ SS_CODE: 'Y' }] }, { dsList: [row] }])).not.toThrow()
   })
+
+  it('resHeader가 dsList 뒤에 와도 오류를 잡는다', () => {
+    expect(() => parseLhList([{ dsList: [row] }, { resHeader: [{ SS_CODE: 'N', RS_MSG: 'x' }] }])).toThrow('API 오류')
+  })
 })

@@ -12,7 +12,8 @@ export interface LhFetchOptions {
   delayMs?: number
   /** 재시도 백오프 기준(ms). 기본 500. 테스트에서 0으로 둔다. */
   retryBaseMs?: number
-  onPage?: (cd: string, page: number, total: number) => void
+  /** total은 첫 페이지 ALL_CNT. 믿을 수 없으면 null(미상). */
+  onPage?: (cd: string, page: number, total: number | null) => void
 }
 
 /** 코드 하나당 페이지 상한. 응답이 계속 가득 차는 이상 상황에서 무한히 돌지 않게 한다. */
@@ -86,7 +87,7 @@ export async function fetchLhNotices(opts: LhFetchOptions = {}): Promise<LhNotic
       const r = await fetchPage(key, cd, page, pageSize, retryBaseMs)
       if (page === 1) total = r.total // 첫 페이지 값으로 고정한다
       all.push(...r.items)
-      opts.onPage?.(cd, page, total ?? 0)
+      opts.onPage?.(cd, page, total)
       if (r.items.length === 0) break // 안전장치: ALL_CNT가 틀려도 빈 페이지에서 멈춘다
       // 전체 건수를 모르면 가득 찬 페이지가 이어지는 동안만 계속한다
       if (total == null ? r.items.length < pageSize : page * pageSize >= total) break
