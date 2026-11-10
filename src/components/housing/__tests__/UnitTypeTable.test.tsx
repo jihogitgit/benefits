@@ -24,4 +24,11 @@ describe('UnitTypeTable', () => {
     render(<UnitTypeTable rows={[row({ special_units: 10 })]} />)
     expect(screen.getByText('특별')).toBeInTheDocument()
   })
+
+  it('경계값과 면적 표시', () => {
+    render(<UnitTypeTable rows={[row({ house_type: 'A', max_price_manwon: 99999, supply_area: 84.9712 }), row({ house_type: 'B', max_price_manwon: 5000 })]} />)
+    expect(screen.getByText('10억')).toBeInTheDocument()
+    expect(screen.getByText('5,000만원')).toBeInTheDocument()
+    expect(screen.getByText('84.97')).toBeInTheDocument()
+  })
 })

@@ -1,6 +1,11 @@
 import type { HousingUnitTypeRow } from '@/types/housing'
 
-const won = (n: number | null) => (n == null ? '-' : `${(n / 10000).toFixed(n % 10000 === 0 ? 0 : 1)}억`)
+const won = (n: number | null) => {
+  if (n == null) return '-'
+  if (n < 10000) return `${n.toLocaleString()}만원`
+  const v = Math.round(n / 1000) / 10
+  return `${Number.isInteger(v) ? v : v.toFixed(1)}억`
+}
 const num = (n: number | null) => (n == null ? '-' : n.toLocaleString())
 
 /** 주택형별 면적·최고 분양가·세대수. 분양가는 만원 단위 원문을 억으로 보여준다(98000 → 9.8억). */
@@ -27,7 +32,7 @@ export default function UnitTypeTable({ rows }: { rows: HousingUnitTypeRow[] }) 
           {rows.map((r) => (
             <tr key={r.house_type} className="border-b border-gray-100">
               <th scope="row" className="py-2 pr-3 text-left font-medium text-gray-900">{r.house_type}</th>
-              <td className="py-2 pr-3 text-right tabular-nums">{r.supply_area ?? '-'}</td>
+              <td className="py-2 pr-3 text-right tabular-nums">{r.supply_area == null ? '-' : r.supply_area.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{won(r.max_price_manwon)}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{num(r.general_units)}</td>
               {anySpecial && <td className="py-2 pr-3 text-right tabular-nums">{num(r.special_units)}</td>}

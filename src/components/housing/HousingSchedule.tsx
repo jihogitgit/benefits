@@ -1,7 +1,8 @@
 import type { HousingDetail } from '@/lib/housing/queries'
 
 const dots = (d: string | null) => (d ? d.replace(/-/g, '.') : null)
-const range = (a: string | null, b: string | null) => (a && b && a !== b ? `${dots(a)} ~ ${dots(b)}` : dots(a ?? b))
+const range = (a: string | null, b: string | null) =>
+  a && b && a !== b ? `${dots(a)} ~ ${dots(b)}` : !a && b ? `~ ${dots(b)}` : dots(a)
 
 /** 청약홈 공고의 일정. 값이 없는 줄은 내지 않는다 — 빈 칸이 "미정"처럼 읽힌다. */
 export default function HousingSchedule({ d }: { d: HousingDetail }) {
@@ -12,7 +13,7 @@ export default function HousingSchedule({ d }: { d: HousingDetail }) {
     ['2순위 접수', range(d.rank2_start, d.rank2_end)],
     ['당첨자 발표', dots(d.winner_date)],
     ['계약', range(d.contract_start, d.contract_end)],
-    ['입주 예정', d.move_in_ym ? `${d.move_in_ym.slice(0, 4)}년 ${Number(d.move_in_ym.slice(4, 6))}월` : null],
+    ['입주 예정', d.move_in_ym && /^\d{4}(0[1-9]|1[0-2])$/.test(d.move_in_ym) ? `${d.move_in_ym.slice(0, 4)}년 ${Number(d.move_in_ym.slice(4, 6))}월` : null],
   ]
   const shown = rows.filter((r): r is [string, string] => !!r[1])
   if (!shown.length) return null

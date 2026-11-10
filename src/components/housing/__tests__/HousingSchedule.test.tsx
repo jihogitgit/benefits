@@ -28,4 +28,14 @@ describe('HousingSchedule', () => {
     const { container } = render(<HousingSchedule d={d({})} />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  it('형식이 틀린 입주 예정은 내지 않는다', () => {
+    const { container } = render(<HousingSchedule d={d({ move_in_ym: '2028', notice_date: '2026-01-10' })} />)
+    expect([...container.querySelectorAll('dt')].map((e) => e.textContent)).toEqual(['모집공고일'])
+  })
+
+  it('끝 날짜만 있으면 "~ 끝"으로', () => {
+    render(<HousingSchedule d={d({ contract_end: '2026-11-20' })} />)
+    expect(screen.getByText('~ 2026.11.20')).toBeInTheDocument()
+  })
 })

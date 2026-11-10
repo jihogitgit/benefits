@@ -14,7 +14,7 @@ import { daysUntil } from '@/lib/benefits/status'
  */
 export default function HousingCard({ row, now }: { row: HousingCardRow; now?: Date }) {
   const external = row.source === 'lh'
-  const href = external ? row.detail_url ?? '#' : `/housing/${row.slug}`
+  const href = external ? row.detail_url ?? '' : `/housing/${row.slug}`
   const badges = [
     row.sp_newlywed_units > 0 && '신혼부부 특공',
     row.sp_first_life_units > 0 && '생애최초 특공',
@@ -25,14 +25,17 @@ export default function HousingCard({ row, now }: { row: HousingCardRow; now?: D
     <article className="relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm focus-within:border-brand-400">
       <div className="mb-1 flex flex-wrap items-center gap-1.5">
         <StatusBadge row={row} now={now} />
-        <span className="text-xs text-gray-500">{regionName(row.region_code === 'UNKNOWN' ? '' : row.region_code) || '지역 미상'}</span>
+        <span className="text-xs text-gray-500">{(row.region_code !== 'UNKNOWN' && regionName(row.region_code)) || '지역 미상'}</span>
         <span aria-hidden className="text-xs text-gray-400">·</span>
         <span className="text-xs text-gray-500">{KIND_LABEL[row.kind]}</span>
       </div>
       <h3 className="text-base font-semibold leading-snug">
-        {external ? (
+        {external && !row.detail_url ? (
+          <span>{row.title}</span>
+        ) : external ? (
           <a href={href} target="_blank" rel="noopener noreferrer" className="after:absolute after:inset-0 after:rounded-xl hover:text-brand-700">
             {row.title} <span aria-hidden className="text-gray-400">↗</span>
+            <span className="sr-only">(새 창)</span>
           </a>
         ) : (
           <Link href={href} className="after:absolute after:inset-0 after:rounded-xl hover:text-brand-700">

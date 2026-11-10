@@ -51,4 +51,25 @@ describe('HousingCard', () => {
     render(<HousingCard row={{ ...base, region_code: 'UNKNOWN' }} now={now} />)
     expect(screen.getByText('지역 미상')).toBeInTheDocument()
   })
+
+  it('URL 없는 LH 공고는 링크 없이 제목만 낸다', () => {
+    render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', detail_url: null }} now={now} />)
+    expect(screen.getByText('래미안 테스트')).toBeInTheDocument()
+    expect(screen.queryByRole('link')).toBeNull()
+  })
+
+  it('LH 링크는 새 창 안내를 스크린리더에 준다', () => {
+    render(<HousingCard row={{ ...base, source: 'lh', detail_url: 'https://apply.lh.or.kr/x' }} now={now} />)
+    expect(screen.getByText('(새 창)')).toBeInTheDocument()
+  })
+
+  it('시작일이 오늘인 접수 예정은 "접수 예정"', () => {
+    render(<HousingCard row={{ ...base, status: 'upcoming', receipt_start: '2026-01-20' }} now={now} />)
+    expect(screen.getByText('접수 예정')).toBeInTheDocument()
+  })
+
+  it('접수중이지만 마감일 없으면 "접수중" 라벨', () => {
+    render(<HousingCard row={{ ...base, receipt_end: null }} now={now} />)
+    expect(screen.getByText('접수중')).toBeInTheDocument()
+  })
 })
