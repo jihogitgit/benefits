@@ -98,7 +98,8 @@ export async function fetchLhNotices(opts: LhFetchOptions = {}): Promise<LhNotic
   for (const cd of LH_UPP_AIS_TP_CDS) {
     let total: number | null = 0
     for (let page = 1; ; page++) {
-      if (page > MAX_PAGES) throw new Error(`lh ${cd} 페이지 상한 초과`)
+      // 받은 페이지 수와 첫 페이지 ALL_CNT를 남겨 상한을 올릴지(정상 증가) 원천 이상인지 가릴 수 있게 한다.
+      if (page > MAX_PAGES) throw new Error(`lh ${cd} 페이지 상한 ${MAX_PAGES} 초과(ALL_CNT=${total ?? '미상'})`)
       remainingBudgetMs(opts.deadlineMs, `lh ${cd} p${page}`) // 페이지·코드 사이에서도 확인한다
       const r = await fetchPage(key, cd, page, pageSize, retryBaseMs, opts.deadlineMs)
       if (page === 1) total = r.total // 첫 페이지 값으로 고정한다

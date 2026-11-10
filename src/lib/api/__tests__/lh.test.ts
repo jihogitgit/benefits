@@ -141,7 +141,7 @@ describe('LH 클라이언트', () => {
   it('페이지 상한(10)을 넘으면 던진다', async () => {
     fetchMock.mockImplementation(async () => json(body(rows('a', 100))))
     const err = await fetchLhNotices(opts).catch((e: Error) => e)
-    expect((err as Error).message).toContain('페이지 상한 초과')
+    expect((err as Error).message).toContain('lh 05 페이지 상한 10 초과(ALL_CNT=미상)')
     expect((err as Error).message).not.toContain('serviceKey')
     expect((err as Error).message).not.toContain('test-key')
     expect(firstCodeCalls()).toBe(10)
