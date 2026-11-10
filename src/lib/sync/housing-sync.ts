@@ -224,5 +224,11 @@ const syncLh: SourceBody = async (deps, now, result, log) => {
   // 문자열 비교가 안전한 이유: notice_date는 toIsoDate가 만든 YYYY-MM-DD다.
   const candidates: Candidate[] = inScope.filter((row) => row.notice_date == null || row.notice_date >= deps.since).map((row) => ({ row }))
   if (candidates.length < inScope.length) log(`since ${deps.since} 이전 공고 ${inScope.length - candidates.length}건 제외`)
+  // 창 밖으로 나간 공고는 markRemoved가 removed로 바꾼다(청약홈은 API 조건이라 같은 효과). 그런데 전부가 창 밖이면
+  // 날짜 형식이 바뀐 쪽이 훨씬 그럴듯하고, 그대로 두면 keep이 비어 LH 전체가 내려간다. 그 전에 멈춘다.
+  if (inScope.length > 0 && candidates.length === 0) {
+    result.aborted_reason = '창 안(최근 180일) 공고 0건 — 날짜 파싱 의심'
+    return
+  }
   await upsertChanged('lh', candidates, candidates.map((c) => c.row.source_id), deps, result, log)
 }

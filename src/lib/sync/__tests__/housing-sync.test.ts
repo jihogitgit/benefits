@@ -192,6 +192,16 @@ describe('runHousingSync', () => {
     expect(calls.removedKeep.lh).not.toContain('OLD')
   })
 
+  // 날짜 형식이 바뀌어 전부 창 밖으로 읽히면 keep이 비어 LH 전체가 removed가 된다. 그 전에 멈춘다.
+  it('LH 대상 공고가 전부 since 이전이면 중단하고 markRemoved를 부르지 않는다', async () => {
+    const { repo, calls } = fakeRepo()
+    const r = await runHousingSync(deps(repo, { fetchLh: async () => [lh('O1', { PAN_NT_ST_DT: '2025.01.01' }), lh('O2', { PAN_NT_ST_DT: '2024.12.31' })] }))
+    expect(r.lh.aborted_reason).toMatch(/창 안.*0건/)
+    expect(r.lh.upserted).toBe(0)
+    expect(calls.notices.filter((n) => n.source === 'lh')).toHaveLength(0)
+    expect((repo.markRemoved as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0] === 'lh')).toHaveLength(0)
+  })
+
   it('한 소스가 던져도 다른 소스는 끝까지 돌고 run에 error를 남긴다', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { repo, calls } = fakeRepo()
