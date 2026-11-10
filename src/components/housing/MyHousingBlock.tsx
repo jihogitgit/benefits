@@ -26,6 +26,7 @@ export default function MyHousingBlock({ rows }: { rows: HousingCardRow[] }) {
   // 목록에 없는 옛 값은 지역 없음으로 다룬다.
   const name = region ? REGION_OPTIONS.find((o) => o.value === region)?.label ?? null : null
   const valid = name ? region : null
+  // 지역이 있으면 접수중+예정 모두(그 지역 공고 자체가 적다), 없으면 접수중만.
   const picked = (valid ? rows.filter((r) => r.region_code === valid || r.region_code === 'ALL') : rows.filter((r) => r.status === 'open')).slice(0, SHOW)
   if (!picked.length) return null
 

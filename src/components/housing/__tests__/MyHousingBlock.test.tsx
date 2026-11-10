@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import MyHousingBlock from '../MyHousingBlock'
 import type { HousingCardRow } from '@/lib/housing/queries'
 import { STORAGE_KEY } from '@/lib/diagnosis/storage'
@@ -42,7 +42,11 @@ describe('MyHousingBlock', () => {
   // 빈 제목만 남은 섹션은 내용 없는 화면으로 보인다(홈의 마감 임박 섹션과 같은 규칙).
   it('해당 공고가 0건이면 블록을 내지 않는다', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ q: '', ageBand: null, situations: [], region: 'jeju', incomeBand: null }))
-    const { container } = render(<MyHousingBlock rows={[row('부산1', 'busan')]} />)
-    await waitFor(() => expect(container.querySelector('section')).toBeNull())
+    const { container, rerender } = render(<MyHousingBlock rows={[row('부산1', 'busan')]} />)
+    await act(async () => {}) // 마운트 effect를 흘려보낸 뒤 단언한다
+    expect(container.querySelector('section')).toBeNull()
+    // 대조: 같은 상태에서 제주 공고가 생기면 섹션이 나타난다 — 위 단언이 effect 이후에 돌았다는 증거
+    rerender(<MyHousingBlock rows={[row('제주1', 'jeju')]} />)
+    expect(container.querySelector('section')).not.toBeNull()
   })
 })
