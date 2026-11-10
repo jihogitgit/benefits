@@ -9,7 +9,7 @@ import JsonLd from '@/components/JsonLd'
 import HousingList from '@/components/housing/HousingList'
 import { REGIONS } from '../../../../data/regions'
 
-export const revalidate = 86400 // 하루. 변경은 cron이 housing:lists로 매일 비운다
+// searchParams를 읽으므로 페이지는 동적이다. 데이터 캐시는 listHousing의 unstable_cache(housing:lists)가 맡고, cron이 비운다.
 
 type SP = Promise<Record<string, string | string[] | undefined>>
 

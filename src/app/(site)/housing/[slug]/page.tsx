@@ -24,17 +24,33 @@ import { REGIONS } from '../../../../../data/regions'
  */
 export const revalidate = 86400
 export const dynamicParams = true
+// 빌드가 공고 테이블에 의존하면 안 된다(benefit/[slug]와 같은 방식) — 지역 페이지는 첫 요청에 ISR로 만든다.
 export function generateStaticParams() {
-  return REGIONS.map((r) => ({ slug: r.slug }))
+  return []
 }
+
+function safeDecode(s: string): string | null {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return null
+  }
+}
+
+const safeCounts = () =>
+  countActiveHousingByRegion().catch((e) => {
+    console.error('[housing] count failed:', e)
+    return {} as Record<string, number>
+  })
 
 const region = (slug: string) => REGIONS.find((r) => r.slug === slug) ?? null
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const slug = decodeURIComponent((await params).slug)
+  const slug = safeDecode((await params).slug)
+  if (slug === null) return {}
   const reg = region(slug)
   if (reg) {
-    const counts = await countActiveHousingByRegion()
+    const counts = await safeCounts()
     return {
       title: `${kstYear()} ${reg.name} 청약·임대 공고 · 접수중·접수 예정`,
       description: `${reg.name}에서 접수 중이거나 예정된 아파트 분양·무순위·LH 임대 공고를 접수 일정 순으로 모았습니다. 전국 공통 공고도 함께 보여줍니다.`,
@@ -54,7 +70,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function HousingSlugPage({ params }: { params: Promise<{ slug: string }> }) {
-  const slug = decodeURIComponent((await params).slug)
+  const slug = safeDecode((await params).slug)
+  if (slug === null) notFound()
   const reg = region(slug)
   if (reg) return <RegionPage slug={reg.slug} name={reg.name} />
   const d = await getHousingBySlug(slug)
@@ -118,7 +135,7 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
 
 async function RegionPage({ slug, name }: { slug: string; name: string }) {
   const now = new Date()
-  const [rows, counts] = await Promise.all([listHousing({ status: 'active', kind: null, region: slug, limit: HOUSING_LIST_LIMIT }), countActiveHousingByRegion()])
+  const [rows, counts] = await Promise.all([listHousing({ status: 'active', kind: null, region: slug, limit: HOUSING_LIST_LIMIT }), safeCounts()])
   const local = rows.filter((r) => r.region_code === slug)
   const national = rows.filter((r) => r.region_code === 'ALL')
   const siblings = REGIONS.filter((r) => (counts[r.slug] ?? 0) > 0)

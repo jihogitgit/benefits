@@ -1,9 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 
 /** Supabase 조회 실패 등. 공고 데이터는 원문이 따로 있으니 그리로 보낸다. (저장소에 다른 error.tsx는 없다) */
-export default function HousingError({ reset }: { error: Error; reset: () => void }) {
+export default function HousingError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    console.error(error)
+  }, [error])
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 text-center">
       <h1 className="text-xl font-extrabold">공고를 불러오지 못했습니다</h1>
