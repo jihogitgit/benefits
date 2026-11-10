@@ -30,7 +30,9 @@ const HOUSING_TIME_BUDGET_MS = 50_000
 
 /**
  * 보조금24 → (housing=1이면) 청약홈·LH. Hobby는 cron 2개가 한도라 라우트를 하나로 합쳤다.
- * 공고 단계의 실패는 보조금24 결과를 가리지 않는다 — 응답은 200이고 housing.error에 실린다.
+ * 두 단계는 서로 독립이다(설계 4절). 공고 단계는 보조금24가 중단(409)되거나 실패(500)해도 돌고,
+ * 상태 코드는 보조금24 결과만 따른다. 공고 결과는 언제나 본문의 housing에 싣는다 — 소스별 실패는
+ * housing.applyhome.error·housing.lh.error, 단계 전체가 던졌을 때만 housing.error.
  */
 export async function GET(request: Request) {
   const startedAt = Date.now()
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const withHousing = new URL(request.url).searchParams.get('housing') === '1'
+  const runHousing = () => (withHousing ? housingStep(startedAt + HOUSING_TIME_BUDGET_MS) : Promise.resolve(null))
 
   let gov24: Record<string, unknown>
   try {
@@ -52,7 +55,8 @@ export async function GET(request: Request) {
     })
 
     if (result.aborted_reason) {
-      return NextResponse.json({ gov24: { ...result, changedSlugs: undefined, closedSlugs: undefined, removedSlugs: undefined }, housing: null }, { status: 409 })
+      const housing = await runHousing()
+      return NextResponse.json({ gov24: { ...result, changedSlugs: undefined, closedSlugs: undefined, removedSlugs: undefined }, housing }, { status: 409 })
     }
 
     // 목록·홈은 변경이 없어도 매번 비운다. 카드의 D-day와 "최종 동기화" 시각은 하루가 지나면 틀리고,
@@ -91,11 +95,12 @@ export async function GET(request: Request) {
     revalidateTag(CACHE_TAGS.benefitsHome)
     revalidateTag(CACHE_TAGS.benefitsLists)
     revalidateTag(CACHE_TAGS.benefitsAll)
-    // 내부 메시지(DB·외부 API)는 로그에만 남긴다.
-    return NextResponse.json({ error: 'sync failed', invalidated: 'all' }, { status: 500 })
+    // 내부 메시지(DB·외부 API)는 로그에만 남긴다. 공고 단계는 housingStep이 던지지 않으므로 그대로 돌린다.
+    const housing = await runHousing()
+    return NextResponse.json({ error: 'sync failed', invalidated: 'all', housing }, { status: 500 })
   }
 
-  const housing = withHousing ? await housingStep(startedAt + HOUSING_TIME_BUDGET_MS) : null
+  const housing = await runHousing()
   return NextResponse.json({ gov24, housing })
 }
 

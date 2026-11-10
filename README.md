@@ -18,8 +18,11 @@
 - 로컬 전체 적재: `npm run sync:gov24`
 - Vercel Cron: `/api/cron/sync?housing=1` (KST 03:00, 12:00), `Authorization: Bearer $CRON_SECRET`.
   보조금24를 먼저 돌리고 `housing=1`이면 청약홈·LH 공고를 이어서 돌린다. Hobby는 cron이 2개까지라
-  라우트를 하나로 합쳤다. 공고 단계의 실패는 응답 200의 `housing.error`에 실리고 보조금24 결과를 가리지 않는다.
+  라우트를 하나로 합쳤다. 두 단계는 독립이라 공고 단계는 보조금24 결과(200·409·500)와 상관없이 돌고,
+  상태 코드는 보조금24 결과만 따른다. 공고 결과는 본문 `housing`에 실린다 — 소스별 실패는
+  `housing.applyhome.error`·`housing.lh.error`, `housing.error`는 공고 단계 전체가 던졌을 때만.
   요청 시작 후 50초가 지나면 남은 주택형 조회와 소스를 다음 실행으로 미룬다(`aborted_reason`에 기록).
+  요청 하나도 그 마감을 넘기지 않는다 — 진행 중 요청이 마감에 걸리면 그 소스는 `error`로 끝나고 `housing:all`을 비운다.
 - 운영 첫 적재: `supabase/migrations/006_housing.sql`을 Supabase SQL Editor에서 실행한 뒤 `npm run sync:housing`으로 첫 적재. LH API(15058530)는 공공데이터포털 활용신청이 필요하다. `HOUSING_API_KEY`는 선택(비우면 `GOV24_API_KEY`).
 - 공고 수동 적재: `npm run sync:housing` (청약홈 모집공고일 최근 180일 + LH 분양·임대·주거복지·신혼희망타운).
   변경 감지는 원문 해시(`content_hash`)와 날짜로 계산한 상태 비교. 주택형은 바뀐 APT·무순위 공고만 받는다.

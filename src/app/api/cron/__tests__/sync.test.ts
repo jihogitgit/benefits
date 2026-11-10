@@ -184,11 +184,30 @@ describe('GET /api/cron/sync — 공고', () => {
     expect(calledTags()).toContain('housing:all')
   })
 
-  it('보조금24가 409로 중단되면 공고는 돌리지 않는다', async () => {
+  // 설계 4절: 소스는 서로 독립이다. 상태 코드는 보조금24 결과를 따르고, 공고 결과는 본문에 싣는다.
+  it('보조금24가 409로 중단돼도 공고는 돈다', async () => {
     runMock.mockResolvedValue({ ...quiet, aborted_reason: '건수 급감' })
+    housingMock.mockResolvedValue(housingOk)
     const res = await GET(housingReq())
     expect(res.status).toBe(409)
-    expect(housingMock).not.toHaveBeenCalled()
+    expect(housingMock).toHaveBeenCalledTimes(1)
+    const body = await res.json()
+    expect(body.gov24).toMatchObject({ aborted_reason: '건수 급감' })
+    expect(body.housing).toMatchObject({ applyhome: { upserted: 2 }, invalidated: 'per-slug' })
+    expect(calledTags()).not.toContain('benefits:lists')
+  })
+
+  it('보조금24가 던져 500이어도 공고는 돈다', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    runMock.mockRejectedValue(new Error('db password wrong'))
+    housingMock.mockResolvedValue(housingOk)
+    const res = await GET(housingReq())
+    expect(res.status).toBe(500)
+    expect(housingMock).toHaveBeenCalledTimes(1)
+    const body = await res.json()
+    expect(body).toMatchObject({ error: 'sync failed', invalidated: 'all', housing: { applyhome: { upserted: 2 } } })
+    expect(JSON.stringify(body)).not.toContain('password')
+    expect(calledTags()).toContain('benefits:all')
   })
 
   it('시간 초과로 끝난 공고 단계(aborted_reason만 있고 error 없음)는 upsert된 슬러그만 per-slug로 비우고 housing:all은 쏘지 않는다', async () => {
