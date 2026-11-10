@@ -20,6 +20,7 @@
   보조금24를 먼저 돌리고 `housing=1`이면 청약홈·LH 공고를 이어서 돌린다. Hobby는 cron이 2개까지라
   라우트를 하나로 합쳤다. 공고 단계의 실패는 응답 200의 `housing.error`에 실리고 보조금24 결과를 가리지 않는다.
   요청 시작 후 50초가 지나면 남은 주택형 조회와 소스를 다음 실행으로 미룬다(`aborted_reason`에 기록).
+- 운영 첫 적재: `supabase/migrations/006_housing.sql`을 Supabase SQL Editor에서 실행한 뒤 `npm run sync:housing`으로 첫 적재. LH API(15058530)는 공공데이터포털 활용신청이 필요하다. `HOUSING_API_KEY`는 선택(비우면 `GOV24_API_KEY`).
 - 공고 수동 적재: `npm run sync:housing` (청약홈 모집공고일 최근 180일 + LH 분양·임대·주거복지·신혼희망타운).
   변경 감지는 원문 해시(`content_hash`)와 날짜로 계산한 상태 비교. 주택형은 바뀐 APT·무순위 공고만 받는다.
   매 실행 `housing:lists`를 비우고 상세는 `housing:{slug}` 태그로 한 장씩. 샘플 응답은 `npm run fixtures:housing`.
@@ -41,6 +42,8 @@
 | 상세 `/benefit/{slug}` (`getBenefitBySlug`·`listRelated`·`peerIndex`·`listWithArticlesForDetail`) | 일주일 | cron이 바뀐 슬러그의 `benefit:{slug}`를 비움. D-day는 `DdayBadge`가 클라이언트에서 다시 셈 |
 | 홈·세그먼트·지역·전체목록·마감·비교 | 하루 | cron이 매 실행마다 `benefits:lists`·`benefits:home`을 비움 |
 | 가이드 | 하루(백링크는 일주일) | 발행 스크립트가 `guides`를 비움 |
+| 공고 목록·지역 집계·홈/my 블록 | 하루 | cron이 매번 `housing:lists`를 비운다 |
+| 공고 상세 | 일주일 | `housing:{slug}`(+`housing:all`)를 바뀐 공고만 비움. D-day는 `DdayBadge`가 브라우저에서 센다 |
 
 - 상세 페이지의 조회 함수에는 `benefits:lists`를 달지 않는다. 달면 상세 1만 장이 그 태그를 물려받아 목록을
   비울 때마다 전부 낡은 것으로 표시된다. 그래서 `listWithArticles`(허브용, lists 태그)와
@@ -113,6 +116,9 @@
 | `/benefit/{slug}` | 상세 (검수 게재된 해설이 있을 때만) | 조건부 |
 | `/deadline` | 마감 캘린더 | O |
 | `/guide/{slug}` | 가이드 | O |
+| `/housing` | 청약홈·LH 공고 목록. 탭 접수중·예정/마감, 종류 필터(필터 주소는 noindex) | 기본 주소만 O |
+| `/housing/{region}` | 지역별 공고(그 지역 전용 접수중·예정 5건 이상일 때만, `HOUSING_REGION_MIN_ACTIVE`) | 조건부 |
+| `/housing/{slug}` | 청약홈 공고 상세(일정·세대수·주택형). LH는 상세 없이 원문으로. 광고 없음 | X |
 | `/about` `/contact` `/privacy` `/terms` | 소개·편집 원칙, 문의, 개인정보처리방침, 약관. 운영 주체는 `NEXT_PUBLIC_OPERATOR_NAME`이 있을 때만 적는다 | O |
 | 404 | `src/app/not-found.tsx`(루트)와 `(site)/not-found.tsx`가 같은 한국어 본문을 낸다. 루트 레이아웃에 robots를 적지 않는 이유가 여기 있다(적으면 404에 index와 noindex가 같이 나간다) | X |
 | `/sitemap.xml` | 사이트맵 인덱스 | — |
