@@ -9,6 +9,7 @@ vi.mock('../index-policy', async (orig) => {
 })
 
 import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths, compareEntries, housingEntries } from '../sitemap-entries'
+import { HOUSING_REGION_MIN_ACTIVE } from '../index-policy'
 
 beforeEach(() => { process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com' })
 
@@ -114,6 +115,9 @@ describe('compareEntries', () => {
 
   // 묶음은 제목에서 계산한 값이라 "언제 바뀌었나"에 해당하는 시각이 없다. 없는 편이
   // 부정확한 값보다 낫다(이 파일 위쪽 regionHubEntries 주석과 같은 이유).
+  it('집계가 비어 있으면 /housing만', () => {
+    expect(housingEntries({}).map((e) => e.url)).toEqual(['https://example.com/housing'])
+  })
   it('lastmod를 싣지 않는다', () => {
     expect(compareEntries([{ key: '출산장려금', regionCount: 10 }])[0].lastModified).toBeUndefined()
   })
@@ -121,7 +125,7 @@ describe('compareEntries', () => {
 
 describe('housingEntries', () => {
   it('/housing은 항상, 지역은 임계값을 넘는 곳만', () => {
-    const urls = housingEntries({ seoul: 12, busan: 2 }).map((e) => e.url)
+    const urls = housingEntries({ seoul: HOUSING_REGION_MIN_ACTIVE, busan: HOUSING_REGION_MIN_ACTIVE - 1 }).map((e) => e.url)
     expect(urls).toEqual(['https://example.com/housing', 'https://example.com/housing/seoul'])
   })
   it('lastmod를 싣지 않는다', () => {

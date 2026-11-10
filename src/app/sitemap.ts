@@ -27,7 +27,11 @@ async function hubSitemap(): Promise<MetadataRoute.Sitemap> {
     listCompareKeys(),
     // 허브 페이지와 같은 limit으로 불러 캐시 항목을 나눠 쓴다(index-policy.ts의 HUB_EXPLAINED_LIMIT).
     Promise.all(PUBLIC_SEGMENTS.map((s) => listWithArticles(s.slug, HUB_EXPLAINED_LIMIT))),
-    countActiveHousingByRegion(),
+    // 공고 테이블이 없거나 조회가 실패해도 허브 사이트맵 전체가 500이 되면 안 된다(공용 페이지의 부가 섹션은 catch로 빈 값).
+    countActiveHousingByRegion().catch((e) => {
+      console.error('[sitemap] housing count failed:', e)
+      return {} as Record<string, number>
+    }),
   ])
   if (regionsRes.error) throw regionsRes.error
   const regions = (regionsRes.data ?? []) as { slug: string; description_md: string | null }[]
