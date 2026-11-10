@@ -195,6 +195,7 @@ describe('GET /api/cron/sync — 공고', () => {
     const body = await res.json()
     expect(body.gov24).toMatchObject({ aborted_reason: '건수 급감' })
     expect(body.housing).toMatchObject({ applyhome: { upserted: 2 }, invalidated: 'per-slug' })
+    expect(calledTags()).toContain('housing:lists')
     expect(calledTags()).not.toContain('benefits:lists')
   })
 
