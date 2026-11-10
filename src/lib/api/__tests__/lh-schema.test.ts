@@ -23,4 +23,19 @@ describe('LH 공고문 응답 파서', () => {
   it('PAN_ID가 없는 행은 거부한다', () => {
     expect(() => parseLhList({ dsList: [{ PAN_NM: '이름만' }] })).toThrow()
   })
+
+  it('ALL_CNT가 없거나 0·비숫자면 total은 null, 정상이면 숫자', () => {
+    const { ALL_CNT: _a, ...noCnt } = row
+    void _a
+    expect(parseLhList({ dsList: [noCnt] }).total).toBeNull()
+    expect(parseLhList({ dsList: [{ ...row, ALL_CNT: '0' }] }).total).toBeNull()
+    expect(parseLhList({ dsList: [{ ...row, ALL_CNT: 'abc' }] }).total).toBeNull()
+    expect(parseLhList({ dsList: [{ ...row, ALL_CNT: '37' }] }).total).toBe(37)
+  })
+
+  it('SS_CODE가 Y가 아니면 던진다(두 래퍼 모두), Y면 던지지 않는다', () => {
+    expect(() => parseLhList([{ resHeader: [{ SS_CODE: 'N', RS_MSG: '키 오류' }] }])).toThrow('API 오류')
+    expect(() => parseLhList({ resHeader: { SS_CODE: 'N', RS_MSG: 'x' }, dsList: [row] })).toThrow('API 오류')
+    expect(() => parseLhList([{ resHeader: [{ SS_CODE: 'Y' }] }, { dsList: [row] }])).not.toThrow()
+  })
 })

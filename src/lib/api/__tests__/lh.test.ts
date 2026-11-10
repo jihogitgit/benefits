@@ -79,10 +79,57 @@ describe('LH 클라이언트', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
-  it('dsList가 비었는데 ALL_CNT가 더 크면 그 코드는 1번만 요청한다', async () => {
-    fetchMock.mockImplementation(async () => empty())
+  const rows = (prefix: string, n: number, all?: string) =>
+    Array.from({ length: n }, (_, i) => ({ PAN_ID: `${prefix}${i}`, ...(all ? { ALL_CNT: all } : {}) }))
+  const firstCodeCalls = () => fetchMock.mock.calls.filter((c) => cdOf(c) === '05').length
+
+  it('빈 페이지에서 멈춘다(ALL_CNT 500, 2페이지째 비어 있음)', async () => {
+    fetchMock
+      .mockImplementationOnce(async () => json(body(rows('a', 100, '500'))))
+      .mockImplementation(async () => empty())
     await fetchLhNotices(opts)
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(firstCodeCalls()).toBe(2)
+  })
+
+  it('ALL_CNT가 없으면 가득 찬 페이지가 이어지는 동안 받는다', async () => {
+    fetchMock
+      .mockImplementationOnce(async () => json(body(rows('a', 100))))
+      .mockImplementationOnce(async () => json(body(rows('b', 30))))
+      .mockImplementation(async () => empty())
+    const r = await fetchLhNotices(opts)
+    expect(r).toHaveLength(130)
+    expect(firstCodeCalls()).toBe(2)
+  })
+
+  it("ALL_CNT가 '0'이어도 같다", async () => {
+    fetchMock
+      .mockImplementationOnce(async () => json(body(rows('a', 100, '0'))))
+      .mockImplementationOnce(async () => json(body(rows('b', 30, '0'))))
+      .mockImplementation(async () => empty())
+    const r = await fetchLhNotices(opts)
+    expect(r).toHaveLength(130)
+    expect(firstCodeCalls()).toBe(2)
+  })
+
+  it('200 응답의 SS_CODE가 N이면 재시도 없이 던진다', async () => {
+    fetchMock.mockImplementation(async () => json([{ resHeader: [{ SS_CODE: 'N', RS_MSG: '오류' }] }]))
+    await expect(fetchLhNotices(opts)).rejects.toThrow('API 오류')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('전체 건수는 첫 페이지 값으로 고정한다', async () => {
+    fetchMock
+      .mockImplementationOnce(async () => json(body(rows('a', 100, '150'))))
+      .mockImplementationOnce(async () => json(body(rows('b', 50, '9999'))))
+      .mockImplementation(async () => empty())
+    const r = await fetchLhNotices(opts)
+    expect(r).toHaveLength(150)
+    expect(firstCodeCalls()).toBe(2)
+  })
+
+  it('페이지 상한(50)을 넘으면 던진다', async () => {
+    fetchMock.mockImplementation(async () => json(body(rows('a', 100))))
+    await expect(fetchLhNotices(opts)).rejects.toThrow('페이지 상한 초과')
   })
 
   it('PAN_ID로 중복을 제거한다(첫 번째 유지)', async () => {

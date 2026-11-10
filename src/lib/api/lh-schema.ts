@@ -29,13 +29,35 @@ export type LhNoticeItem = z.infer<typeof lhNoticeItem>
 
 const dsListShape = z.object({ dsList: z.array(lhNoticeItem).optional() }).passthrough()
 
-/** 배열 래퍼와 객체 래퍼를 모두 dsList 하나로 편다. total은 ALL_CNT(없으면 행 수). */
-export function parseLhList(json: unknown): { items: LhNoticeItem[]; total: number } {
+// 실제 응답 예시가 없어 느슨하게 둔다. SS_CODE가 있고 'Y'가 아니면 오류로 본다.
+const resHeaderShape = z.object({ SS_CODE: str, RS_MSG: str }).passthrough()
+
+function checkHeaders(part: object): void {
+  if (!('resHeader' in part)) return
+  const raw = (part as { resHeader: unknown }).resHeader
+  for (const h of Array.isArray(raw) ? raw : [raw]) {
+    const r = resHeaderShape.safeParse(h)
+    if (r.success && r.data.SS_CODE != null && r.data.SS_CODE !== 'Y') {
+      throw new Error(`lh API 오류 ${r.data.SS_CODE}: ${r.data.RS_MSG ?? ''}`)
+    }
+  }
+}
+
+/**
+ * 배열 래퍼와 객체 래퍼를 모두 dsList 하나로 편다.
+ * total은 첫 행 ALL_CNT가 행 수 이상의 정수일 때만 믿고, 아니면 null(미상). 빈 목록은 0.
+ * resHeader의 SS_CODE가 Y가 아니면 던진다(재시도 대상 아님).
+ */
+export function parseLhList(json: unknown): { items: LhNoticeItem[]; total: number | null } {
   const parts = Array.isArray(json) ? json : [json]
   const items: LhNoticeItem[] = []
   for (const p of parts) {
-    if (p && typeof p === 'object' && 'dsList' in (p as object)) items.push(...(dsListShape.parse(p).dsList ?? []))
+    if (!p || typeof p !== 'object') continue
+    checkHeaders(p)
+    if ('dsList' in p) items.push(...(dsListShape.parse(p).dsList ?? []))
   }
-  const total = items.length ? Number(items[0].ALL_CNT ?? items.length) || items.length : 0
-  return { items, total }
+  if (items.length === 0) return { items, total: 0 }
+  const raw = items[0].ALL_CNT
+  const n = raw == null ? NaN : Number(raw)
+  return { items, total: Number.isInteger(n) && n >= items.length ? n : null }
 }
