@@ -43,16 +43,16 @@ create table housing_notices (
   unique (source, source_id)
 );
 
-create index housing_notices_status_idx on housing_notices (status);
+-- 목록 쿼리(status in (...) + order by receipt_end nulls last, slug)와 지역 집계(status로 거른 region_code)가 쓰는 인덱스.
+-- status 단독·kind 단독 인덱스는 카디널리티가 낮아 쓰이지 않는다.
+create index housing_notices_list_idx on housing_notices (status, receipt_end, slug);
 create index housing_notices_region_idx on housing_notices (region_code);
-create index housing_notices_kind_idx on housing_notices (kind);
-create index housing_notices_receipt_end_idx on housing_notices (receipt_end);
 
 -- 청약홈 APT·무순위 공고의 주택형별 행. LH는 없다.
 create table housing_unit_types (
   notice_id uuid not null references housing_notices(id) on delete cascade,
   house_type text not null,
-  supply_area numeric,
+  supply_area numeric(7,2),
   max_price_manwon int,
   general_units int,
   special_units int,
