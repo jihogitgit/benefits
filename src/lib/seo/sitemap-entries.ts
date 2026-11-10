@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next'
 import { absoluteUrl } from './site'
-import { benefitIndexable, compareIndexable, guideIndexable, hubIndexable, regionHubIndexable } from './index-policy'
+import { benefitIndexable, compareIndexable, guideIndexable, hubIndexable, housingRegionIndexable, regionHubIndexable } from './index-policy'
 import { LIFE_EVENTS } from '../../../data/life-events'
 import { PUBLIC_SEGMENTS, SEGMENT_OTHER } from '../../../data/segments'
+import { REGIONS } from '../../../data/regions'
 
 type Entry = MetadataRoute.Sitemap[number]
 
@@ -108,5 +109,17 @@ export function staticEntries(explainedBySegment: Record<string, number>): Entry
     { url: absoluteUrl('/contact'), changeFrequency: 'yearly', priority: 0.2 },
     { url: absoluteUrl('/privacy'), changeFrequency: 'yearly', priority: 0.1 },
     { url: absoluteUrl('/terms'), changeFrequency: 'yearly', priority: 0.1 },
+  ]
+}
+
+/** /housing과 색인 조건을 넘긴 지역 목록. 공고 상세는 넣지 않는다. lastmod 없음(정적·허브와 같은 이유). */
+export function housingEntries(activeByRegion: Record<string, number>): Entry[] {
+  return [
+    { url: absoluteUrl('/housing'), changeFrequency: 'daily', priority: 0.8 },
+    ...REGIONS.filter((r) => housingRegionIndexable({ activeCount: activeByRegion[r.slug] ?? 0 })).map((r) => ({
+      url: absoluteUrl(`/housing/${r.slug}`),
+      changeFrequency: 'daily' as const,
+      priority: 0.6,
+    })),
   ]
 }

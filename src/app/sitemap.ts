@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/server'
 import { countByRegion, listPublishedGuides, listCompareKeys, listWithArticles } from '@/lib/benefits/queries'
+import { countActiveHousingByRegion } from '@/lib/housing/queries'
 import { HUB_EXPLAINED_LIMIT } from '@/lib/seo/index-policy'
-import { benefitEntries, compareEntries, guideEntries, regionHubEntries, staticEntries, SITEMAP_IDS, SITEMAP_SEGMENTS, type BenefitSitemapRow } from '@/lib/seo/sitemap-entries'
+import { benefitEntries, compareEntries, guideEntries, housingEntries, regionHubEntries, staticEntries, SITEMAP_IDS, SITEMAP_SEGMENTS, type BenefitSitemapRow } from '@/lib/seo/sitemap-entries'
 import { PUBLIC_SEGMENTS } from '../../data/segments'
 import { REGIONS } from '../../data/regions'
 
@@ -19,13 +20,14 @@ async function hubSitemap(): Promise<MetadataRoute.Sitemap> {
   // 건수는 countByRegion으로만 구한다. benefits를 직접 훑으면 Supabase의 1000행 상한에 조용히
   // 잘려(실데이터 10,947건) 지역 허브가 색인 기준 미달로 오판된다. countByRegion은 range 페이징과
   // 캐시를 이미 갖고 있고, 지역 허브 페이지의 제목 건수와 같은 식(지역 + 전국)을 쓴다.
-  const [regionsRes, countsPerSegment, guides, compareGroups, explainedPerSegment] = await Promise.all([
+  const [regionsRes, countsPerSegment, guides, compareGroups, explainedPerSegment, housingByRegion] = await Promise.all([
     createPublicClient().from('regions').select('slug, description_md'),
     Promise.all(PUBLIC_SEGMENTS.map((s) => countByRegion(s.slug))),
     listPublishedGuides(),
     listCompareKeys(),
     // 허브 페이지와 같은 limit으로 불러 캐시 항목을 나눠 쓴다(index-policy.ts의 HUB_EXPLAINED_LIMIT).
     Promise.all(PUBLIC_SEGMENTS.map((s) => listWithArticles(s.slug, HUB_EXPLAINED_LIMIT))),
+    countActiveHousingByRegion(),
   ])
   if (regionsRes.error) throw regionsRes.error
   const regions = (regionsRes.data ?? []) as { slug: string; description_md: string | null }[]
@@ -40,7 +42,7 @@ async function hubSitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   )
   const explainedBySegment = Object.fromEntries(PUBLIC_SEGMENTS.map((s, i) => [s.slug, explainedPerSegment[i].length]))
-  return [...staticEntries(explainedBySegment), ...guideEntries(guides), ...regionHubEntries(counts, descriptions), ...compareEntries(compareGroups)]
+  return [...staticEntries(explainedBySegment), ...guideEntries(guides), ...regionHubEntries(counts, descriptions), ...compareEntries(compareGroups), ...housingEntries(housingByRegion)]
 }
 
 async function segmentSitemap(segment: string): Promise<MetadataRoute.Sitemap> {

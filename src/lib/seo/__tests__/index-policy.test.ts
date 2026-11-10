@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, compareEligible, COMPARE_MIN_REGIONS, COMPARE_INDEX_ENABLED, HUB_MIN_EXPLAINED } from '../index-policy'
+import { benefitIndexable, hubIndexable, regionHubIndexable, compareIndexable, compareEligible, COMPARE_MIN_REGIONS, COMPARE_INDEX_ENABLED, housingRegionIndexable, HOUSING_REGION_MIN_ACTIVE, HUB_MIN_EXPLAINED } from '../index-policy'
 import { compareEntries } from '../sitemap-entries'
 
 describe('index policy', () => {
@@ -48,5 +48,13 @@ describe('compareIndexable', () => {
   // "여러 곳이 하는 같은 사업"이 아니라서 비교할 것이 없다.
   it('건수가 많아도 지역이 적으면 색인하지 않는다', () => {
     expect(compareEligible({ regionCount: 2 })).toBe(false)
+  })
+})
+
+describe('housingRegionIndexable', () => {
+  // 지역 허브와 같은 이유: 공고 두세 건에 지역명만 다른 페이지 17장은 doorway page다.
+  it('그 지역 전용 접수중·예정 공고가 임계값 이상일 때만 색인', () => {
+    expect(housingRegionIndexable({ activeCount: HOUSING_REGION_MIN_ACTIVE })).toBe(true)
+    expect(housingRegionIndexable({ activeCount: HOUSING_REGION_MIN_ACTIVE - 1 })).toBe(false)
   })
 })

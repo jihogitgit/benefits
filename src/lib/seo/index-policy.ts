@@ -104,3 +104,13 @@ export const COMPARE_INDEX_ENABLED = false
 export function compareIndexable(g: { regionCount: number }): boolean {
   return COMPARE_INDEX_ENABLED && compareEligible(g)
 }
+
+/**
+ * 지역별 공고 목록(/housing/[region])의 색인 임계값. 세는 대상은 **그 지역 전용** 접수중·예정 공고다
+ * (전국 ALL 제외 — 지역 허브와 같은 doorway page 이유). 공고 상세는 항상 noindex(설계 5절).
+ */
+export const HOUSING_REGION_MIN_ACTIVE = 5
+
+export function housingRegionIndexable(r: { activeCount: number }): boolean {
+  return r.activeCount >= HOUSING_REGION_MIN_ACTIVE
+}

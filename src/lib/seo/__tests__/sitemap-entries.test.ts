@@ -8,7 +8,7 @@ vi.mock('../index-policy', async (orig) => {
   return { ...real, compareIndexable: real.compareEligible }
 })
 
-import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths, compareEntries } from '../sitemap-entries'
+import { benefitEntries, guideEntries, regionHubEntries, staticEntries, sitemapPaths, compareEntries, housingEntries } from '../sitemap-entries'
 
 beforeEach(() => { process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com' })
 
@@ -116,5 +116,15 @@ describe('compareEntries', () => {
   // 부정확한 값보다 낫다(이 파일 위쪽 regionHubEntries 주석과 같은 이유).
   it('lastmod를 싣지 않는다', () => {
     expect(compareEntries([{ key: '출산장려금', regionCount: 10 }])[0].lastModified).toBeUndefined()
+  })
+})
+
+describe('housingEntries', () => {
+  it('/housing은 항상, 지역은 임계값을 넘는 곳만', () => {
+    const urls = housingEntries({ seoul: 12, busan: 2 }).map((e) => e.url)
+    expect(urls).toEqual(['https://example.com/housing', 'https://example.com/housing/seoul'])
+  })
+  it('lastmod를 싣지 않는다', () => {
+    expect(housingEntries({ seoul: 12 }).every((e) => e.lastModified === undefined)).toBe(true)
   })
 })
