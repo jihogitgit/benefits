@@ -12,6 +12,7 @@ import type { FeedArticleRow, FeedGuideRow } from '@/lib/seo/rss'
 import { SITEMAP_SEGMENTS } from '@/lib/seo/sitemap-entries'
 import { BROWSE_PAGE_SIZE, BROWSE_SEGMENTS, REGION_NATIONAL, SOON_DAYS, regionFilterOf, segmentSlugOf, type BrowseInput } from './browse'
 import type { BenefitStatus, DeadlineType, Gender, ReviewStatus, Segment } from '@/types/database'
+import { GOV24_SOURCE } from '@/lib/sync/normalize'
 
 /**
  * 캐시 TTL. 데이터 변경은 cron·발행 스크립트가 태그로 비우므로 TTL은 안전망이다.
@@ -535,6 +536,9 @@ export const getLastSyncAt = unstable_cache(
     const { data, error } = await createPublicClient()
       .from('sync_runs')
       .select('finished_at')
+      // sync_runs에는 공고(applyhome·lh) 실행도 쌓인다. 홈의 '마지막 확인'은 보조금24 데이터의 신선도이므로
+      // 보조금24가 중단·실패한 날 공고 실행 시각이 대신 찍히지 않게 보조금24 행만 본다.
+      .eq('source', GOV24_SOURCE)
       .is('error', null)
       .is('aborted_reason', null)
       // 진행 중인 동기화 행도 error·aborted_reason이 null이라 정렬 1위를 차지한다. finished_at을

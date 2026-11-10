@@ -141,6 +141,15 @@ describe('queries', () => {
     expect(c.not).toHaveBeenCalledWith('finished_at', 'is', null)
   })
 
+  // 홈의 '마지막 확인'은 보조금24 데이터의 신선도다. 공고(청약홈·LH) 실행이 더 늦게 끝나도 그 시각을 쓰면 안 된다.
+  it('getLastSyncAt은 보조금24 실행만 본다', async () => {
+    const c = chain()
+    c.maybeSingle.mockResolvedValue({ data: null, error: null })
+    from.mockReturnValue(c)
+    await getLastSyncAt()
+    expect(c.eq).toHaveBeenCalledWith('source', 'gov24')
+  })
+
   it('countByRegion은 region_code별 건수를 집계한다', async () => {
     const c = chain()
     c.range.mockResolvedValue({ data: [{ region_code: 'seoul' }, { region_code: 'seoul' }, { region_code: 'ALL' }], error: null })
