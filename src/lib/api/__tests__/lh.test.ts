@@ -166,4 +166,33 @@ describe('LH 클라이언트', () => {
     expect(r).toHaveLength(100)
     expect(r.find((x) => x.PAN_ID === 'p99')?.PAN_NM).toBe('공고 p99')
   })
+
+  it('시간 예산이 이미 지났으면 요청 없이 시간 예산 초과로 던진다', async () => {
+    fetchMock.mockImplementation(async () => empty())
+    await expect(fetchLhNotices({ ...opts, deadlineMs: Date.now() - 1 })).rejects.toThrow('시간 예산 초과')
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('마감이 100ms 남았으면 503에도 재시도하지 않고 던진다', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('busy', { status: 503 }))
+      .mockImplementation(async () => empty())
+    await expect(fetchLhNotices({ ...opts, deadlineMs: Date.now() + 100 })).rejects.toThrow('HTTP 503')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('페이지 사이에서 마감이 지나면 다음 페이지를 요청하지 않는다', async () => {
+    const deadlineMs = Date.now() + 60_000
+    fetchMock.mockImplementation(async () => {
+      vi.setSystemTime(deadlineMs + 1)
+      return json(body(rows('a', 100, '500')))
+    })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      await expect(fetchLhNotices({ ...opts, deadlineMs })).rejects.toThrow('시간 예산 초과')
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })

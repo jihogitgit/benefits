@@ -105,9 +105,9 @@ async function housingStep(deadlineMs: number): Promise<Record<string, unknown>>
     const since = new Date(Date.now() - HOUSING_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10)
     const result: HousingSyncResult = await runHousingSync({
       repo: createHousingRepo(createAdminClient()),
-      fetchApplyhome: () => fetchApplyhomeDetails(since),
-      fetchUnits: (kind, h, p) => fetchApplyhomeUnits(kind, h, p),
-      fetchLh: () => fetchLhNotices(),
+      fetchApplyhome: (opts) => fetchApplyhomeDetails(since, opts),
+      fetchUnits: (kind, h, p, opts) => fetchApplyhomeUnits(kind, h, p, opts),
+      fetchLh: (opts) => fetchLhNotices(opts),
       deadlineMs,
     })
     // 목록·홈/my 블록은 매번. 상세는 바뀐 슬러그만(removed 포함 — 내려간 공고 페이지도 갱신돼야 한다).

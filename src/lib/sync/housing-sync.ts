@@ -8,15 +8,24 @@ import { shouldAbortForDrop } from './diff'
 import { housingSlugBase, normalizeApt, normalizeLh, normalizeRemainder, normalizeUrbty, unitsFromMdl } from './housing-normalize'
 import type { HousingRepo, HousingSourceResult, HousingSyncResult } from './housing-types'
 
+/** fetcher에 넘기는 요청 옵션. 클라이언트가 요청 시간 초과·재시도를 마감 안으로 줄이는 데 쓴다. */
+export interface HousingFetchOpts {
+  deadlineMs?: number
+}
+
 export interface HousingSyncDeps {
   repo: HousingRepo
-  fetchApplyhome: () => Promise<{ apt: AptDetailItem[]; remainder: RemainderDetailItem[]; urbty: UrbtyDetailItem[] }>
+  fetchApplyhome: (opts: HousingFetchOpts) => Promise<{ apt: AptDetailItem[]; remainder: RemainderDetailItem[]; urbty: UrbtyDetailItem[] }>
   /** 바뀐 APT·무순위 공고의 주택형. 바뀌지 않은 공고에는 부르지 않는다. */
-  fetchUnits: (kind: 'apt' | 'remainder', houseManageNo: string, pblancNo: string) => Promise<MdlItem[]>
-  fetchLh: () => Promise<LhNoticeItem[]>
+  fetchUnits: (kind: 'apt' | 'remainder', houseManageNo: string, pblancNo: string, opts: HousingFetchOpts) => Promise<MdlItem[]>
+  fetchLh: (opts: HousingFetchOpts) => Promise<LhNoticeItem[]>
   now?: Date
   batchSize?: number
-  /** 시간 예산의 끝(epoch ms). 넘으면 남은 공고는 upsert하지 않고 다음 실행으로 미룬다. */
+  /**
+   * 시간 예산의 끝(epoch ms). 넘으면 남은 공고는 upsert하지 않고 다음 실행으로 미룬다.
+   * fetcher에도 넘긴다. 요청 중에 마감이 오면 클라이언트가 던지고, 그 소스는 error로 끝난다
+   * (markRemoved는 돌지 않고, 라우트는 상세 캐시를 전부 비운다).
+   */
   deadlineMs?: number
   log?: (msg: string) => void
 }
@@ -105,7 +114,7 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
         }
         let units: HousingUnitTypeInput[]
         try {
-          units = unitsFromMdl(await deps.fetchUnits(c.units.kind, c.units.houseManageNo, c.units.pblancNo))
+          units = unitsFromMdl(await deps.fetchUnits(c.units.kind, c.units.houseManageNo, c.units.pblancNo, { deadlineMs: deps.deadlineMs }))
         } catch (err) {
           result.failed++
           console.error(`[housing-sync:${source}] 주택형 조회 실패 ${c.row.source_id}:`, errorMessage(err))
@@ -157,7 +166,7 @@ const syncApplyhome: SourceBody = async (deps, now, result, log) => {
     result.aborted_reason = '시간 예산 초과: 이번 실행에서 건너뜀'
     return
   }
-  const { apt, remainder, urbty } = await deps.fetchApplyhome()
+  const { apt, remainder, urbty } = await deps.fetchApplyhome({ deadlineMs: deps.deadlineMs })
   result.fetched = apt.length + remainder.length + urbty.length
   log(`fetched apt=${apt.length} remainder=${remainder.length} urbty=${urbty.length}`)
   const last = await deps.repo.lastSuccessfulFetched('applyhome')
@@ -182,7 +191,7 @@ const syncLh: SourceBody = async (deps, now, result, log) => {
     result.aborted_reason = '시간 예산 초과: 이번 실행에서 건너뜀'
     return
   }
-  const items = await deps.fetchLh()
+  const items = await deps.fetchLh({ deadlineMs: deps.deadlineMs })
   result.fetched = items.length
   log(`fetched ${items.length}`)
   const last = await deps.repo.lastSuccessfulFetched('lh')

@@ -12,9 +12,9 @@ async function main() {
   const since = new Date(Date.now() - HOUSING_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10)
   const result = await runHousingSync({
     repo,
-    fetchApplyhome: () => fetchApplyhomeDetails(since, { onPage: (op, p, t) => console.log(`${op} ${p}/${t}`) }),
-    fetchUnits: (kind, h, p) => fetchApplyhomeUnits(kind, h, p),
-    fetchLh: () => fetchLhNotices({ onPage: (cd, p, t) => console.log(`lh ${cd} p${p} (${t ?? '?'})`) }),
+    fetchApplyhome: (opts) => fetchApplyhomeDetails(since, { ...opts, onPage: (op, p, t) => console.log(`${op} ${p}/${t}`) }),
+    fetchUnits: (kind, h, p, opts) => fetchApplyhomeUnits(kind, h, p, opts),
+    fetchLh: (opts) => fetchLhNotices({ ...opts, onPage: (cd, p, t) => console.log(`lh ${cd} p${p} (${t ?? '?'})`) }),
     log: console.log,
   })
   const brief = (r: typeof result.applyhome) => ({ ...r, changedSlugs: r.changedSlugs.length, removedSlugs: r.removedSlugs.length })

@@ -1,6 +1,6 @@
 import { ZodError } from 'zod'
 import { parseLhList, type LhNoticeItem } from './lh-schema'
-import { housingApiKey, isTimeoutError, MAX_ATTEMPTS, REQUEST_TIMEOUT_MS, RETRY_BASE_MS, RetryableError, sleep } from './applyhome'
+import { canRetryWithin, housingApiKey, isTimeoutError, MAX_ATTEMPTS, remainingBudgetMs, REQUEST_TIMEOUT_MS, RETRY_BASE_MS, RetryableError, sleep } from './applyhome'
 
 const BASE_URL = 'https://apis.data.go.kr/B552555/lhLeaseNoticeInfo1/lhLeaseNoticeInfo1'
 
@@ -12,6 +12,8 @@ export interface LhFetchOptions {
   delayMs?: number
   /** 재시도 백오프 기준(ms). 기본 500. 테스트에서 0으로 둔다. */
   retryBaseMs?: number
+  /** 시간 예산의 끝(epoch ms). 요청 시간 초과를 남은 예산으로 줄이고, 넘으면 재시도 없이 던진다. */
+  deadlineMs?: number
   /** total은 첫 페이지 ALL_CNT. 믿을 수 없으면 null(미상). */
   onPage?: (cd: string, page: number, total: number | null) => void
 }
@@ -22,11 +24,13 @@ const MAX_PAGES = 50
 type Page = { items: LhNoticeItem[]; total: number | null }
 
 // 오류 메시지에는 URL(serviceKey 포함)을 절대 넣지 않는다.
-async function requestOnce(cd: string, page: number, url: string): Promise<Page> {
+async function requestOnce(cd: string, page: number, url: string, deadlineMs: number | undefined): Promise<Page> {
+  // 요청 하나가 마감을 넘기지 않게 시간 초과를 남은 예산으로 줄인다.
+  const timeoutMs = Math.min(REQUEST_TIMEOUT_MS, remainingBudgetMs(deadlineMs, `lh ${cd} p${page}`))
   let res: Response
   let text: string
   try {
-    res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
     text = await res.text() // 본문 읽기 중 시간 초과도 같은 경로로 잡는다
   } catch (e) {
     // AbortError도 재시도한다: 외부 signal을 넘기는 호출자가 없어 취소가 아니라 시간 초과다.
@@ -59,7 +63,7 @@ async function requestOnce(cd: string, page: number, url: string): Promise<Page>
   }
 }
 
-async function fetchPage(key: string, cd: string, page: number, pageSize: number, retryBaseMs: number): Promise<Page> {
+async function fetchPage(key: string, cd: string, page: number, pageSize: number, retryBaseMs: number, deadlineMs: number | undefined): Promise<Page> {
   const url = new URL(BASE_URL)
   url.searchParams.set('serviceKey', key)
   url.searchParams.set('PG_SZ', String(pageSize))
@@ -68,10 +72,12 @@ async function fetchPage(key: string, cd: string, page: number, pageSize: number
   const href = url.toString()
   for (let attempt = 0; ; attempt++) {
     try {
-      return await requestOnce(cd, page, href)
+      return await requestOnce(cd, page, href, deadlineMs)
     } catch (e) {
       if (!(e instanceof RetryableError) || attempt >= MAX_ATTEMPTS - 1) throw e
-      await sleep(retryBaseMs * 2 ** attempt)
+      const backoffMs = retryBaseMs * 2 ** attempt
+      if (!canRetryWithin(deadlineMs, backoffMs)) throw e // 기다리면 마감을 넘긴다
+      await sleep(backoffMs)
     }
   }
 }
@@ -87,7 +93,8 @@ export async function fetchLhNotices(opts: LhFetchOptions = {}): Promise<LhNotic
     let total: number | null = 0
     for (let page = 1; ; page++) {
       if (page > MAX_PAGES) throw new Error(`lh ${cd} 페이지 상한 초과`)
-      const r = await fetchPage(key, cd, page, pageSize, retryBaseMs)
+      remainingBudgetMs(opts.deadlineMs, `lh ${cd} p${page}`) // 페이지·코드 사이에서도 확인한다
+      const r = await fetchPage(key, cd, page, pageSize, retryBaseMs, opts.deadlineMs)
       if (page === 1) total = r.total // 첫 페이지 값으로 고정한다
       all.push(...r.items)
       opts.onPage?.(cd, page, total)

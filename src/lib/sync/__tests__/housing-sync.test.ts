@@ -74,7 +74,7 @@ describe('runHousingSync', () => {
     const r = await runHousingSync(d)
     expect(r.applyhome).toMatchObject({ fetched: 1, changed: 1, upserted: 1, skipped: 0, error: null })
     expect(r.lh).toMatchObject({ fetched: 1, changed: 1, upserted: 1 })
-    expect(d.fetchUnits).toHaveBeenCalledWith('apt', 'A1', 'A1')
+    expect(d.fetchUnits).toHaveBeenCalledWith('apt', 'A1', 'A1', { deadlineMs: undefined })
     expect(calls.units[0]).toMatchObject({ noticeId: 'id-A1:A1', rows: [{ house_type: '084A', sp_newlywed: 10 }] })
     const row = calls.notices.find((n) => n.source_id === 'A1:A1')!
     expect(row.sp_newlywed_units).toBe(10)
@@ -109,6 +109,19 @@ describe('runHousingSync', () => {
     expect(r.applyhome.aborted_reason).toMatch(/시간 예산/)
     expect(r.lh.aborted_reason).toMatch(/시간 예산/)
     expect(repo.markRemoved).not.toHaveBeenCalled()
+  })
+
+  // 클라이언트가 마감을 알아야 멈춘 요청 하나가 함수 시간을 다 먹지 않는다.
+  it('fetcher마다 deadlineMs를 넘긴다', async () => {
+    const { repo } = fakeRepo()
+    const deadlineMs = Date.now() + 3_600_000
+    const fetchApplyhome = vi.fn(async () => ({ apt: [apt('A1')], remainder: [], urbty: [] }))
+    const fetchLh = vi.fn(async () => [lh('L1')])
+    const d = deps(repo, { fetchApplyhome, fetchLh, deadlineMs })
+    await runHousingSync(d)
+    expect(fetchApplyhome).toHaveBeenCalledWith({ deadlineMs })
+    expect(d.fetchUnits).toHaveBeenCalledWith('apt', 'A1', 'A1', { deadlineMs })
+    expect(fetchLh).toHaveBeenCalledWith({ deadlineMs })
   })
 
   it('시간 예산이 넉넉하면 모두 upsert한다', async () => {

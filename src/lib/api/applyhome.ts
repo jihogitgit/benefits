@@ -44,11 +44,32 @@ export class RetryableError extends Error {}
 
 export const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
-async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: string): Promise<Page<T>> {
+/** 재시도는 백오프 뒤에도 이만큼은 남아 있어야 한다. 못 미치면 기다리지 않고 바로 던진다. */
+const MIN_RETRY_HEADROOM_MS = 1_000
+
+/**
+ * 시간 예산(deadlineMs, epoch ms)이 있으면 남은 시간을, 없으면 Infinity를 돌려준다.
+ * 이미 지났으면 재시도 대상이 아닌 오류로 던진다 — 다시 해도 시간은 더 줄 뿐이다.
+ */
+export function remainingBudgetMs(deadlineMs: number | undefined, label: string): number {
+  if (deadlineMs == null) return Infinity
+  const remaining = deadlineMs - Date.now()
+  if (remaining <= 0) throw new Error(`${label} 시간 예산 초과`)
+  return remaining
+}
+
+/** 백오프(ms)를 기다린 뒤 재시도해도 마감 안에 들어오는가. */
+export function canRetryWithin(deadlineMs: number | undefined, backoffMs: number): boolean {
+  return deadlineMs == null || deadlineMs - Date.now() >= backoffMs + MIN_RETRY_HEADROOM_MS
+}
+
+async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: string, deadlineMs: number | undefined): Promise<Page<T>> {
+  // 요청 하나가 마감을 넘기지 않게 시간 초과를 남은 예산으로 줄인다. 멈춘 연결 하나가 15초×3을 먹으면 cron이 60초를 넘는다.
+  const timeoutMs = Math.min(REQUEST_TIMEOUT_MS, remainingBudgetMs(deadlineMs, `applyhome ${op}`))
   let res: Response
   let text: string
   try {
-    res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
     text = await res.text() // 본문 읽기 중 시간 초과도 같은 경로로 잡는다
   } catch (e) {
     // AbortError도 재시도한다: 외부 signal을 넘기는 호출자가 없어 취소가 아니라 시간 초과다.
@@ -80,7 +101,7 @@ async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: strin
   return { data: ok.data, totalCount: ok.totalCount }
 }
 
-async function fetchPage<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, key: string, page: number, perPage: number, cond: Record<string, string>, retryBaseMs: number): Promise<Page<T>> {
+async function fetchPage<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, key: string, page: number, perPage: number, cond: Record<string, string>, retryBaseMs: number, deadlineMs: number | undefined): Promise<Page<T>> {
   const url = new URL(`${BASE_URL}/${op}`)
   url.searchParams.set('page', String(page))
   url.searchParams.set('perPage', String(perPage))
@@ -91,10 +112,12 @@ async function fetchPage<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, key: string,
 
   for (let attempt = 0; ; attempt++) {
     try {
-      return await requestOnce<T>(op, url.toString())
+      return await requestOnce<T>(op, url.toString(), deadlineMs)
     } catch (e) {
       if (!(e instanceof RetryableError) || attempt >= MAX_ATTEMPTS - 1) throw e
-      await sleep(retryBaseMs * 2 ** attempt)
+      const backoffMs = retryBaseMs * 2 ** attempt
+      if (!canRetryWithin(deadlineMs, backoffMs)) throw e // 기다리면 마감을 넘긴다
+      await sleep(backoffMs)
     }
   }
 }
@@ -104,6 +127,8 @@ export interface ApplyhomeFetchOptions {
   delayMs?: number
   /** 재시도 백오프 기준(ms). 기본 500. 테스트에서 0으로 둔다. */
   retryBaseMs?: number
+  /** 시간 예산의 끝(epoch ms). 요청 시간 초과를 남은 예산으로 줄이고, 넘으면 재시도 없이 던진다. */
+  deadlineMs?: number
   onPage?: (op: string, page: number, totalPages: number) => void
 }
 
@@ -121,7 +146,8 @@ async function fetchAll<T extends { HOUSE_MANAGE_NO: string; PBLANC_NO: string; 
   let page = 1
   let totalPages = 1
   while (page <= totalPages) {
-    const r = await fetchPage<T>(op, key, page, perPage, cond, retryBaseMs)
+    remainingBudgetMs(opts.deadlineMs, `applyhome ${op} p${page}`) // 페이지 사이에서도 확인한다
+    const r = await fetchPage<T>(op, key, page, perPage, cond, retryBaseMs, opts.deadlineMs)
     totalPages = Math.max(1, Math.ceil(r.totalCount / perPage))
     all.push(...r.data)
     opts.onPage?.(op, page, totalPages)
@@ -151,7 +177,9 @@ export async function fetchApplyhomeDetails(since: string, opts: ApplyhomeFetchO
   const cond = { 'RCRIT_PBLANC_DE::GTE': since }
   // 순차 실행: delayMs가 요청 간격으로 실제로 작동하게 한다.
   const apt = await fetchAll<AptDetailItem>('getAPTLttotPblancDetail', cond, opts)
+  remainingBudgetMs(opts.deadlineMs, 'applyhome getRemndrLttotPblancDetail')
   const remainder = await fetchAll<RemainderDetailItem>('getRemndrLttotPblancDetail', cond, opts)
+  remainingBudgetMs(opts.deadlineMs, 'applyhome getUrbtyOfctlLttotPblancDetail')
   const urbty = await fetchAll<UrbtyDetailItem>('getUrbtyOfctlLttotPblancDetail', cond, opts)
   return { apt, remainder, urbty }
 }

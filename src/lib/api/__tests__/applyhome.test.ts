@@ -115,4 +115,33 @@ describe('청약홈 클라이언트', () => {
     const ops = fetchMock.mock.calls.map((c) => String(c[0]).split('?')[0].split('/').pop())
     expect(ops).toEqual(['getAPTLttotPblancDetail', 'getRemndrLttotPblancDetail', 'getUrbtyOfctlLttotPblancDetail'])
   })
+
+  it('시간 예산이 이미 지났으면 요청 없이 시간 예산 초과로 던진다', async () => {
+    fetchMock.mockImplementation(async () => json(body([], 0)))
+    await expect(fetchApplyhomeUnits('apt', '1', '1', { ...opts, deadlineMs: Date.now() - 1 })).rejects.toThrow('시간 예산 초과')
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('마감이 100ms 남았으면 503에도 재시도하지 않고 던진다', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('busy', { status: 503 }))
+      .mockResolvedValueOnce(json(body([row(1)], 1)))
+    await expect(fetchApplyhomeUnits('apt', '1', '1', { ...opts, deadlineMs: Date.now() + 100 })).rejects.toThrow('HTTP 503')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('공고 3종 사이에서 마감이 지나면 다음 종류를 요청하지 않는다', async () => {
+    const deadlineMs = Date.now() + 60_000
+    fetchMock.mockImplementation(async () => {
+      vi.setSystemTime(deadlineMs + 1)
+      return json(body([], 0))
+    })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      await expect(fetchApplyhomeDetails('2026-01-01', { ...opts, deadlineMs })).rejects.toThrow('시간 예산 초과')
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })
