@@ -32,42 +32,104 @@ const SCHEMA: Record<ApplyhomeDetailOp | ApplyhomeMdlOp, z.ZodTypeAny> = {
 
 interface Page<T> { data: T[]; totalCount: number }
 
-async function fetchPage<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, page: number, perPage: number, cond: Record<string, string>): Promise<Page<T>> {
+// 일시 오류(429·5xx·네트워크)만 재시도한다. 4xx·스키마·API 오류는 다시 해도 같으므로 바로 던진다.
+const MAX_ATTEMPTS = 3
+const RETRY_BASE_MS = 500
+
+class RetryableError extends Error {}
+
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
+
+async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: string): Promise<Page<T>> {
+  let res: Response
+  try {
+    res = await fetch(url, { cache: 'no-store' })
+  } catch (e) {
+    if (e instanceof TypeError) throw new RetryableError(`applyhome ${op} 네트워크 오류: ${e.message}`)
+    throw e
+  }
+  const text = await res.text()
+  if (!res.ok) {
+    const msg = `applyhome ${op} HTTP ${res.status}: ${text.slice(0, 200)}`
+    if (res.status === 429 || res.status >= 500) throw new RetryableError(msg)
+    throw new Error(msg)
+  }
+  let body: unknown
+  try {
+    body = JSON.parse(text)
+  } catch {
+    throw new Error(`applyhome ${op} JSON이 아님: ${text.slice(0, 200)}`)
+  }
+  const obj = body as { code?: unknown; msg?: unknown; data?: unknown }
+  if (obj && typeof obj === 'object' && obj.code !== undefined && obj.data === undefined) {
+    throw new Error(`applyhome ${op} API 오류 ${String(obj.code)}: ${String(obj.msg ?? '')}`)
+  }
+  const parsed = SCHEMA[op].safeParse(body)
+  if (!parsed.success) {
+    const issues = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
+    throw new Error(`applyhome ${op} 스키마 불일치: ${issues}`)
+  }
+  const ok = parsed.data as { data: T[]; totalCount: number }
+  return { data: ok.data, totalCount: ok.totalCount }
+}
+
+async function fetchPage<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, key: string, page: number, perPage: number, cond: Record<string, string>, retryBaseMs: number): Promise<Page<T>> {
   const url = new URL(`${BASE_URL}/${op}`)
   url.searchParams.set('page', String(page))
   url.searchParams.set('perPage', String(perPage))
   url.searchParams.set('returnType', 'JSON')
-  url.searchParams.set('serviceKey', housingApiKey())
+  url.searchParams.set('serviceKey', key)
   // odcloud 검색 조건: cond[필드::연산자]=값. 연산자는 EQ·GT·GTE·LT·LTE·LIKE.
   for (const [k, v] of Object.entries(cond)) url.searchParams.set(`cond[${k}]`, v)
 
-  const res = await fetch(url.toString(), { cache: 'no-store' })
-  if (!res.ok) throw new Error(`applyhome ${op} HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
-  const parsed = SCHEMA[op].parse(await res.json()) as { data: T[]; totalCount: number }
-  return { data: parsed.data, totalCount: parsed.totalCount }
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await requestOnce<T>(op, url.toString())
+    } catch (e) {
+      if (!(e instanceof RetryableError) || attempt >= MAX_ATTEMPTS - 1) throw e
+      await sleep(retryBaseMs * 2 ** attempt)
+    }
+  }
 }
 
 export interface ApplyhomeFetchOptions {
   perPage?: number
   delayMs?: number
+  /** 재시도 백오프 기준(ms). 기본 500. 테스트에서 0으로 둔다. */
+  retryBaseMs?: number
   onPage?: (op: string, page: number, totalPages: number) => void
 }
 
-async function fetchAll<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, cond: Record<string, string>, opts: ApplyhomeFetchOptions): Promise<T[]> {
+async function fetchAll<T extends { HOUSE_MANAGE_NO: string; PBLANC_NO: string; MODEL_NO?: string | null }>(
+  op: ApplyhomeDetailOp | ApplyhomeMdlOp,
+  cond: Record<string, string>,
+  opts: ApplyhomeFetchOptions,
+): Promise<T[]> {
+  const key = housingApiKey() // 요청 전에 키 누락을 먼저 드러낸다
   const perPage = opts.perPage ?? 500
   const delayMs = opts.delayMs ?? 300
+  const retryBaseMs = opts.retryBaseMs ?? RETRY_BASE_MS
+  const isMdl = op.endsWith('Mdl')
   const all: T[] = []
   let page = 1
   let totalPages = 1
   while (page <= totalPages) {
-    const r = await fetchPage<T>(op, page, perPage, cond)
+    const r = await fetchPage<T>(op, key, page, perPage, cond, retryBaseMs)
     totalPages = Math.max(1, Math.ceil(r.totalCount / perPage))
     all.push(...r.data)
     opts.onPage?.(op, page, totalPages)
+    if (r.data.length === 0) break // totalCount가 틀려도 무한히 돌지 않게
     page++
-    if (page <= totalPages && delayMs > 0) await new Promise((res) => setTimeout(res, delayMs))
+    if (page <= totalPages && delayMs > 0) await sleep(delayMs)
   }
-  return all
+  // 페이지를 넘기는 사이 행이 밀리면 같은 행이 두 번 올 수 있다. 첫 번째만 둔다.
+  const seen = new Set<string>()
+  return all.filter((r) => {
+    const k = `${r.HOUSE_MANAGE_NO}|${r.PBLANC_NO}${isMdl ? `|${r.MODEL_NO ?? ''}` : ''}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
 }
 
 export interface ApplyhomeDetails {
@@ -79,11 +141,10 @@ export interface ApplyhomeDetails {
 /** 모집공고일이 since(YYYY-MM-DD) 이후인 공고 3종. 과거 전체를 받지 않는다(설계 4절). */
 export async function fetchApplyhomeDetails(since: string, opts: ApplyhomeFetchOptions = {}): Promise<ApplyhomeDetails> {
   const cond = { 'RCRIT_PBLANC_DE::GTE': since }
-  const [apt, remainder, urbty] = await Promise.all([
-    fetchAll<AptDetailItem>('getAPTLttotPblancDetail', cond, opts),
-    fetchAll<RemainderDetailItem>('getRemndrLttotPblancDetail', cond, opts),
-    fetchAll<UrbtyDetailItem>('getUrbtyOfctlLttotPblancDetail', cond, opts),
-  ])
+  // 순차 실행: delayMs가 요청 간격으로 실제로 작동하게 한다.
+  const apt = await fetchAll<AptDetailItem>('getAPTLttotPblancDetail', cond, opts)
+  const remainder = await fetchAll<RemainderDetailItem>('getRemndrLttotPblancDetail', cond, opts)
+  const urbty = await fetchAll<UrbtyDetailItem>('getUrbtyOfctlLttotPblancDetail', cond, opts)
   return { apt, remainder, urbty }
 }
 

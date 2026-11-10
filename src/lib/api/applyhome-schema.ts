@@ -3,7 +3,7 @@ import { odcloudEnvelope } from './gov24-schema'
 
 /**
  * 청약홈 분양정보 조회 서비스(공공데이터포털 15098547, odcloud).
- * 값은 전부 문자열로 받고 정규화(날짜·숫자)는 sync/housing-normalize.ts가 한다.
+ * 값은 전부 문자열로 받고 정규화(날짜·숫자)는 sync/housing-normalize.ts(Task 5에서 작성)가 한다.
  * 실측(fixtures/housing): 날짜는 YYYY-MM-DD, MVN_PREARNGE_YM은 YYYYMM, HOUSE_SECD는 01 APT·10 신혼희망타운·
  * 04 무순위·02 오피스텔/도시형/민간임대. 숫자가 와도 문자열로 바꾼다(보조금24와 같은 str).
  */
@@ -40,7 +40,7 @@ const common = {
   MDHS_TELNO: str,
   HMPG_ADRES: str, // 홈페이지
   NSPRC_NM: str, // 실측 응답에 있는 필드(세 상세 응답 공통)
-  PBLANC_URL: str, // 문서에는 없으나 일부 응답에 있다는 보고가 있어 받아 둔다
+  PBLANC_URL: str, // 실측 응답에 있음(청약홈 상세 링크)
   SPECLT_RDN_EARTH_AT: str, // 투기과열지구
   MDAT_TRGET_AREA_SECD: str, // 조정대상지역
   PARCPRC_ULS_AT: str, // 분양가상한제

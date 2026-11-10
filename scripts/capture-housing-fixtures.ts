@@ -16,8 +16,9 @@ async function applyhome(op: string, cond: Record<string, string>) {
   url.searchParams.set('serviceKey', key)
   for (const [k, v] of Object.entries(cond)) url.searchParams.set(`cond[${k}]`, v)
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`${op} ${res.status} ${await res.text()}`)
+  if (!res.ok) throw new Error(`${op} ${res.status} ${(await res.text()).slice(0, 200)}`)
   const json = await res.json()
+  if (!Array.isArray(json.data)) throw new Error(`${op}: data 배열이 없음(오류 응답?) ${JSON.stringify(json).slice(0, 200)}`)
   writeFileSync(`fixtures/housing/${op}.sample.json`, JSON.stringify(json, null, 2))
   console.log(`${op}: totalCount=${json.totalCount}, keys=${Object.keys(json.data?.[0] ?? {}).join(', ')}`)
   return json
@@ -30,7 +31,7 @@ async function lh(uppAisTpCd: string) {
   url.searchParams.set('PAGE', '1')
   url.searchParams.set('UPP_AIS_TP_CD', uppAisTpCd)
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`lh ${uppAisTpCd} ${res.status} ${await res.text()}`)
+  if (!res.ok) throw new Error(`lh ${uppAisTpCd} ${res.status} ${(await res.text()).slice(0, 200)}`)
   const text = await res.text()
   writeFileSync(`fixtures/housing/lh-${uppAisTpCd}.sample.json`, text)
   console.log(`lh ${uppAisTpCd}: ${text.slice(0, 300)}`)
@@ -39,10 +40,12 @@ async function lh(uppAisTpCd: string) {
 async function main() {
   mkdirSync('fixtures/housing', { recursive: true })
   const apt = await applyhome('getAPTLttotPblancDetail', { 'RCRIT_PBLANC_DE::GTE': since })
-  await applyhome('getRemndrLttotPblancDetail', { 'RCRIT_PBLANC_DE::GTE': since })
   await applyhome('getUrbtyOfctlLttotPblancDetail', { 'RCRIT_PBLANC_DE::GTE': since })
+  const rem = await applyhome('getRemndrLttotPblancDetail', { 'RCRIT_PBLANC_DE::GTE': since })
   const first = apt.data?.[0]
   if (first) await applyhome('getAPTLttotPblancMdl', { 'HOUSE_MANAGE_NO::EQ': String(first.HOUSE_MANAGE_NO), 'PBLANC_NO::EQ': String(first.PBLANC_NO) })
+  const firstRem = rem.data?.[0]
+  if (firstRem) await applyhome('getRemndrLttotPblancMdl', { 'HOUSE_MANAGE_NO::EQ': String(firstRem.HOUSE_MANAGE_NO), 'PBLANC_NO::EQ': String(firstRem.PBLANC_NO) })
   let failed = false
   for (const cd of ['05', '06', '13', '39']) {
     try {

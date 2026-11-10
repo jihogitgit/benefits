@@ -1,0 +1,19 @@
+{
+  "currentCount": 1,
+  "data": [
+    {
+      "HOUSE_MANAGE_NO": "2026910290",
+      "HOUSE_TY": "039.6950 ",
+      "LTTOT_TOP_AMOUNT": "73826",
+      "MODEL_NO": "01",
+      "PBLANC_NO": "2026910290",
+      "SPSPLY_HSHLDCO": 0,
+      "SUPLY_AR": null,
+      "SUPLY_HSHLDCO": 6
+    }
+  ],
+  "matchCount": 1,
+  "page": 1,
+  "perPage": 5,
+  "totalCount": 4834
+}
