@@ -12,12 +12,15 @@ export function createHousingRepo(supabase: SupabaseClient): HousingRepo {
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabase
         .from('housing_notices')
-        .select('id, source_id, slug, content_hash, status')
+        .select('id, source_id, slug, content_hash, status, sp_newlywed_units, sp_first_life_units, sp_multi_child_units')
         .eq('source', source)
         .order('id')
         .range(from, from + PAGE - 1)
       if (error) throw error
-      for (const r of data ?? []) map.set(r.source_id, { id: r.id, slug: r.slug, content_hash: r.content_hash, status: r.status })
+      for (const r of data ?? []) map.set(r.source_id, {
+          id: r.id, slug: r.slug, content_hash: r.content_hash, status: r.status,
+          sp_newlywed_units: r.sp_newlywed_units ?? 0, sp_first_life_units: r.sp_first_life_units ?? 0, sp_multi_child_units: r.sp_multi_child_units ?? 0,
+        })
       if (!data || data.length < PAGE) break
     }
     return map

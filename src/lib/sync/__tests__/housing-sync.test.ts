@@ -32,6 +32,10 @@ function lh(id: string, over: Partial<LhNoticeItem> = {}): LhNoticeItem {
 
 const mdl = (id: string): MdlItem => ({ HOUSE_MANAGE_NO: id, PBLANC_NO: id, MODEL_NO: '1', HOUSE_TY: '084A', SUPLY_AR: '84', LTTOT_TOP_AMOUNT: '90000', SUPLY_HSHLDCO: '50', SPSPLY_HSHLDCO: '50', NWWDS_HSHLDCO: '10', LFE_FRST_HSHLDCO: null, MNYCH_HSHLDCO: null, OLD_PARNTS_SUPORT_HSHLDCO: null, INSTT_RECOMEND_HSHLDCO: null, TRANSR_INSTT_ENFSN_HSHLDCO: null, ETC_HSHLDCO: null, NWBB_HSHLDCO: null, YGMN_HSHLDCO: null })
 
+const existingRow = (over: Partial<HousingExisting> & Pick<HousingExisting, 'slug' | 'content_hash' | 'status'>): HousingExisting => ({
+  id: 'x', sp_newlywed_units: 0, sp_first_life_units: 0, sp_multi_child_units: 0, ...over,
+})
+
 function fakeRepo(existing: { applyhome?: Record<string, HousingExisting>; lh?: Record<string, HousingExisting> } = {}, lastFetched: Record<string, number | null> = {}) {
   const calls = { notices: [] as HousingNoticeRow[], units: [] as { noticeId: string; rows: HousingUnitTypeInput[] }[], runs: [] as SyncRunRow[], removedKeep: {} as Record<string, string[]> }
   const repo: HousingRepo = {
@@ -152,7 +156,7 @@ describe('runHousingSync', () => {
 
   it('해시와 상태가 같으면 건너뛰고 주택형을 받지 않는다', async () => {
     const item = apt('A1')
-    const { repo, calls } = fakeRepo({ applyhome: { 'A1:A1': { id: 'x', slug: '단지-A1', content_hash: contentHash(item), status: 'upcoming' } } })
+    const { repo, calls } = fakeRepo({ applyhome: { 'A1:A1': existingRow({ slug: '단지-A1', content_hash: contentHash(item), status: 'upcoming' }) } })
     const d = deps(repo, { fetchApplyhome: async () => ({ apt: [item], remainder: [], urbty: [] }) })
     const r = await runHousingSync(d)
     expect(r.applyhome.skipped).toBe(1)
@@ -164,7 +168,7 @@ describe('runHousingSync', () => {
   // 접수 시작일이 지나면 원문은 그대로여도 상태가 바뀐다. 이것을 놓치면 "접수 예정"이 영영 남는다.
   it('해시가 같아도 날짜로 계산한 상태가 다르면 갱신하고 기존 slug를 유지한다', async () => {
     const item = apt('A1')
-    const { repo, calls } = fakeRepo({ applyhome: { 'A1:A1': { id: 'x', slug: '옛-슬러그', content_hash: contentHash(item), status: 'upcoming' } } })
+    const { repo, calls } = fakeRepo({ applyhome: { 'A1:A1': existingRow({ slug: '옛-슬러그', content_hash: contentHash(item), status: 'upcoming' }) } })
     const later = new Date('2026-01-26T03:00:00Z') // 접수 구간 안
     const r = await runHousingSync(deps(repo, { fetchApplyhome: async () => ({ apt: [item], remainder: [], urbty: [] }), now: later }))
     expect(r.applyhome.changed).toBe(1)
@@ -251,9 +255,20 @@ describe('runHousingSync', () => {
     expect(r.applyhome.changedSlugs).toContain('단지-A2')
     expect(calls.runs.find((x) => x.source === 'applyhome')?.failed).toBe(1)
   })
+  // 다시 받을 때까지 옛 집계가 0으로 덮이면 "신혼부부 특별공급 있음" 필터에서 공고가 빠진다.
+  it('기존 공고의 주택형 조회가 실패하면 직전 집계를 유지하고 빈 해시로 upsert한다', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { repo, calls } = fakeRepo({ applyhome: { 'A1:A1': existingRow({ slug: '단지-A1', content_hash: 'old', status: 'upcoming', sp_newlywed_units: 7, sp_first_life_units: 3, sp_multi_child_units: 2 }) } })
+    const fetchUnits = vi.fn(async () => { throw new Error('mdl 500') })
+    const r = await runHousingSync(deps(repo, { fetchUnits }))
+    expect(r.applyhome).toMatchObject({ upserted: 1, failed: 1 })
+    expect(calls.notices.find((n) => n.source_id === 'A1:A1')).toMatchObject({ content_hash: '', sp_newlywed_units: 7, sp_first_life_units: 3, sp_multi_child_units: 2, slug: '단지-A1' })
+    expect(repo.replaceUnitTypes).not.toHaveBeenCalled()
+  })
+
   it('저장된 상태가 removed이면 해시가 같아도 다시 upsert한다', async () => {
     const item = apt('A1')
-    const { repo } = fakeRepo({ applyhome: { 'A1:A1': { id: 'x', slug: '단지-A1', content_hash: contentHash(item), status: 'removed' } } })
+    const { repo } = fakeRepo({ applyhome: { 'A1:A1': existingRow({ slug: '단지-A1', content_hash: contentHash(item), status: 'removed' }) } })
     const r = await runHousingSync(deps(repo, { fetchApplyhome: async () => ({ apt: [item], remainder: [], urbty: [] }) }))
     expect(r.applyhome).toMatchObject({ changed: 1, upserted: 1 })
   })

@@ -6,11 +6,15 @@ export interface HousingExisting {
   slug: string
   content_hash: string
   status: HousingStatus
+  /** 직전 저장된 특별공급 집계. 주택형 조회가 실패한 실행에서 0으로 덮지 않으려고 읽는다. */
+  sp_newlywed_units: number
+  sp_first_life_units: number
+  sp_multi_child_units: number
 }
 
 /** 동기화가 필요로 하는 저장소 동작. Supabase 구현은 housing-repo.ts, 테스트는 가짜 객체. */
 export interface HousingRepo {
-  /** source별 기존 행: source_id → {id, slug, content_hash, status} */
+  /** source별 기존 행: source_id → {id, slug, content_hash, status, sp_* 집계} */
   getExisting(source: HousingSource): Promise<Map<string, HousingExisting>>
   /** housing_notices 전체 슬러그(unique 제약이 source를 가리지 않는다) */
   allSlugs(): Promise<Set<string>>
@@ -30,7 +34,7 @@ export interface HousingSourceResult {
   changed: number
   upserted: number
   skipped: number
-  /** 주택형 조회·저장 실패 건수. 조회 실패 공고는 upsert하지 않아 다음 실행이 다시 시도한다. */
+  /** 주택형 조회·저장 실패 건수. 조회 실패 공고는 빈 해시(직전 집계 유지)로 넣어 다음 실행이 다시 시도한다. 시간 예산 초과는 세지 않는다. */
   failed: number
   removed: number
   aborted_reason: string | null
