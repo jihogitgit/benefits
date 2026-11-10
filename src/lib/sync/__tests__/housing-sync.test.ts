@@ -85,12 +85,27 @@ describe('runHousingSync', () => {
   // 원천에 수정 시각이 없어 해시로 감지한다. 같은 해시·같은 상태면 주택형 호출도 하지 않는다.
   it('시간 예산이 이미 지났으면 upsert하지 않고 aborted_reason을 남기되 markRemoved는 전체 id로 부른다', async () => {
     const { repo, calls } = fakeRepo()
-    const d = deps(repo, { fetchApplyhome: async () => ({ apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }), deadlineMs: Date.now() - 1 })
+    const d = deps(repo, { fetchApplyhome: async () => {
+      await new Promise((res) => setTimeout(res, 30)) // 소스 시작 검사는 통과하고 후보 처리 전에 마감이 지난다
+      return { apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }
+    }, deadlineMs: Date.now() + 10 })
     const r = await runHousingSync(d)
     expect(r.applyhome.upserted).toBe(0)
     expect(r.applyhome.aborted_reason).toMatch(/시간 예산/)
     expect(d.fetchUnits).not.toHaveBeenCalled()
     expect(calls.removedKeep.applyhome).toEqual(['A1:A1', 'A2:A2', 'A3:A3'])
+  })
+
+  it('마감이 이미 지났으면 두 소스 모두 fetch 없이 건너뛰고 markRemoved도 부르지 않는다', async () => {
+    const { repo } = fakeRepo()
+    const fetchApplyhome = vi.fn(async () => ({ apt: [], remainder: [], urbty: [] }))
+    const fetchLh = vi.fn(async () => [])
+    const r = await runHousingSync(deps(repo, { fetchApplyhome, fetchLh, deadlineMs: Date.now() - 1 }))
+    expect(fetchApplyhome).not.toHaveBeenCalled()
+    expect(fetchLh).not.toHaveBeenCalled()
+    expect(r.applyhome.aborted_reason).toMatch(/시간 예산/)
+    expect(r.lh.aborted_reason).toMatch(/시간 예산/)
+    expect(repo.markRemoved).not.toHaveBeenCalled()
   })
 
   it('시간 예산이 넉넉하면 모두 upsert한다', async () => {

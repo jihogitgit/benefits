@@ -73,6 +73,16 @@ describe('LH 클라이언트', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2 + 3)
   })
 
+  it('요청 시간 초과(TimeoutError) 뒤 200이면 재시도로 성공한다', async () => {
+    fetchMock
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { name: 'TimeoutError' }))
+      .mockResolvedValueOnce(json(body([row('x')])))
+      .mockImplementation(async () => empty())
+    const r = await fetchLhNotices(opts)
+    expect(r.map((x) => x.PAN_ID)).toEqual(['x'])
+    expect(fetchMock).toHaveBeenCalledTimes(2 + 3)
+  })
+
   it('네트워크 TypeError는 재시도하고, 3번 실패하면 던진다', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'))
     await expect(fetchLhNotices(opts)).rejects.toThrow('네트워크 오류')

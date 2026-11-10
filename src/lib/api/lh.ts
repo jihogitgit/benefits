@@ -1,6 +1,6 @@
 import { ZodError } from 'zod'
 import { parseLhList, type LhNoticeItem } from './lh-schema'
-import { housingApiKey, MAX_ATTEMPTS, RETRY_BASE_MS, RetryableError, sleep } from './applyhome'
+import { housingApiKey, isTimeoutError, MAX_ATTEMPTS, REQUEST_TIMEOUT_MS, RETRY_BASE_MS, RetryableError, sleep } from './applyhome'
 
 const BASE_URL = 'https://apis.data.go.kr/B552555/lhLeaseNoticeInfo1/lhLeaseNoticeInfo1'
 
@@ -25,9 +25,9 @@ type Page = { items: LhNoticeItem[]; total: number | null }
 async function requestOnce(cd: string, page: number, url: string): Promise<Page> {
   let res: Response
   try {
-    res = await fetch(url, { cache: 'no-store' })
+    res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   } catch (e) {
-    if (e instanceof TypeError) throw new RetryableError(`lh ${cd} p${page} 네트워크 오류: ${e.message}`)
+    if (e instanceof TypeError || isTimeoutError(e)) throw new RetryableError(`lh ${cd} p${page} 네트워크 오류: ${e.message}`)
     throw e
   }
   const text = await res.text()

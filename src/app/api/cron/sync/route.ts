@@ -25,7 +25,7 @@ const PER_SLUG_LIMIT = 100 // route 파일은 정해진 이름만 export할 수 
 
 /** 공고 동기화 창(일). scripts/sync-housing.ts와 같은 값. 설계 4절. */
 const HOUSING_WINDOW_DAYS = 180
-/** 공고 단계의 시간 예산(ms). maxDuration 60초에서 여유를 뺀 값. 보조금24 단계가 먼저 돈다. */
+/** 공고 단계의 절대 마감 = 요청 시작 + 이 값(ms). maxDuration 60초에서 여유를 뺀 값. 보조금24 단계가 먼저 돌아 그만큼 공고 몫이 줄어든다. */
 const HOUSING_TIME_BUDGET_MS = 50_000
 
 /**

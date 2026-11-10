@@ -191,6 +191,20 @@ describe('GET /api/cron/sync — 공고', () => {
     expect(housingMock).not.toHaveBeenCalled()
   })
 
+  it('시간 초과로 끝난 공고 단계(aborted_reason만 있고 error 없음)는 upsert된 슬러그만 per-slug로 비우고 housing:all은 쏘지 않는다', async () => {
+    housingMock.mockResolvedValue({
+      ...housingOk,
+      applyhome: { ...housingOk.applyhome, aborted_reason: '시간 예산 초과: 3건은 다음 실행에서' },
+      lh: { ...housingOk.lh, aborted_reason: '시간 예산 초과: 이번 실행에서 건너뜀' },
+    })
+    const res = await GET(housingReq())
+    expect(res.status).toBe(200)
+    expect((await res.json()).housing).toMatchObject({ invalidated: 'per-slug' })
+    const tags = calledTags()
+    expect(tags).toContain(housingTag('h1'))
+    expect(tags).not.toContain('housing:all')
+  })
+
   // 시간 예산을 넘긴다
   it('공고 동기화에 시간 예산(deadlineMs)을 넘긴다', async () => {
     housingMock.mockResolvedValue(housingOk)

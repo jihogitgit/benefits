@@ -97,7 +97,7 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
     for (let j = 0; j < slice.length; j++) {
       const c = slice[j]
       if (c.units) {
-        if (deps.deadlineMs && Date.now() > deps.deadlineMs) {
+        if (deps.deadlineMs != null && Date.now() > deps.deadlineMs) {
           // 남은 공고는 해시가 저장되지 않아 다음 실행이 다시 집는다. 이미 모은 배치는 아래에서 저장한다.
           outOfTime = true
           result.aborted_reason = `시간 예산 초과: ${changed.length - i - j}건은 다음 실행에서`
@@ -153,6 +153,10 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
 }
 
 const syncApplyhome: SourceBody = async (deps, now, result, log) => {
+  if (deps.deadlineMs != null && Date.now() > deps.deadlineMs) {
+    result.aborted_reason = '시간 예산 초과: 이번 실행에서 건너뜀'
+    return
+  }
   const { apt, remainder, urbty } = await deps.fetchApplyhome()
   result.fetched = apt.length + remainder.length + urbty.length
   log(`fetched apt=${apt.length} remainder=${remainder.length} urbty=${urbty.length}`)
@@ -174,6 +178,10 @@ const syncApplyhome: SourceBody = async (deps, now, result, log) => {
 }
 
 const syncLh: SourceBody = async (deps, now, result, log) => {
+  if (deps.deadlineMs != null && Date.now() > deps.deadlineMs) {
+    result.aborted_reason = '시간 예산 초과: 이번 실행에서 건너뜀'
+    return
+  }
   const items = await deps.fetchLh()
   result.fetched = items.length
   log(`fetched ${items.length}`)

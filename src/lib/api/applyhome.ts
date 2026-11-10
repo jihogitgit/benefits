@@ -35,6 +35,10 @@ interface Page<T> { data: T[]; totalCount: number }
 // 일시 오류(429·5xx·네트워크)만 재시도한다. 4xx·스키마·API 오류는 다시 해도 같으므로 바로 던진다.
 export const MAX_ATTEMPTS = 3
 export const RETRY_BASE_MS = 500
+/** 요청 하나의 상한(ms). 멈춘 연결이 함수 시간을 다 먹지 않게 한다. */
+export const REQUEST_TIMEOUT_MS = 15_000
+/** 시간 초과·중단은 네트워크 오류와 같이 재시도한다. */
+export const isTimeoutError = (e: unknown): e is Error => e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')
 
 export class RetryableError extends Error {}
 
@@ -43,9 +47,9 @@ export const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: string): Promise<Page<T>> {
   let res: Response
   try {
-    res = await fetch(url, { cache: 'no-store' })
+    res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   } catch (e) {
-    if (e instanceof TypeError) throw new RetryableError(`applyhome ${op} 네트워크 오류: ${e.message}`)
+    if (e instanceof TypeError || isTimeoutError(e)) throw new RetryableError(`applyhome ${op} 네트워크 오류: ${e.message}`)
     throw e
   }
   const text = await res.text()

@@ -95,6 +95,14 @@ describe('청약홈 클라이언트', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('요청 시간 초과(TimeoutError) 뒤 200이면 재시도로 성공한다', async () => {
+    fetchMock
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { name: 'TimeoutError' }))
+      .mockResolvedValueOnce(json(body([row(1)], 1)))
+    expect(await fetchApplyhomeUnits('apt', '1', '1', opts)).toHaveLength(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('PBLANC_NO가 없는 행은 스키마 불일치로 던지고 재시도하지 않는다', async () => {
     fetchMock.mockResolvedValueOnce(json(body([{ HOUSE_MANAGE_NO: '1', MODEL_NO: '1' }], 1)))
     await expect(fetchApplyhomeUnits('apt', '1', '1', opts)).rejects.toThrow('스키마 불일치')
