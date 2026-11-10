@@ -33,12 +33,12 @@ const SCHEMA: Record<ApplyhomeDetailOp | ApplyhomeMdlOp, z.ZodTypeAny> = {
 interface Page<T> { data: T[]; totalCount: number }
 
 // 일시 오류(429·5xx·네트워크)만 재시도한다. 4xx·스키마·API 오류는 다시 해도 같으므로 바로 던진다.
-const MAX_ATTEMPTS = 3
-const RETRY_BASE_MS = 500
+export const MAX_ATTEMPTS = 3
+export const RETRY_BASE_MS = 500
 
-class RetryableError extends Error {}
+export class RetryableError extends Error {}
 
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
+export const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: string): Promise<Page<T>> {
   let res: Response
