@@ -16,6 +16,8 @@ export interface HousingSyncDeps {
   fetchLh: () => Promise<LhNoticeItem[]>
   now?: Date
   batchSize?: number
+  /** 시간 예산의 끝(epoch ms). 넘으면 남은 공고는 upsert하지 않고 다음 실행으로 미룬다. */
+  deadlineMs?: number
   log?: (msg: string) => void
 }
 
@@ -87,11 +89,20 @@ async function upsertChanged(source: HousingSource, candidates: Candidate[], kee
   }
   result.changed = changed.length
 
-  for (let i = 0; i < changed.length; i += batchSize) {
+  let outOfTime = false
+  for (let i = 0; i < changed.length && !outOfTime; i += batchSize) {
     const batch: Candidate[] = []
     const unitRows = new Map<string, HousingUnitTypeInput[]>()
-    for (const c of changed.slice(i, i + batchSize)) {
+    const slice = changed.slice(i, i + batchSize)
+    for (let j = 0; j < slice.length; j++) {
+      const c = slice[j]
       if (c.units) {
+        if (deps.deadlineMs && Date.now() > deps.deadlineMs) {
+          // 남은 공고는 해시가 저장되지 않아 다음 실행이 다시 집는다. 이미 모은 배치는 아래에서 저장한다.
+          outOfTime = true
+          result.aborted_reason = `시간 예산 초과: ${changed.length - i - j}건은 다음 실행에서`
+          break
+        }
         let units: HousingUnitTypeInput[]
         try {
           units = unitsFromMdl(await deps.fetchUnits(c.units.kind, c.units.houseManageNo, c.units.pblancNo))

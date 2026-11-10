@@ -2,14 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const runMock = vi.fn()
+const housingMock = vi.fn()
 vi.mock('@/lib/sync/gov24-sync', () => ({ runGov24Sync: (...args: unknown[]) => runMock(...args) }))
+vi.mock('@/lib/sync/housing-sync', () => ({ runHousingSync: (...args: unknown[]) => housingMock(...args) }))
 vi.mock('@/lib/sync/supabase-repo', () => ({ createSupabaseRepo: vi.fn(() => ({})) }))
+vi.mock('@/lib/sync/housing-repo', () => ({ createHousingRepo: vi.fn(() => ({})) }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn(() => ({})) }))
+vi.mock('@/lib/api/applyhome', () => ({ fetchApplyhomeDetails: vi.fn(), fetchApplyhomeUnits: vi.fn() }))
+vi.mock('@/lib/api/lh', () => ({ fetchLhNotices: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
 
-import { GET } from '@/app/api/cron/sync-gov24/route'
+import { GET } from '@/app/api/cron/sync/route'
 import { revalidateTag } from 'next/cache'
-import { benefitTag } from '@/lib/cache-tags'
+import { benefitTag, housingTag } from '@/lib/cache-tags'
 
 const ok = {
   fetched: 10, changed: 2, upserted: 2, skipped: 8, failed: 0, closed: 0, removed: 0, aborted_reason: null,
@@ -17,18 +22,19 @@ const ok = {
 }
 const quiet = { ...ok, changed: 0, upserted: 0, closed: 0, removed: 0, changedSlugs: [], closedSlugs: [], removedSlugs: [], changedSegments: [] }
 
-const authed = () => new NextRequest('http://localhost/api/cron/sync-gov24', { headers: { authorization: 'Bearer secret' } })
+const authed = () => new NextRequest('http://localhost/api/cron/sync', { headers: { authorization: 'Bearer secret' } })
 const calledTags = () => vi.mocked(revalidateTag).mock.calls.map(([t]) => String(t))
 
-describe('GET /api/cron/sync-gov24', () => {
+describe('GET /api/cron/sync', () => {
   beforeEach(() => {
     runMock.mockReset()
+    housingMock.mockReset()
     vi.mocked(revalidateTag).mockClear()
     process.env.CRON_SECRET = 'secret'
   })
 
   it('토큰 없으면 401', async () => {
-    const res = await GET(new NextRequest('http://localhost/api/cron/sync-gov24'))
+    const res = await GET(new NextRequest('http://localhost/api/cron/sync'))
     expect(res.status).toBe(401)
     expect(runMock).not.toHaveBeenCalled()
   })
@@ -36,7 +42,7 @@ describe('GET /api/cron/sync-gov24', () => {
   // 비교 대상이 `Bearer ${undefined}`가 되면 "Bearer undefined"로 누구나 통과한다.
   it('CRON_SECRET이 비어 있으면 Bearer undefined로도 들어올 수 없다', async () => {
     delete process.env.CRON_SECRET
-    const res = await GET(new NextRequest('http://localhost/api/cron/sync-gov24', { headers: { authorization: 'Bearer undefined' } }))
+    const res = await GET(new NextRequest('http://localhost/api/cron/sync', { headers: { authorization: 'Bearer undefined' } }))
     expect(res.status).toBe(500)
     expect(runMock).not.toHaveBeenCalled()
   })
@@ -45,7 +51,7 @@ describe('GET /api/cron/sync-gov24', () => {
     runMock.mockResolvedValue(ok)
     const res = await GET(authed())
     expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ upserted: 2, changedSlugs: 2, invalidated: 'per-slug' })
+    expect(await res.json()).toMatchObject({ gov24: { upserted: 2, changedSlugs: 2, invalidated: 'per-slug' }, housing: null })
     expect(calledTags().sort()).toEqual([benefitTag('a'), benefitTag('b'), 'benefits:home', 'benefits:lists'].sort())
   })
 
@@ -68,7 +74,7 @@ describe('GET /api/cron/sync-gov24', () => {
     const many = Array.from({ length: 101 }, (_, i) => `s${i}`)
     runMock.mockResolvedValue({ ...ok, changed: many.length, upserted: many.length, changedSlugs: many })
     const res = await GET(authed())
-    expect(await res.json()).toMatchObject({ invalidated: 'all' })
+    expect(await res.json()).toMatchObject({ gov24: { invalidated: 'all' } })
     const tags = calledTags()
     expect(tags).toContain('benefits:all')
     expect(tags.some((t) => t.startsWith('benefit:'))).toBe(false)
@@ -79,7 +85,7 @@ describe('GET /api/cron/sync-gov24', () => {
   it('변경이 없어도 홈·목록 태그는 비우고 상세는 건드리지 않는다', async () => {
     runMock.mockResolvedValue(quiet)
     const res = await GET(authed())
-    expect(await res.json()).toMatchObject({ invalidated: 'none' })
+    expect(await res.json()).toMatchObject({ gov24: { invalidated: 'none' } })
     expect(calledTags().sort()).toEqual(['benefits:home', 'benefits:lists'])
   })
 
@@ -119,10 +125,79 @@ describe('GET /api/cron/sync-gov24', () => {
     try {
       runMock.mockResolvedValue(quiet)
       const res = await GET(authed())
-      expect(await res.json()).toMatchObject({ invalidated: 'all' })
+      expect(await res.json()).toMatchObject({ gov24: { invalidated: 'all' } })
       expect(calledTags()).toContain('benefits:all')
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+const housingOk = {
+  applyhome: { source: 'applyhome', fetched: 10, changed: 2, upserted: 2, skipped: 8, failed: 0, removed: 1, aborted_reason: null, error: null, changedSlugs: ['h1', 'h2'], removedSlugs: ['h3'] },
+  lh: { source: 'lh', fetched: 5, changed: 0, upserted: 0, skipped: 5, failed: 0, removed: 0, aborted_reason: null, error: null, changedSlugs: [], removedSlugs: [] },
+}
+const housingReq = () => new NextRequest('http://localhost/api/cron/sync?housing=1', { headers: { authorization: 'Bearer secret' } })
+
+describe('GET /api/cron/sync — 공고', () => {
+  beforeEach(() => {
+    housingMock.mockReset()
+    vi.mocked(revalidateTag).mockClear()
+    process.env.CRON_SECRET = 'secret'
+    runMock.mockReset()
+    runMock.mockResolvedValue(quiet)
+  })
+
+  it('housing=1이 없으면 공고 동기화를 돌리지 않는다', async () => {
+    await GET(authed())
+    expect(housingMock).not.toHaveBeenCalled()
+  })
+
+  it('housing=1이면 보조금24 뒤에 공고를 돌리고 목록 태그와 바뀐 슬러그만 비운다', async () => {
+    housingMock.mockResolvedValue(housingOk)
+    const res = await GET(housingReq())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.housing).toMatchObject({ applyhome: { upserted: 2, changedSlugs: 2, removedSlugs: 1 }, lh: { upserted: 0 }, invalidated: 'per-slug' })
+    const tags = calledTags()
+    expect(tags).toContain('housing:lists')
+    expect(tags).toContain(housingTag('h1'))
+    expect(tags).toContain(housingTag('h3'))
+    expect(tags).not.toContain('housing:all')
+  })
+
+  // 공고 동기화의 실패는 보조금24 결과를 가리지 않는다. 응답은 200이고 본문에 error가 실린다.
+  it('소스 하나가 error면 그 사실을 싣고 전체를 비우되 200이다', async () => {
+    housingMock.mockResolvedValue({ ...housingOk, lh: { ...housingOk.lh, error: 'lh 500' } })
+    const res = await GET(housingReq())
+    expect(res.status).toBe(200)
+    expect((await res.json()).housing).toMatchObject({ lh: { error: 'lh 500' }, invalidated: 'all' })
+    expect(calledTags()).toContain('housing:all')
+  })
+
+  it('runHousingSync 자체가 던지면 housing.error에 싣고 housing:all을 비운다', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    housingMock.mockRejectedValue(new Error('boom'))
+    const res = await GET(housingReq())
+    expect(res.status).toBe(200)
+    expect((await res.json()).housing).toMatchObject({ error: 'housing sync failed', invalidated: 'all' })
+    expect(calledTags()).toContain('housing:all')
+  })
+
+  it('보조금24가 409로 중단되면 공고는 돌리지 않는다', async () => {
+    runMock.mockResolvedValue({ ...quiet, aborted_reason: '건수 급감' })
+    const res = await GET(housingReq())
+    expect(res.status).toBe(409)
+    expect(housingMock).not.toHaveBeenCalled()
+  })
+
+  // 시간 예산을 넘긴다
+  it('공고 동기화에 시간 예산(deadlineMs)을 넘긴다', async () => {
+    housingMock.mockResolvedValue(housingOk)
+    const before = Date.now()
+    await GET(housingReq())
+    const deps = housingMock.mock.calls[0][0] as { deadlineMs?: number }
+    expect(deps.deadlineMs).toBeGreaterThanOrEqual(before + 40_000)
+    expect(deps.deadlineMs).toBeLessThanOrEqual(Date.now() + 60_000)
   })
 })

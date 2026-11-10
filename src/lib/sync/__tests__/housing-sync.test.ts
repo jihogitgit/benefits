@@ -83,6 +83,23 @@ describe('runHousingSync', () => {
   })
 
   // 원천에 수정 시각이 없어 해시로 감지한다. 같은 해시·같은 상태면 주택형 호출도 하지 않는다.
+  it('시간 예산이 이미 지났으면 upsert하지 않고 aborted_reason을 남기되 markRemoved는 전체 id로 부른다', async () => {
+    const { repo, calls } = fakeRepo()
+    const d = deps(repo, { fetchApplyhome: async () => ({ apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }), deadlineMs: Date.now() - 1 })
+    const r = await runHousingSync(d)
+    expect(r.applyhome.upserted).toBe(0)
+    expect(r.applyhome.aborted_reason).toMatch(/시간 예산/)
+    expect(d.fetchUnits).not.toHaveBeenCalled()
+    expect(calls.removedKeep.applyhome).toEqual(['A1:A1', 'A2:A2', 'A3:A3'])
+  })
+
+  it('시간 예산이 넉넉하면 모두 upsert한다', async () => {
+    const { repo } = fakeRepo()
+    const d = deps(repo, { fetchApplyhome: async () => ({ apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }), deadlineMs: Date.now() + 3_600_000 })
+    const r = await runHousingSync(d)
+    expect(r.applyhome).toMatchObject({ upserted: 3, aborted_reason: null })
+  })
+
   it('해시와 상태가 같으면 건너뛰고 주택형을 받지 않는다', async () => {
     const item = apt('A1')
     const { repo, calls } = fakeRepo({ applyhome: { 'A1:A1': { id: 'x', slug: '단지-A1', content_hash: contentHash(item), status: 'upcoming' } } })

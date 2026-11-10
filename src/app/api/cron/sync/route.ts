@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server'
-import { CACHE_TAGS, benefitTag, isSlugLike } from '@/lib/cache-tags'
+import { CACHE_TAGS, benefitTag, housingTag, isSlugLike } from '@/lib/cache-tags'
 import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseRepo } from '@/lib/sync/supabase-repo'
 import { runGov24Sync } from '@/lib/sync/gov24-sync'
 import { fetchAll } from '@/lib/api/gov24'
+import { createHousingRepo } from '@/lib/sync/housing-repo'
+import { runHousingSync } from '@/lib/sync/housing-sync'
+import type { HousingSyncResult } from '@/lib/sync/housing-types'
+import { fetchApplyhomeDetails, fetchApplyhomeUnits } from '@/lib/api/applyhome'
+import { fetchLhNotices } from '@/lib/api/lh'
 
 export const runtime = 'nodejs'
 // Vercel Hobby 상한. 플랜 상한을 넘는 값은 배포가 실패한다.
-// 초기 적재는 scripts/sync-gov24.ts로 하고, Cron은 변경분만 upsert하므로 보통 30초 이내. Pro 전환 시 300으로.
+// 초기 적재는 scripts/*.ts로 하고, Cron은 변경분만 upsert하므로 보통 30초 이내. Pro 전환 시 300으로.
 export const maxDuration = 60
 
 /**
@@ -18,14 +23,26 @@ export const maxDuration = 60
  */
 const PER_SLUG_LIMIT = 100 // route 파일은 정해진 이름만 export할 수 있어 내보내지 않는다. 태그는 한 요청에 모아 보내므로 상한을 보수적으로 둔다
 
+/** 공고 동기화 창(일). scripts/sync-housing.ts와 같은 값. 설계 4절. */
+const HOUSING_WINDOW_DAYS = 180
+/** 공고 단계의 시간 예산(ms). maxDuration 60초에서 여유를 뺀 값. 보조금24 단계가 먼저 돈다. */
+const HOUSING_TIME_BUDGET_MS = 50_000
+
+/**
+ * 보조금24 → (housing=1이면) 청약홈·LH. Hobby는 cron 2개가 한도라 라우트를 하나로 합쳤다.
+ * 공고 단계의 실패는 보조금24 결과를 가리지 않는다 — 응답은 200이고 housing.error에 실린다.
+ */
 export async function GET(request: Request) {
+  const startedAt = Date.now()
   // 비어 있으면 `Bearer undefined`가 정답이 되어 누구나 통과한다. 비교보다 먼저 막는다.
   const secret = process.env.CRON_SECRET
   if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   if (request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const withHousing = new URL(request.url).searchParams.get('housing') === '1'
 
+  let gov24: Record<string, unknown>
   try {
     const repo = createSupabaseRepo(createAdminClient())
     const result = await runGov24Sync({
@@ -35,7 +52,7 @@ export async function GET(request: Request) {
     })
 
     if (result.aborted_reason) {
-      return NextResponse.json({ ...result, changedSlugs: undefined, closedSlugs: undefined, removedSlugs: undefined }, { status: 409 })
+      return NextResponse.json({ gov24: { ...result, changedSlugs: undefined, closedSlugs: undefined, removedSlugs: undefined }, housing: null }, { status: 409 })
     }
 
     // 목록·홈은 변경이 없어도 매번 비운다. 카드의 D-day와 "최종 동기화" 시각은 하루가 지나면 틀리고,
@@ -46,7 +63,7 @@ export async function GET(request: Request) {
 
     const slugs = [...new Set([...result.changedSlugs, ...result.closedSlugs, ...result.removedSlugs])]
     const bad = slugs.filter((s) => !isSlugLike(s))
-    if (bad.length) console.error('[cron/sync-gov24] 슬러그 모양이 아닌 값은 비우지 않는다:', bad) // 하나 때문에 전체를 500으로 만들지 않는다
+    if (bad.length) console.error('[cron/sync] 슬러그 모양이 아닌 값은 비우지 않는다:', bad) // 하나 때문에 전체를 500으로 만들지 않는다
     let invalidated: 'none' | 'per-slug' | 'all' = 'none'
     if (isNewYearKst()) {
       // 상세 제목의 연도(kstYear)는 태그를 비워야 바뀐다. TTL이 일주일이라 손으로 하면 잊는다.
@@ -60,15 +77,15 @@ export async function GET(request: Request) {
       invalidated = 'per-slug'
     }
 
-    return NextResponse.json({
+    gov24 = {
       ...result,
       changedSlugs: result.changedSlugs.length,
       closedSlugs: result.closedSlugs.length,
       removedSlugs: result.removedSlugs.length,
       invalidated,
-    })
+    }
   } catch (err) {
-    console.error('[cron/sync-gov24] failed:', err)
+    console.error('[cron/sync] gov24 failed:', err)
     // 중간에 실패하면 이미 upsert된 행이 있어도 어떤 슬러그인지 모른다. 다음 실행은 그 행을 '변경 없음'으로
     // 건너뛰므로 영영 비워지지 않고, TTL은 일주일이다. 실패는 드무니 이때만 전부 비운다.
     revalidateTag(CACHE_TAGS.benefitsHome)
@@ -76,6 +93,42 @@ export async function GET(request: Request) {
     revalidateTag(CACHE_TAGS.benefitsAll)
     // 내부 메시지(DB·외부 API)는 로그에만 남긴다.
     return NextResponse.json({ error: 'sync failed', invalidated: 'all' }, { status: 500 })
+  }
+
+  const housing = withHousing ? await housingStep(startedAt + HOUSING_TIME_BUDGET_MS) : null
+  return NextResponse.json({ gov24, housing })
+}
+
+/** 공고 동기화 + 캐시 무효화. 실패해도 던지지 않는다. */
+async function housingStep(deadlineMs: number): Promise<Record<string, unknown>> {
+  try {
+    const since = new Date(Date.now() - HOUSING_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10)
+    const result: HousingSyncResult = await runHousingSync({
+      repo: createHousingRepo(createAdminClient()),
+      fetchApplyhome: () => fetchApplyhomeDetails(since),
+      fetchUnits: (kind, h, p) => fetchApplyhomeUnits(kind, h, p),
+      fetchLh: () => fetchLhNotices(),
+      deadlineMs,
+    })
+    // 목록·홈/my 블록은 매번. 상세는 바뀐 슬러그만(removed 포함 — 내려간 공고 페이지도 갱신돼야 한다).
+    revalidateTag(CACHE_TAGS.housingLists)
+    const slugs = [...new Set([...result.applyhome.changedSlugs, ...result.applyhome.removedSlugs, ...result.lh.changedSlugs, ...result.lh.removedSlugs])].filter(isSlugLike)
+    let invalidated: 'none' | 'per-slug' | 'all' = 'none'
+    if (result.applyhome.error || result.lh.error || slugs.length > PER_SLUG_LIMIT) {
+      // 소스 하나가 중간에 실패하면 어떤 행이 반영됐는지 모른다(gov24와 같은 이유).
+      revalidateTag(CACHE_TAGS.housingAll)
+      invalidated = 'all'
+    } else if (slugs.length) {
+      for (const s of slugs) revalidateTag(housingTag(s))
+      invalidated = 'per-slug'
+    }
+    const brief = (r: HousingSyncResult['applyhome']) => ({ ...r, changedSlugs: r.changedSlugs.length, removedSlugs: r.removedSlugs.length })
+    return { applyhome: brief(result.applyhome), lh: brief(result.lh), invalidated }
+  } catch (err) {
+    console.error('[cron/sync] housing failed:', err)
+    revalidateTag(CACHE_TAGS.housingLists)
+    revalidateTag(CACHE_TAGS.housingAll)
+    return { error: 'housing sync failed', invalidated: 'all' }
   }
 }
 

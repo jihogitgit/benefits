@@ -16,7 +16,13 @@
 ## 동기화
 
 - 로컬 전체 적재: `npm run sync:gov24`
-- Vercel Cron: `/api/cron/sync-gov24` (KST 03:00, 12:00), `Authorization: Bearer $CRON_SECRET`
+- Vercel Cron: `/api/cron/sync?housing=1` (KST 03:00, 12:00), `Authorization: Bearer $CRON_SECRET`.
+  보조금24를 먼저 돌리고 `housing=1`이면 청약홈·LH 공고를 이어서 돌린다. Hobby는 cron이 2개까지라
+  라우트를 하나로 합쳤다. 공고 단계의 실패는 응답 200의 `housing.error`에 실리고 보조금24 결과를 가리지 않는다.
+  공고 단계는 50초 시간 예산을 넘기면 남은 공고를 다음 실행으로 미룬다(`aborted_reason`에 기록).
+- 공고 수동 적재: `npm run sync:housing` (청약홈 모집공고일 최근 180일 + LH 분양·임대·주거복지·신혼희망타운).
+  변경 감지는 원문 해시(`content_hash`)와 날짜로 계산한 상태 비교. 주택형은 바뀐 APT·무순위 공고만 받는다.
+  매 실행 `housing:lists`를 비우고 상세는 `housing:{slug}` 태그로 한 장씩. 샘플 응답은 `npm run fixtures:housing`.
 - 안전장치: 직전 성공 대비 30% 이상 건수 감소 시 중단(409), `sync_runs.aborted_reason` 기록
 - 마감·소멸 항목은 삭제하지 않고 `status`만 closed/removed로 변경
 - 매 실행마다 `benefits:home`·`benefits:lists`(홈·목록 수십 장)를 비우고, 상세는 **바뀐 슬러그만**
