@@ -3,8 +3,9 @@ import { odcloudEnvelope } from './gov24-schema'
 
 /**
  * 청약홈 분양정보 조회 서비스(공공데이터포털 15098547, odcloud).
- * 값은 전부 문자열로 받고 정규화(날짜·숫자)는 sync/housing-normalize.ts가 한다 — 날짜 표기가
- * 문서에 없어 실측 전까지 형식을 고정하지 않는다. 숫자가 와도 문자열로 바꾼다(보조금24와 같은 str).
+ * 값은 전부 문자열로 받고 정규화(날짜·숫자)는 sync/housing-normalize.ts가 한다.
+ * 실측(fixtures/housing): 날짜는 YYYY-MM-DD, MVN_PREARNGE_YM은 YYYYMM, HOUSE_SECD는 01 APT·10 신혼희망타운·
+ * 04 무순위·02 오피스텔/도시형/민간임대. 숫자가 와도 문자열로 바꾼다(보조금24와 같은 str).
  */
 const str = z
   .union([z.string(), z.number()])
@@ -38,6 +39,7 @@ const common = {
   CNSTRCT_ENTRPS_NM: str, // 시공사
   MDHS_TELNO: str,
   HMPG_ADRES: str, // 홈페이지
+  NSPRC_NM: str, // 실측 응답에 있는 필드(세 상세 응답 공통)
   PBLANC_URL: str, // 문서에는 없으나 일부 응답에 있다는 보고가 있어 받아 둔다
   SPECLT_RDN_EARTH_AT: str, // 투기과열지구
   MDAT_TRGET_AREA_SECD: str, // 조정대상지역
@@ -56,12 +58,18 @@ export const aptDetailItem = z
     SPSPLY_RCEPT_ENDDE: str,
     RCEPT_BGNDE: str, // 청약접수(전체)
     RCEPT_ENDDE: str,
-    GNRL_RNK1_CRSPAREA_RCEPT_PD: str, // 1순위 해당지역 '2026-01-15 ~ 2026-01-15'
-    GNRL_RNK1_ETC_GG_RCPTDE_PD: str,
-    GNRL_RNK1_ETC_AREA_RCPTDE_PD: str,
-    GNRL_RNK2_CRSPAREA_RCEPT_PD: str,
-    GNRL_RNK2_ETC_GG_RCPTDE_PD: str,
-    GNRL_RNK2_ETC_AREA_RCPTDE_PD: str,
+    GNRL_RNK1_CRSPAREA_RCPTDE: str, // 1순위 해당지역 접수 시작(끝은 _ENDDE). 기타경기·기타지역도 같은 쌍
+    GNRL_RNK1_CRSPAREA_ENDDE: str,
+    GNRL_RNK1_ETC_GG_RCPTDE: str,
+    GNRL_RNK1_ETC_GG_ENDDE: str,
+    GNRL_RNK1_ETC_AREA_RCPTDE: str,
+    GNRL_RNK1_ETC_AREA_ENDDE: str,
+    GNRL_RNK2_CRSPAREA_RCPTDE: str,
+    GNRL_RNK2_CRSPAREA_ENDDE: str,
+    GNRL_RNK2_ETC_GG_RCPTDE: str,
+    GNRL_RNK2_ETC_GG_ENDDE: str,
+    GNRL_RNK2_ETC_AREA_RCPTDE: str,
+    GNRL_RNK2_ETC_AREA_ENDDE: str,
   })
   .passthrough()
 export type AptDetailItem = z.infer<typeof aptDetailItem>
@@ -109,6 +117,8 @@ export const mdlItem = z
     INSTT_RECOMEND_HSHLDCO: str, // 기관추천
     TRANSR_INSTT_ENFSN_HSHLDCO: str, // 이전기관
     ETC_HSHLDCO: str,
+    NWBB_HSHLDCO: str, // 신생아(실측)
+    YGMN_HSHLDCO: str, // 청년(실측)
   })
   .passthrough()
 export type MdlItem = z.infer<typeof mdlItem>

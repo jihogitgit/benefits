@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { aptDetailResponse, aptMdlResponse, urbtyDetailResponse } from '../applyhome-schema'
 
 const envelope = (data: unknown[]) => ({ currentCount: data.length, matchCount: data.length, page: 1, perPage: 10, totalCount: data.length, data })
@@ -25,5 +27,18 @@ describe('청약홈 스키마', () => {
   it('오피스텔 상세는 일반 접수일 필드를 쓴다', () => {
     const r = urbtyDetailResponse.parse(envelope([{ HOUSE_MANAGE_NO: '2', PBLANC_NO: '2', SUBSCRPT_RCEPT_BGNDE: '2026-02-01', SUBSCRPT_RCEPT_ENDDE: '2026-02-03' }]))
     expect(r.data[0].SUBSCRPT_RCEPT_BGNDE).toBe('2026-02-01')
+  })
+
+  it('실측 APT 상세 응답을 그대로 파싱한다', () => {
+    const json = JSON.parse(readFileSync(join(process.cwd(), 'fixtures/housing/getAPTLttotPblancDetail.sample.json'), 'utf8'))
+    const r = aptDetailResponse.parse(json)
+    expect(typeof r.data[0].GNRL_RNK1_CRSPAREA_RCPTDE).toBe('string')
+  })
+
+  it('실측 주택형 응답을 그대로 파싱한다', () => {
+    const json = JSON.parse(readFileSync(join(process.cwd(), 'fixtures/housing/getAPTLttotPblancMdl.sample.json'), 'utf8'))
+    const r = aptMdlResponse.parse(json)
+    expect(r.data[0].YGMN_HSHLDCO).not.toBeNull()
+    expect(typeof r.data[0].SPSPLY_HSHLDCO).toBe('string')
   })
 })

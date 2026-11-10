@@ -43,7 +43,16 @@ async function main() {
   await applyhome('getUrbtyOfctlLttotPblancDetail', { 'RCRIT_PBLANC_DE::GTE': since })
   const first = apt.data?.[0]
   if (first) await applyhome('getAPTLttotPblancMdl', { 'HOUSE_MANAGE_NO::EQ': String(first.HOUSE_MANAGE_NO), 'PBLANC_NO::EQ': String(first.PBLANC_NO) })
-  for (const cd of ['05', '06', '13', '39']) await lh(cd)
+  let failed = false
+  for (const cd of ['05', '06', '13', '39']) {
+    try {
+      await lh(cd)
+    } catch (e) {
+      failed = true
+      console.error(`lh ${cd} 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  if (failed) process.exit(1)
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })
