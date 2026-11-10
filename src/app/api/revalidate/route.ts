@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   const unknownTags = tagList.filter((t) => !isCacheTag(t))
-  if (unknownTags.length) return bad('알 수 없는 태그', { unknown: unknownTags, valid: [...ALL_CACHE_TAGS, 'benefit:<sha1(slug) 앞 16자리 — scripts/revalidate.ts가 만든다>'] })
+  if (unknownTags.length) return bad('알 수 없는 태그', { unknown: unknownTags, valid: [...ALL_CACHE_TAGS, 'benefit:<sha1(slug) 앞 16자리 — scripts/revalidate.ts가 만든다>', 'housing:<sha1(slug) 앞 16자리>'] })
 
   // 버리지 않고 거절한다. 버리면 호출자는 자기가 보낸 경로가 처리된 줄 안다.
   const badPaths = pathList.filter((p) => !p.startsWith('/') || p.startsWith('//'))

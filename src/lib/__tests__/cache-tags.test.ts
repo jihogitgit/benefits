@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { ALL_CACHE_TAGS, isCacheTag, CACHE_TAGS, benefitTag } from '../cache-tags'
+import { ALL_CACHE_TAGS, isCacheTag, CACHE_TAGS, benefitTag, housingTag } from '../cache-tags'
 
 function tsFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((e) => {
@@ -41,6 +41,8 @@ describe('cache-tags', () => {
       benefitsAll: 'benefits:all',
       benefitsLists: 'benefits:lists',
       benefitsHome: 'benefits:home',
+      housingLists: 'housing:lists',
+      housingAll: 'housing:all',
       guides: 'guides',
       regions: 'regions',
     })
@@ -63,5 +65,22 @@ describe('cache-tags', () => {
     expect(unknown, `등록되지 않은 태그: ${unknown.map(([t, f]) => `${t} (${f})`).join(', ')}`).toEqual([])
     // 훑기 자체가 망가지면 조용히 통과하므로, 상수로 치환된 뒤에도 뭔가는 잡히는지 확인한다
     expect(found.size + [...tsFiles('src')].filter((f) => readFileSync(f, 'utf8').includes('CACHE_TAGS.')).length).toBeGreaterThan(0)
+  })
+})
+
+describe('housing 태그', () => {
+  it('목록·전체 태그가 고정 목록에 있다', () => {
+    expect(CACHE_TAGS.housingLists).toBe('housing:lists')
+    expect(CACHE_TAGS.housingAll).toBe('housing:all')
+    expect(isCacheTag('housing:lists')).toBe(true)
+  })
+
+  // 한글 슬러그를 헤더(x-next-cache-tags)에 그대로 실으면 Vercel에서 500이 난다(benefitTag 주석).
+  it('공고 태그는 해시이고 isCacheTag가 받아들인다', () => {
+    const t = housingTag('래미안-원베일리')
+    expect(t).toMatch(/^housing:[0-9a-f]{16}$/)
+    expect(isCacheTag(t)).toBe(true)
+    expect(housingTag('래미안-원베일리')).toBe(t)
+    expect(() => housingTag('a b')).toThrow()
   })
 })

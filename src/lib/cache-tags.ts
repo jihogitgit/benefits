@@ -20,11 +20,15 @@ export const CACHE_TAGS = {
   benefitsLists: 'benefits:lists',
   /** 홈 전용 목록(마감 임박·최근 갱신·최종 동기화 시각). */
   benefitsHome: 'benefits:home',
+  /** 공고 목록·지역 집계·홈/my 블록. 동기화가 매번 비운다. */
+  housingLists: 'housing:lists',
+  /** 공고 상세 전부. 대량 변경·실패 시에만. */
+  housingAll: 'housing:all',
   guides: 'guides',
   regions: 'regions',
 } as const
 
-export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS] | `benefit:${string}`
+export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS] | `benefit:${string}` | `housing:${string}`
 
 export const ALL_CACHE_TAGS: readonly CacheTag[] = Object.values(CACHE_TAGS)
 
@@ -45,6 +49,15 @@ export function benefitTag(slug: string): CacheTag {
   return `${BENEFIT_TAG_PREFIX}${createHash('sha1').update(slug).digest('hex').slice(0, 16)}`
 }
 
+/** 공고 상세 한 장. benefitTag와 같은 이유로 해시한다. */
+export const HOUSING_TAG_PREFIX = 'housing:'
+const HOUSING_TAG_RE = /^housing:[0-9a-f]{16}$/
+
+export function housingTag(slug: string): CacheTag {
+  if (!isSlugLike(slug)) throw new Error(`슬러그가 아니다: ${slug}`)
+  return `${HOUSING_TAG_PREFIX}${createHash('sha1').update(slug).digest('hex').slice(0, 16)}`
+}
+
 /** slugify 결과(문자·숫자·하이픈)만 통과. revalidate-targets.assertSlug와 같은 기준이다. */
 export function isSlugLike(s: string): boolean {
   return s.length > 0 && !/[/:\s?#%]/.test(s)
@@ -52,5 +65,5 @@ export function isSlugLike(s: string): boolean {
 
 export function isCacheTag(v: string): v is CacheTag {
   if ((ALL_CACHE_TAGS as readonly string[]).includes(v)) return true
-  return BENEFIT_TAG_RE.test(v)
+  return BENEFIT_TAG_RE.test(v) || HOUSING_TAG_RE.test(v)
 }
