@@ -14,6 +14,7 @@ export function createHousingRepo(supabase: SupabaseClient): HousingRepo {
         .from('housing_notices')
         .select('id, source_id, slug, content_hash, status')
         .eq('source', source)
+        .order('id')
         .range(from, from + PAGE - 1)
       if (error) throw error
       for (const r of data ?? []) map.set(r.source_id, { id: r.id, slug: r.slug, content_hash: r.content_hash, status: r.status })
@@ -28,7 +29,7 @@ export function createHousingRepo(supabase: SupabaseClient): HousingRepo {
     async allSlugs() {
       const out = new Set<string>()
       for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase.from('housing_notices').select('slug').range(from, from + PAGE - 1)
+        const { data, error } = await supabase.from('housing_notices').select('slug').order('id').range(from, from + PAGE - 1)
         if (error) throw error
         for (const r of data ?? []) out.add(r.slug as string)
         if (!data || data.length < PAGE) break
@@ -37,8 +38,10 @@ export function createHousingRepo(supabase: SupabaseClient): HousingRepo {
     },
 
     async upsertNotices(rows: HousingNoticeRow[]) {
+      if (!rows.length) return new Map<string, string>()
       const { data, error } = await supabase.from('housing_notices').upsert(rows, { onConflict: 'source,source_id' }).select('id, source_id')
       if (error) throw error
+      if ((data?.length ?? 0) !== rows.length) throw new Error(`housing upsert returned ${data?.length ?? 0}/${rows.length} rows`)
       return new Map((data ?? []).map((r) => [r.source_id as string, r.id as string]))
     },
 
@@ -46,7 +49,9 @@ export function createHousingRepo(supabase: SupabaseClient): HousingRepo {
       const del = await supabase.from('housing_unit_types').delete().eq('notice_id', noticeId)
       if (del.error) throw del.error
       if (!rows.length) return
-      const { error } = await supabase.from('housing_unit_types').insert(rows.map((r) => ({ ...r, notice_id: noticeId })))
+      // 삭제 후 삽입은 원자적이지 않다. 삽입이 실패하면 다음 상세 변경 때까지 이 공고는 주택형이 없다(수용; 공고 행의 해시는 이미 저장됨).
+      const unique = rows.filter((r, i) => rows.findIndex((x) => x.house_type === r.house_type) === i)
+      const { error } = await supabase.from('housing_unit_types').insert(unique.map((r) => ({ ...r, notice_id: noticeId })))
       if (error) throw error
     },
 

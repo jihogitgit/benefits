@@ -18,7 +18,7 @@ export interface HousingRepo {
   upsertNotices(rows: HousingNoticeRow[]): Promise<Map<string, string>>
   /** 공고의 주택형을 통째로 바꾼다(삭제 후 삽입). 빈 배열이면 삭제만. */
   replaceUnitTypes(noticeId: string, rows: HousingUnitTypeInput[]): Promise<void>
-  /** source 안에서 keep에 없는 source_id를 removed로. 바뀐 slug 반환 */
+  /** source 안에서 keep에 없는 source_id를 removed로. 바뀐 slug 반환. 호출 전에 fetched 0건·급감 가드를 통과해야 한다 — keep가 비면 그 source 전체가 removed가 된다. */
   markRemoved(source: HousingSource, keepSourceIds: string[]): Promise<string[]>
   recordRun(run: SyncRunRow): Promise<void>
   lastSuccessfulFetched(source: string): Promise<number | null>
