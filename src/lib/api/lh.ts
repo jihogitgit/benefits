@@ -24,13 +24,16 @@ type Page = { items: LhNoticeItem[]; total: number | null }
 // 오류 메시지에는 URL(serviceKey 포함)을 절대 넣지 않는다.
 async function requestOnce(cd: string, page: number, url: string): Promise<Page> {
   let res: Response
+  let text: string
   try {
     res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    text = await res.text() // 본문 읽기 중 시간 초과도 같은 경로로 잡는다
   } catch (e) {
-    if (e instanceof TypeError || isTimeoutError(e)) throw new RetryableError(`lh ${cd} p${page} 네트워크 오류: ${e.message}`)
+    // AbortError도 재시도한다: 외부 signal을 넘기는 호출자가 없어 취소가 아니라 시간 초과다.
+    if (isTimeoutError(e)) throw new RetryableError(`lh ${cd} p${page} 시간 초과: ${e.message}`)
+    if (e instanceof TypeError) throw new RetryableError(`lh ${cd} p${page} 네트워크 오류: ${e.message}`)
     throw e
   }
-  const text = await res.text()
   if (!res.ok) {
     const msg = `lh ${cd} p${page} HTTP ${res.status}: ${text.slice(0, 200)}`
     if (res.status === 429 || res.status >= 500) throw new RetryableError(msg)

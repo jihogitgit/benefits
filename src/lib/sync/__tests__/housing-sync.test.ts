@@ -85,10 +85,13 @@ describe('runHousingSync', () => {
   // 원천에 수정 시각이 없어 해시로 감지한다. 같은 해시·같은 상태면 주택형 호출도 하지 않는다.
   it('시간 예산이 이미 지났으면 upsert하지 않고 aborted_reason을 남기되 markRemoved는 전체 id로 부른다', async () => {
     const { repo, calls } = fakeRepo()
-    const d = deps(repo, { fetchApplyhome: async () => {
-      await new Promise((res) => setTimeout(res, 30)) // 소스 시작 검사는 통과하고 후보 처리 전에 마감이 지난다
-      return { apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }
-    }, deadlineMs: Date.now() + 10 })
+    const d = deps(repo, {
+      deadlineMs: Date.now() + 3_600_000,
+      fetchApplyhome: async () => {
+        d.deadlineMs = Date.now() - 1 // 소스 시작 검사는 통과하고 후보 처리 전에 마감이 지난다
+        return { apt: [apt('A1'), apt('A2'), apt('A3')], remainder: [], urbty: [] }
+      },
+    })
     const r = await runHousingSync(d)
     expect(r.applyhome.upserted).toBe(0)
     expect(r.applyhome.aborted_reason).toMatch(/시간 예산/)

@@ -46,13 +46,16 @@ export const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: string): Promise<Page<T>> {
   let res: Response
+  let text: string
   try {
     res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    text = await res.text() // 본문 읽기 중 시간 초과도 같은 경로로 잡는다
   } catch (e) {
-    if (e instanceof TypeError || isTimeoutError(e)) throw new RetryableError(`applyhome ${op} 네트워크 오류: ${e.message}`)
+    // AbortError도 재시도한다: 외부 signal을 넘기는 호출자가 없어 취소가 아니라 시간 초과다.
+    if (isTimeoutError(e)) throw new RetryableError(`applyhome ${op} 시간 초과: ${e.message}`)
+    if (e instanceof TypeError) throw new RetryableError(`applyhome ${op} 네트워크 오류: ${e.message}`)
     throw e
   }
-  const text = await res.text()
   if (!res.ok) {
     const msg = `applyhome ${op} HTTP ${res.status}: ${text.slice(0, 200)}`
     if (res.status === 429 || res.status >= 500) throw new RetryableError(msg)
