@@ -248,6 +248,11 @@ describe('safeHttpUrl', () => {
   })
   it('스킴 없는 호스트는 https://를 붙인다', () => {
     expect(safeHttpUrl('www.x.kr')).toBe('https://www.x.kr/')
+    expect(safeHttpUrl('www.x.kr/a?b=1')).toBe('https://www.x.kr/a?b=1')
+  })
+  it('호스트처럼 보여도 뒤에 경로 구분자가 아닌 글자가 이어지면 붙이지 않는다', () => {
+    expect(safeHttpUrl('file.pdf')).toBeNull()
+    expect(safeHttpUrl('공고문.hwp')).toBeNull()
   })
   it('올바른 http(s) 주소는 그대로', () => {
     expect(safeHttpUrl('https://apply.lh.or.kr/x?a=1')).toBe('https://apply.lh.or.kr/x?a=1')

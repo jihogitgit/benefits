@@ -19,11 +19,17 @@ export function toIsoDate(v: string | null | undefined): string | null {
 /**
  * 원천 URL을 링크로 내보내도 되는 http(s) 주소로. detail_url은 상세 페이지의 <a href>가 되므로
  * javascript:·data: 같은 스킴은 버린다(null). 'www.x.kr'처럼 스킴 없이 호스트만 오면 https://를 붙인다.
+ * 'file.pdf'는 모양만으로는 'x.kr'과 구별되지 않아, 끝 이름이 흔한 파일 확장자면 호스트로 보지 않는다(→ null).
+ * 실측 응답의 주소는 모두 스킴이 있어 이 가지는 드문 예외용이다.
  */
+const BARE_HOST = /^([\w.-]+)\.([a-z]{2,})(?=[/:?#]|$)/i
+const FILE_EXT = new Set(['pdf', 'hwp', 'hwpx', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'jpg', 'jpeg', 'png', 'gif', 'htm', 'html'])
+
 export function safeHttpUrl(v: string | null | undefined): string | null {
   const t = v?.trim()
   if (!t) return null
-  const withScheme = !t.includes('://') && /^[\w.-]+\.[a-z]{2,}/i.test(t) ? `https://${t}` : t
+  const host = t.includes('://') ? null : t.match(BARE_HOST)
+  const withScheme = host && !FILE_EXT.has(host[2].toLowerCase()) ? `https://${t}` : t
   try {
     const u = new URL(withScheme)
     return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null
