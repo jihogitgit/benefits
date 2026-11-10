@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchApplyhomeUnits } from '../applyhome'
+import { fetchApplyhomeDetails, fetchApplyhomeUnits } from '../applyhome'
 
 const row = (n: number) => ({ HOUSE_MANAGE_NO: '1', PBLANC_NO: '1', MODEL_NO: String(n) })
 const body = (data: unknown[], totalCount: number) => ({ currentCount: data.length, matchCount: totalCount, page: 1, perPage: 100, totalCount, data })
@@ -71,5 +71,40 @@ describe('청약홈 클라이언트', () => {
       .mockResolvedValueOnce(json(body([row(2), row(3)], 101)))
     const r = await fetchApplyhomeUnits('apt', '1', '1', opts)
     expect(r.map((x) => x.MODEL_NO)).toEqual(['1', '2', '3'])
+  })
+
+  it('503이 계속되면 3번 시도하고 던진다', async () => {
+    fetchMock.mockImplementation(async () => new Response('busy', { status: 503 }))
+    await expect(fetchApplyhomeUnits('apt', '1', '1', opts)).rejects.toThrow('HTTP 503')
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('429 뒤 200이면 재시도로 성공한다', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('slow down', { status: 429 }))
+      .mockResolvedValueOnce(json(body([row(1)], 1)))
+    expect(await fetchApplyhomeUnits('apt', '1', '1', opts)).toHaveLength(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('네트워크 TypeError 뒤 200이면 재시도로 성공한다', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(json(body([row(1)], 1)))
+    expect(await fetchApplyhomeUnits('apt', '1', '1', opts)).toHaveLength(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('PBLANC_NO가 없는 행은 스키마 불일치로 던지고 재시도하지 않는다', async () => {
+    fetchMock.mockResolvedValueOnce(json(body([{ HOUSE_MANAGE_NO: '1', MODEL_NO: '1' }], 1)))
+    await expect(fetchApplyhomeUnits('apt', '1', '1', opts)).rejects.toThrow('스키마 불일치')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('공고 3종을 apt → remainder → urbty 순서로 요청한다', async () => {
+    fetchMock.mockImplementation(async () => json(body([], 0)))
+    await fetchApplyhomeDetails('2026-01-01', opts)
+    const ops = fetchMock.mock.calls.map((c) => String(c[0]).split('?')[0].split('/').pop())
+    expect(ops).toEqual(['getAPTLttotPblancDetail', 'getRemndrLttotPblancDetail', 'getUrbtyOfctlLttotPblancDetail'])
   })
 })

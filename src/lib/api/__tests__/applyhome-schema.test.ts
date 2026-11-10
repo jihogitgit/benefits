@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { aptDetailResponse, aptMdlResponse, remainderDetailResponse, urbtyDetailResponse } from '../applyhome-schema'
 
@@ -35,22 +35,24 @@ const fixtures = [
   { file: 'getAPTLttotPblancDetail.sample.json', schema: aptDetailResponse, detail: true },
   { file: 'getRemndrLttotPblancDetail.sample.json', schema: remainderDetailResponse, detail: true },
   { file: 'getUrbtyOfctlLttotPblancDetail.sample.json', schema: urbtyDetailResponse, detail: true },
-  { file: 'getAPTLttotPblancMdl.sample.json', schema: aptMdlResponse, detail: false },
+  { file: 'getAPTLttotPblancMdl.sample.json', schema: aptMdlResponse, detail: false, aptMdl: true },
   { file: 'getRemndrLttotPblancMdl.sample.json', schema: aptMdlResponse, detail: false },
-].filter((f) => existsSync(join(dir, f.file)))
+]
 
 describe('실측 픽스처', () => {
   it('픽스처가 하나 이상 있다', () => expect(fixtures.length).toBeGreaterThan(0))
 
-  it.each(fixtures)('$file 전 행을 파싱한다', ({ file, schema, detail }) => {
+  it.each(fixtures)('$file 전 행을 파싱한다', ({ file, schema, detail, aptMdl }) => {
     const json = JSON.parse(readFileSync(join(dir, file), 'utf8'))
     const r = schema.parse(json) as { data: Record<string, string | null>[] }
     expect(r.data.length).toBe(json.data.length)
+    if (aptMdl) expect(r.data[0].YGMN_HSHLDCO).not.toBeNull()
     for (const row of r.data) {
       expect(typeof row.HOUSE_MANAGE_NO).toBe('string')
       expect(row.HOUSE_MANAGE_NO).not.toBe('')
       expect(typeof row.PBLANC_NO).toBe('string')
       expect(row.PBLANC_NO).not.toBe('')
+      if (!detail) expect(typeof row.SPSPLY_HSHLDCO).toBe('string')
       if (detail) {
         expect(row.RCRIT_PBLANC_DE).toMatch(/^\d{4}-\d{2}-\d{2}$/)
         if (row.MVN_PREARNGE_YM !== null) expect(row.MVN_PREARNGE_YM).toMatch(/^\d{6}$/)

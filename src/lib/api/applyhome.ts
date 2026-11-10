@@ -61,7 +61,7 @@ async function requestOnce<T>(op: ApplyhomeDetailOp | ApplyhomeMdlOp, url: strin
     throw new Error(`applyhome ${op} JSON이 아님: ${text.slice(0, 200)}`)
   }
   const obj = body as { code?: unknown; msg?: unknown; data?: unknown }
-  if (obj && typeof obj === 'object' && obj.code !== undefined && obj.data === undefined) {
+  if (obj && typeof obj === 'object' && obj.code !== undefined && !Array.isArray(obj.data)) {
     throw new Error(`applyhome ${op} API 오류 ${String(obj.code)}: ${String(obj.msg ?? '')}`)
   }
   const parsed = SCHEMA[op].safeParse(body)
@@ -125,6 +125,7 @@ async function fetchAll<T extends { HOUSE_MANAGE_NO: string; PBLANC_NO: string; 
   // 페이지를 넘기는 사이 행이 밀리면 같은 행이 두 번 올 수 있다. 첫 번째만 둔다.
   const seen = new Set<string>()
   return all.filter((r) => {
+    if (isMdl && r.MODEL_NO == null) return true // 주택형 번호가 없으면 같은 행인지 알 수 없어 그대로 둔다
     const k = `${r.HOUSE_MANAGE_NO}|${r.PBLANC_NO}${isMdl ? `|${r.MODEL_NO ?? ''}` : ''}`
     if (seen.has(k)) return false
     seen.add(k)
