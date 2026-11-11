@@ -21,7 +21,7 @@ const yes = (v: unknown) => typeof v === 'string' && v.trim().toUpperCase() === 
 const RANK1_STRICT = '1순위 요건이 까다롭습니다. 청약통장 가입 2년, 세대주, 최근 5년 안에 당첨된 세대원이 없을 것. 민영주택은 2주택 이상 세대가 1순위에서 빠집니다.'
 
 /** 재당첨 제한. 비규제지역의 민영주택(분양가상한제 미적용)은 제한 기간에도 당첨될 수 있다(규칙 제54조). */
-const relot = (years: number) => `당첨되면 ${years}년 동안 다른 분양주택에 당첨될 수 없습니다(규제지역이 아닌 곳의 민영주택은 예외).`
+const relot = (years: number) => `당첨되면 ${years}년 동안 다른 분양주택에 당첨될 수 없습니다(분양가상한제가 아닌, 규제지역 밖 민영주택은 예외).`
 const RELOT_10 = relot(10)
 const RELOT_7 = relot(7)
 
