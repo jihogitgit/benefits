@@ -14,7 +14,7 @@ async function main() {
     repo,
     fetchApplyhome: (opts) => fetchApplyhomeDetails(since, { ...opts, onPage: (op, p, t) => console.log(`${op} ${p}/${t}`) }),
     fetchUnits: (kind, h, p, opts) => fetchApplyhomeUnits(kind, h, p, opts),
-    fetchLh: (opts) => fetchLhNotices({ ...opts, onPage: (cd, p, t) => console.log(`lh ${cd} p${p} (${t ?? '?'})`) }),
+    fetchLh: (opts) => fetchLhNotices({ ...opts, since, onPage: (cd, p, t) => console.log(`lh ${cd} p${p} (${t ?? '?'})`) }),
     since,
     log: console.log,
   })

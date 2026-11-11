@@ -8,6 +8,13 @@ const BASE_URL = 'https://apis.data.go.kr/B552555/lhLeaseNoticeInfo1/lhLeaseNoti
 export const LH_UPP_AIS_TP_CDS = ['05', '06', '13', '39'] as const
 
 export interface LhFetchOptions {
+  /**
+   * 공고 게시일 조회 시작(YYYY-MM-DD). 안 주면 LH가 최근 2개월만 돌려준다(실측 2026-11-11:
+   * 기본 270건, 180일 987건). 동기화는 항상 넘긴다.
+   */
+  since?: string
+  /** 조회 끝(YYYY-MM-DD). 기본은 오늘(KST). since와 함께만 쓰인다. */
+  until?: string
   pageSize?: number
   delayMs?: number
   /** 재시도 백오프 기준(ms). 기본 500. 테스트에서 0으로 둔다. */
@@ -20,7 +27,7 @@ export interface LhFetchOptions {
 
 /**
  * 코드 하나당 페이지 상한. 응답이 계속 가득 차는 이상 상황에서 무한히 돌지 않게 한다.
- * 10페이지×100건 = 코드당 1,000건. 날짜 조건 없이 받으므로 넉넉히 두되 cron 시간 예산을 넘지 않게 낮게 둔다.
+ * 10페이지×100건 = 코드당 1,000건(180일 창 실측 최대 621건). 넉넉히 두되 cron 시간 예산을 넘지 않게 낮게 둔다.
  */
 const MAX_PAGES = 10
 
@@ -66,12 +73,29 @@ async function requestOnce(cd: string, page: number, url: string, deadlineMs: nu
   }
 }
 
-async function fetchPage(key: string, cd: string, page: number, pageSize: number, retryBaseMs: number, deadlineMs: number | undefined): Promise<Page> {
+/** 오늘 날짜(KST, YYYY-MM-DD). LH는 한국 날짜로 게시일을 센다. */
+function todayKst(): string {
+  return new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10)
+}
+
+/** LH 조회 조건은 YYYYMMDD만 받는다. 점 표기(2026.05.15)는 오류 없이 0건을 돌려준다(실측). */
+function lhDate(iso: string, name: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new Error(`lh ${name} 형식 오류(YYYY-MM-DD 필요): ${iso}`)
+  return iso.replaceAll('-', '')
+}
+
+type Range = { st: string; ed: string } | null
+
+async function fetchPage(key: string, cd: string, page: number, pageSize: number, retryBaseMs: number, deadlineMs: number | undefined, range: Range): Promise<Page> {
   const url = new URL(BASE_URL)
   url.searchParams.set('serviceKey', key)
   url.searchParams.set('PG_SZ', String(pageSize))
   url.searchParams.set('PAGE', String(page))
   url.searchParams.set('UPP_AIS_TP_CD', cd)
+  if (range) {
+    url.searchParams.set('PAN_ST_DT', range.st)
+    url.searchParams.set('PAN_ED_DT', range.ed)
+  }
   const href = url.toString()
   for (let attempt = 0; ; attempt++) {
     try {
@@ -86,14 +110,16 @@ async function fetchPage(key: string, cd: string, page: number, pageSize: number
 }
 
 /**
- * 유형 4종의 공고 전체. 페이지는 ALL_CNT로 센다. 게시일 조건은 API가 믿을 만하지 않아 걸지 않고,
- * 동기화(housing-sync의 syncLh)가 공고일로 최근 180일만 남긴다.
+ * 유형 4종의 공고. 페이지는 ALL_CNT로 센다. `since`를 주면 게시일 조건(PAN_ST_DT~PAN_ED_DT)을 건다.
+ * 조건이 없으면 LH 기본값(최근 2개월)이 적용돼 오래 접수하는 공고가 빠진다.
+ * 동기화(housing-sync의 syncLh)는 받은 뒤에도 공고일로 한 번 더 거른다.
  */
 export async function fetchLhNotices(opts: LhFetchOptions = {}): Promise<LhNoticeItem[]> {
   const key = housingApiKey() // 요청 전에 키 누락을 먼저 드러낸다
   const pageSize = opts.pageSize ?? 100
   const delayMs = opts.delayMs ?? 300
   const retryBaseMs = opts.retryBaseMs ?? RETRY_BASE_MS
+  const range: Range = opts.since ? { st: lhDate(opts.since, 'since'), ed: lhDate(opts.until ?? todayKst(), 'until') } : null
   const all: LhNoticeItem[] = []
   for (const cd of LH_UPP_AIS_TP_CDS) {
     let total: number | null = 0
@@ -101,7 +127,7 @@ export async function fetchLhNotices(opts: LhFetchOptions = {}): Promise<LhNotic
       // 받은 페이지 수와 첫 페이지 ALL_CNT를 남겨 상한을 올릴지(정상 증가) 원천 이상인지 가릴 수 있게 한다.
       if (page > MAX_PAGES) throw new Error(`lh ${cd} 페이지 상한 ${MAX_PAGES} 초과(ALL_CNT=${total ?? '미상'})`)
       remainingBudgetMs(opts.deadlineMs, `lh ${cd} p${page}`) // 페이지·코드 사이에서도 확인한다
-      const r = await fetchPage(key, cd, page, pageSize, retryBaseMs, opts.deadlineMs)
+      const r = await fetchPage(key, cd, page, pageSize, retryBaseMs, opts.deadlineMs, range)
       if (page === 1) total = r.total // 첫 페이지 값으로 고정한다
       all.push(...r.items)
       opts.onPage?.(cd, page, total)

@@ -112,7 +112,7 @@ async function housingStep(deadlineMs: number): Promise<Record<string, unknown>>
       repo: createHousingRepo(createAdminClient()),
       fetchApplyhome: (opts) => fetchApplyhomeDetails(since, opts),
       fetchUnits: (kind, h, p, opts) => fetchApplyhomeUnits(kind, h, p, opts),
-      fetchLh: (opts) => fetchLhNotices(opts),
+      fetchLh: (opts) => fetchLhNotices({ ...opts, since }),
       since,
       deadlineMs,
     })

@@ -39,6 +39,52 @@ describe('LH 클라이언트', () => {
     expect(fetchMock.mock.calls.map(cdOf)).toEqual(['05', '06', '13', '39'])
   })
 
+  // LH는 기간을 안 넘기면 최근 2개월만 준다(실측 2026-11-11). 180일 창은 요청에 실려야 한다.
+  it('since를 주면 모든 요청에 PAN_ST_DT·PAN_ED_DT를 YYYYMMDD로 싣는다', async () => {
+    fetchMock.mockImplementation(async () => empty())
+    await fetchLhNotices({ ...opts, since: '2026-05-15', until: '2026-11-11' })
+    const params = fetchMock.mock.calls.map((c) => new URL(String(c[0])).searchParams)
+    expect(params).toHaveLength(4)
+    for (const p of params) {
+      expect(p.get('PAN_ST_DT')).toBe('20260515')
+      expect(p.get('PAN_ED_DT')).toBe('20261111')
+    }
+  })
+
+  it('until을 안 주면 오늘(KST)을 끝으로 쓴다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-10T16:30:00Z')) // KST 11-11 01:30
+    try {
+      fetchMock.mockImplementation(async () => empty())
+      await fetchLhNotices({ ...opts, since: '2026-05-15' })
+      expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get('PAN_ED_DT')).toBe('20261111')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('since가 없으면 기간 조건을 보내지 않는다', async () => {
+    fetchMock.mockImplementation(async () => empty())
+    await fetchLhNotices(opts)
+    const p = new URL(String(fetchMock.mock.calls[0][0])).searchParams
+    expect(p.has('PAN_ST_DT')).toBe(false)
+    expect(p.has('PAN_ED_DT')).toBe(false)
+  })
+
+  it('since 형식이 YYYY-MM-DD가 아니면 요청 없이 던진다', async () => {
+    await expect(fetchLhNotices({ ...opts, since: '2026.05.15' })).rejects.toThrow(/since 형식 오류/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  // 실측 래퍼는 [{dsSch},{dsList}]다(resHeader 없음).
+  it('실제 응답 래퍼 [{dsSch},{dsList}]를 읽는다', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json([{ dsSch: [{ PAN_ST_DT: '20260515' }] }, { dsList: [row('x1')] }]))
+      .mockImplementation(async () => json([{ dsSch: [{}] }, { dsList: [] }]))
+    const r = await fetchLhNotices(opts)
+    expect(r.map((x) => x.PAN_ID)).toEqual(['x1'])
+  })
+
   it('403 XML 본문이면 재시도 없이 던진다', async () => {
     fetchMock.mockResolvedValueOnce(new Response('<OpenAPI_ServiceResponse>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</OpenAPI_ServiceResponse>', { status: 403 }))
     await expect(fetchLhNotices(opts)).rejects.toThrow('HTTP 403')
