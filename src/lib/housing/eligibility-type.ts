@@ -118,6 +118,8 @@ function keyOf(n: EligibilityInput): EligibilityKey | null {
     if (detail === '매입임대') return purchaseKey(n.title)
     if (detail === '공공임대' || detail === '6년 공공임대주택') return publicRentKey(detail === '공공임대' ? n.title : `${n.title} 6년`)
     if (detail === '분양주택') return LH_LEFTOVER.test(compact(n.title)) ? 'lh_sale_leftover' : 'public_sale'
+    // 신혼희망타운 잔여세대는 자격 요건을 일부 또는 전부 완화할 수 있다(별표 6의3). 엄격한 기준을 붙이지 않는다.
+    if (detail === '공공분양(신혼희망)' && LH_LEFTOVER.test(compact(n.title))) return 'lh_sale_leftover'
     return LH_BY_DETAIL[detail] ?? null
   }
   switch (n.kind) {

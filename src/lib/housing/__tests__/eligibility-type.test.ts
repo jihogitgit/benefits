@@ -72,6 +72,11 @@ describe('자격 유형 분류', () => {
     expect(key(lh('분양주택', title, 'lh_sale'))).toBe(expected)
   })
 
+  it('신혼희망타운 잔여세대는 잔여세대 유형으로 보낸다', () => {
+    expect(key(lh('공공분양(신혼희망)', '부천원종 B2블록 신혼희망타운 잔여세대 추가입주자모집', 'newlywed_town'))).toBe('lh_sale_leftover')
+    expect(key(lh('공공분양(신혼희망)', '어느 지구 신혼희망타운 입주자모집공고', 'newlywed_town'))).toBe('newlywed_town_sale')
+  })
+
   it.each([
     [ah('apt', '민영'), 'private_sale'],
     [ah('apt', '국민'), 'public_sale'],
@@ -108,7 +113,7 @@ describe('자격 유형 분류', () => {
       expect(resolveEligibility(lh('분양주택', '어느 단지 잔여세대 선착순 일반매각', 'lh_sale'))).toEqual({ key: 'lh_sale_leftover', relaxed: false })
     })
     it('LH 정식 분양 공고는 제목에 선착순이 있어도 임대 완화 표시를 달지 않는다', () => {
-      expect(resolveEligibility(lh('공공분양(신혼희망)', '어느 단지 신혼희망타운 선착순 안내', 'newlywed_town'))?.relaxed).toBe(false)
+      expect(resolveEligibility(lh('공공분양(신혼희망)', '어느 단지 신혼희망타운 상시모집 안내', 'newlywed_town'))).toEqual({ key: 'newlywed_town_sale', relaxed: false })
     })
     it('청약홈 공고는 제목으로 완화를 판단하지 않는다', () => {
       expect(resolveEligibility(ah('apt', '민영', '선착순 분양 단지'))?.relaxed).toBe(false)

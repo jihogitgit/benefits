@@ -37,7 +37,18 @@ describe('규제 표시 추출', () => {
   it('여러 표시가 같은 문장을 가지면 한 번만 낸다', () => {
     const [a, b] = extractConditions({ SPECLT_RDN_EARTH_AT: 'Y', MDAT_TRGET_AREA_SECD: 'Y' })
     expect(a.effects).toHaveLength(3)
-    expect(b.effects).toEqual(['당첨되면 7년 동안 다른 분양주택에 당첨될 수 없습니다.'])
+    expect(b.effects).toEqual([]) // 1순위·전매 문장은 중복, 7년은 10년에 밀린다
+  })
+
+  // 재당첨 제한은 가장 긴 기간만 적용된다. 10년짜리가 켜져 있으면 7년을 말하지 않는다.
+  it('분양가상한제(10년)와 청약과열지역(7년)이 함께면 7년 문장을 내지 않는다', () => {
+    const all = extractConditions({ MDAT_TRGET_AREA_SECD: 'Y', PARCPRC_ULS_AT: 'Y' }).flatMap((c) => c.effects).join(' ')
+    expect(all).toMatch(/10년/)
+    expect(all).not.toMatch(/7년/)
+  })
+
+  it('청약과열지역만 켜져 있으면 7년을 말한다', () => {
+    expect(extractConditions({ MDAT_TRGET_AREA_SECD: 'Y' }).flatMap((c) => c.effects).join(' ')).toMatch(/7년/)
   })
 
   it('정비사업·공공주택지구는 이름만 낸다(그 표시만으로 달라지는 조문이 없다)', () => {

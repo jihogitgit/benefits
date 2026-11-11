@@ -20,25 +20,30 @@ const yes = (v: unknown) => typeof v === 'string' && v.trim().toUpperCase() === 
 
 const RANK1_STRICT = '1순위 요건이 까다롭습니다. 청약통장 가입 2년, 세대주, 최근 5년 안에 당첨된 세대원이 없을 것. 민영주택은 2주택 이상 세대가 1순위에서 빠집니다.'
 
+/** 재당첨 제한. 비규제지역의 민영주택(분양가상한제 미적용)은 제한 기간에도 당첨될 수 있다(규칙 제54조). */
+const relot = (years: number) => `당첨되면 ${years}년 동안 다른 분양주택에 당첨될 수 없습니다(규제지역이 아닌 곳의 민영주택은 예외).`
+const RELOT_10 = relot(10)
+const RELOT_7 = relot(7)
+
 const DEFS: { field: string; key: string; label: string; effects: string[] }[] = [
   {
     field: 'SPECLT_RDN_EARTH_AT',
     key: 'speculation',
     label: '투기과열지구',
-    effects: [RANK1_STRICT, '당첨되면 10년 동안 다른 분양주택에 당첨될 수 없습니다.', '전매제한은 수도권 3년, 수도권 밖 1년입니다.'],
+    effects: [RANK1_STRICT, RELOT_10, '전매제한은 수도권 3년, 수도권 밖 1년입니다.'],
   },
   {
     field: 'MDAT_TRGET_AREA_SECD',
     key: 'overheated',
     label: '청약과열지역(조정대상지역)',
-    effects: [RANK1_STRICT, '당첨되면 7년 동안 다른 분양주택에 당첨될 수 없습니다.', '전매제한은 수도권 3년, 수도권 밖 1년입니다.'],
+    effects: [RANK1_STRICT, RELOT_7, '전매제한은 수도권 3년, 수도권 밖 1년입니다.'],
   },
   {
     field: 'PARCPRC_ULS_AT',
     key: 'price_cap',
     label: '분양가상한제',
     effects: [
-      '당첨되면 10년 동안 다른 분양주택에 당첨될 수 없습니다.',
+      RELOT_10,
       '수도권 주택은 거주의무가 있습니다. 입주 가능일부터 3년 안에 들어가 2~5년(분양가가 주변 시세에 견줘 얼마나 싼지, 공공택지인지에 따라 다름)을 살아야 합니다.',
       '전매제한이 있습니다. 공공택지는 수도권 3년, 수도권 밖 1년입니다.',
     ],
@@ -60,8 +65,11 @@ export function extractConditions(raw: unknown): HousingCondition[] {
   if (!raw || typeof raw !== 'object') return []
   const r = raw as Record<string, unknown>
   // 투기과열지구와 청약과열지역이 함께 켜지면 1순위·전매 문장이 똑같이 두 번 나온다. 먼저 나온 것만 남긴다.
+  const on = DEFS.filter((d) => yes(r[d.field]))
   const seen = new Set<string>()
-  return DEFS.filter((d) => yes(r[d.field])).map(({ key, label, effects }) => ({
+  // 재당첨 제한은 둘 이상 해당하면 가장 긴 기간만 적용된다(규칙 제54조). 10년이 있으면 7년 문장은 틀린 말이 된다.
+  if (on.some((d) => d.effects.includes(RELOT_10))) seen.add(RELOT_7)
+  return on.map(({ key, label, effects }) => ({
     key,
     label,
     effects: effects.filter((e) => (seen.has(e) ? false : (seen.add(e), true))),

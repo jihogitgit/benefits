@@ -1,4 +1,4 @@
-import { ELIGIBILITY_AS_OF, ELIGIBILITY_GUIDES, ELIGIBILITY_YEAR, MEDIAN_INCOME_100, RELAXED_NOTICE, URBAN_INCOME_100, incomeLimit, type EligibilityGuide } from '@/lib/housing/eligibility-guides'
+import { ELIGIBILITY_AS_OF, ELIGIBILITY_GUIDES, ELIGIBILITY_YEAR, MEDIAN_INCOME_100, URBAN_INCOME_100, relaxedNotice, incomeLimit, type EligibilityGuide } from '@/lib/housing/eligibility-guides'
 import type { EligibilityMatch } from '@/lib/housing/eligibility-type'
 
 /**
@@ -16,7 +16,7 @@ export default function EligibilityPanel({ match, sourceUrl }: { match: Eligibil
       <p className="text-sm text-gray-700">{guide.summary}</p>
 
       {match.relaxed && (
-        <p className="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3 text-sm text-brand-800">{RELAXED_NOTICE}</p>
+        <p className="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3 text-sm text-brand-800">{relaxedNotice(match.key)}</p>
       )}
 
       <dl className="mt-3 divide-y rounded-xl border bg-white text-sm">
