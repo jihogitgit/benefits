@@ -81,7 +81,8 @@ function purchaseKey(title: string): EligibilityKey | null {
 function publicRentKey(title: string): EligibilityKey | null {
   const t = compact(title)
   if (t.includes('50년')) return 'public_rent_50'
-  if (/분양전환|(5|6|10)년/.test(t)) return 'public_rent_convertible'
+  // 앞에 숫자가 붙은 것은 연도('2026년')나 다른 기간('15년')이다.
+  if (/분양전환|(?<!\d)(5|6|10)년/.test(t)) return 'public_rent_convertible'
   return null
 }
 
@@ -89,7 +90,7 @@ function publicRentKey(title: string): EligibilityKey | null {
  * LH '분양주택'의 절반 이상은 정식 입주자모집이 아니라 잔여세대·공가세대 처분이다(선착순·무순위·일반매각).
  * 자격이 공고마다 다르고("유주택자 가능"까지 있다) 공공분양 일반 기준과 맞지 않아 따로 뺀다.
  */
-const LH_LEFTOVER = /잔여|선착순|일반매각|무순위|공가|미분양|추가입주자/
+const LH_LEFTOVER = /잔여|선착순|일반매각|무순위|공가세대|미분양|추가입주자/
 
 const LH_BY_DETAIL: Record<string, EligibilityKey> = {
   국민임대: 'national_rent',
@@ -109,6 +110,7 @@ const APPLYHOME_ETC_BY_DETAIL: Record<string, EligibilityKey> = {
 }
 
 const RELAXED = /자격완화|상시모집|선착순/
+const LH_SALE_KEYS: ReadonlySet<EligibilityKey> = new Set(['lh_sale_leftover', 'public_sale', 'newlywed_town_sale'])
 
 function keyOf(n: EligibilityInput): EligibilityKey | null {
   const detail = (n.kind_detail ?? '').trim()
@@ -143,7 +145,7 @@ function keyOf(n: EligibilityInput): EligibilityKey | null {
 export function resolveEligibility(n: EligibilityInput): EligibilityMatch | null {
   const key = keyOf(n)
   if (!key) return null
-  // 잔여세대 유형은 그 자체가 완화 공고라 표시를 따로 달지 않는다. 임대만 본다.
-  const relaxed = n.source === 'lh' && key !== 'lh_sale_leftover' && RELAXED.test(compact(n.title))
+  // LH 임대만 본다. 분양은 잔여세대 유형이 따로 있고(그 자체가 완화 공고), 정식 분양 공고의 '선착순'은 임대의 완화 조항과 근거가 다르다.
+  const relaxed = n.source === 'lh' && !LH_SALE_KEYS.has(key) && RELAXED.test(compact(n.title))
   return { key, relaxed }
 }

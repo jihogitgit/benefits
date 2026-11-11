@@ -4,6 +4,8 @@ import { createPublicClient } from '@/lib/supabase/server'
 import { CACHE_TAGS, housingTag, isSlugLike } from '@/lib/cache-tags'
 import type { HousingKind, HousingSource, HousingStatus, HousingUnitTypeRow } from '@/types/housing'
 import { REGION_ALL } from '../../../data/regions'
+import { resolveEligibility } from './eligibility-type'
+import { ELIGIBILITY_GUIDES } from './eligibility-guides'
 
 const DAY = 86400
 const WEEK = 604800
@@ -24,6 +26,17 @@ export interface HousingCardRow {
   sp_first_life_units: number
   sp_multi_child_units: number
   detail_url: string | null
+  /** 유형별 공통 자격 한 줄. DB 열이 아니라 listHousing이 붙인다(withEligibility). 안내가 없는 유형은 null. */
+  eligibility_summary?: string | null
+  /** 제목이 자격 완화·상시모집·선착순을 알리는 LH 임대 공고. */
+  eligibility_relaxed?: boolean
+}
+
+/** 카드에 실을 자격 한 줄. 서버에서만 부른다 — 안내 데이터가 클라이언트 번들에 들어가지 않게. */
+export function withEligibility<T extends HousingCardRow>(row: T): T {
+  const m = resolveEligibility(row)
+  const guide = m ? ELIGIBILITY_GUIDES[m.key] : undefined
+  return { ...row, eligibility_summary: guide?.summary ?? null, eligibility_relaxed: !!guide && !!m?.relaxed }
 }
 
 const CARD_COLS = 'slug, title, source, kind, kind_detail, region_code, status, receipt_start, receipt_end, total_units, sp_newlywed_units, sp_first_life_units, sp_multi_child_units, detail_url'
@@ -77,9 +90,9 @@ export const listHousing = unstable_cache(
       .order('slug')
       .limit(input.limit)
     if (error) throw error
-    return (data ?? []) as unknown as HousingCardRow[]
+    return ((data ?? []) as unknown as HousingCardRow[]).map(withEligibility)
   },
-  ['housing-list'],
+  ['housing-list-v2'], // v2: 행에 자격 한 줄이 실린다
   { tags: [CACHE_TAGS.housingLists], revalidate: DAY },
 )
 

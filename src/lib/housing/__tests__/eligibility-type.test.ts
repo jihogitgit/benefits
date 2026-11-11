@@ -47,6 +47,11 @@ describe('자격 유형 분류', () => {
     ['시흥시 10년 공공임대주택 예비입주자 모집공고', 'public_rent_convertible'],
     ['화성동탄2 10년 분양전환공공임대주택(리츠) 예비입주자모집공고', 'public_rent_convertible'],
     ['어느 단지 공공임대 예비입주자 모집', null],
+    // 연도와 다른 기간은 임대의무기간이 아니다.
+    ['2026년 어느 단지 공공임대 예비입주자 모집', null],
+    ["'25년 어느 단지 공공임대 예비입주자 모집", null],
+    ['어느 단지 15년 공공임대 예비입주자 모집', null],
+    ['2026년 어느 단지 5년 공공임대 예비입주자 모집', 'public_rent_convertible'],
   ])('공공임대 "%s" → %s', (title, expected) => {
     expect(key(lh('공공임대', title))).toBe(expected)
   })
@@ -101,6 +106,9 @@ describe('자격 유형 분류', () => {
     })
     it('잔여세대 분양은 유형 자체가 완화라 표시를 따로 달지 않는다', () => {
       expect(resolveEligibility(lh('분양주택', '어느 단지 잔여세대 선착순 일반매각', 'lh_sale'))).toEqual({ key: 'lh_sale_leftover', relaxed: false })
+    })
+    it('LH 정식 분양 공고는 제목에 선착순이 있어도 임대 완화 표시를 달지 않는다', () => {
+      expect(resolveEligibility(lh('공공분양(신혼희망)', '어느 단지 신혼희망타운 선착순 안내', 'newlywed_town'))?.relaxed).toBe(false)
     })
     it('청약홈 공고는 제목으로 완화를 판단하지 않는다', () => {
       expect(resolveEligibility(ah('apt', '민영', '선착순 분양 단지'))?.relaxed).toBe(false)

@@ -16,7 +16,7 @@ export default function EligibilityPanel({ match, sourceUrl }: { match: Eligibil
       <p className="text-sm text-gray-700">{guide.summary}</p>
 
       {match.relaxed && (
-        <p className="mt-3 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">{RELAXED_NOTICE}</p>
+        <p className="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3 text-sm text-brand-800">{RELAXED_NOTICE}</p>
       )}
 
       <dl className="mt-3 divide-y rounded-xl border bg-white text-sm">

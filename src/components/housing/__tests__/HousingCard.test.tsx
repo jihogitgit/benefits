@@ -41,20 +41,21 @@ describe('HousingCard', () => {
     expect(link).not.toHaveAttribute('target')
   })
 
-  it('유형의 공통 자격 한 줄을 붙인다', () => {
-    render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '국민임대', title: '어느 단지 국민임대 예비입주자 모집' }} now={now} />)
-    expect(screen.getByText(/무주택세대구성원이고 소득이 도시근로자 월평균소득의 70% 이하/)).toBeInTheDocument()
+  it('행에 실린 자격 한 줄을 붙인다', () => {
+    render(<HousingCard row={{ ...base, eligibility_summary: '무주택세대구성원이면 신청할 수 있습니다.' }} now={now} />)
+    expect(screen.getByTestId('eligibility-summary')).toHaveTextContent('무주택세대구성원이면 신청할 수 있습니다.')
     expect(screen.queryByText(/자격 완화 공고/)).toBeNull()
   })
 
-  it('제목이 자격 완화를 알리면 한 줄 앞에 표시한다', () => {
-    render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '국민임대', title: '어느 단지 국민임대 입주자격 완화 상시모집' }} now={now} />)
-    expect(screen.getByText(/자격 완화 공고/)).toBeInTheDocument()
+  it('자격 완화 공고면 한 줄 앞에 표시한다', () => {
+    render(<HousingCard row={{ ...base, eligibility_summary: '무주택세대구성원이면 신청할 수 있습니다.', eligibility_relaxed: true }} now={now} />)
+    expect(screen.getByTestId('eligibility-summary')).toHaveTextContent('자격 완화 공고. 무주택세대구성원이면')
   })
 
-  it('안내가 없는 유형은 자격 한 줄을 붙이지 않는다', () => {
-    const { container } = render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '가정어린이집' }} now={now} />)
-    expect(container.querySelectorAll('p')).toHaveLength(1) // 세부 구분 줄만
+  it('자격 한 줄이 없으면 붙이지 않는다(완화 표시도 혼자 나오지 않는다)', () => {
+    render(<HousingCard row={{ ...base, eligibility_summary: null, eligibility_relaxed: true }} now={now} />)
+    expect(screen.queryByTestId('eligibility-summary')).toBeNull()
+    expect(screen.queryByText(/자격 완화 공고/)).toBeNull()
   })
 
   it('마감은 회색 라벨', () => {

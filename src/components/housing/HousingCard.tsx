@@ -4,8 +4,6 @@ import { KIND_LABEL, STATUS_LABEL } from '@/lib/housing/labels'
 import { regionName } from '@/components/benefits/BenefitCard'
 import DdayBadge from '@/components/benefits/DdayBadge'
 import { daysUntil } from '@/lib/benefits/status'
-import { resolveEligibility } from '@/lib/housing/eligibility-type'
-import { ELIGIBILITY_GUIDES } from '@/lib/housing/eligibility-guides'
 
 /**
  * 공고 카드. 청약홈·LH 모두 상세(/housing/[slug])로 보낸다. LH는 API가 일정·세대수를 주지 않지만
@@ -14,7 +12,8 @@ import { ELIGIBILITY_GUIDES } from '@/lib/housing/eligibility-guides'
  * D-day: 접수중은 지원금 카드와 같은 DdayBadge(클라이언트에서 다시 센다). 접수 예정은 "D-n 접수 시작"을
  * 서버에서 찍는다 — 목록은 하루 ISR + cron이 매일 housing:lists를 비우므로 하루 이상 어긋나지 않는다.
  * 특별공급 배지는 세대수가 있을 때만 — 오피스텔·LH는 집계가 없어 0이라 배지가 안 뜬다(의도).
- * 자격 한 줄(eligibility)은 유형의 공통 기준이 있을 때만 붙는다.
+ * 자격 한 줄은 서버(listHousing)가 행에 실어 준다 — 이 카드는 클라이언트 컴포넌트(MyHousingBlock)도 쓰므로
+ * 안내 데이터 전체를 import하면 브라우저 번들에 실린다.
  */
 export default function HousingCard({ row, now }: { row: HousingCardRow; now?: Date }) {
   const badges = [
@@ -22,8 +21,6 @@ export default function HousingCard({ row, now }: { row: HousingCardRow; now?: D
     row.sp_first_life_units > 0 && '생애최초 특공',
     row.sp_multi_child_units > 0 && '다자녀 특공',
   ].filter((b): b is string => !!b)
-  const match = resolveEligibility(row)
-  const guide = match ? ELIGIBILITY_GUIDES[match.key] : undefined
 
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm focus-within:border-brand-400">
@@ -41,10 +38,10 @@ export default function HousingCard({ row, now }: { row: HousingCardRow; now?: D
       <p className="mt-1 text-sm text-gray-600">
         {[row.kind_detail, row.total_units ? `${row.total_units.toLocaleString()}세대` : null].filter(Boolean).join(' · ')}
       </p>
-      {guide && (
-        <p className="mt-1.5 line-clamp-2 text-xs text-gray-500">
-          {match?.relaxed ? '자격 완화 공고. ' : ''}
-          {guide.summary}
+      {row.eligibility_summary && (
+        <p className="mt-1.5 line-clamp-2 text-xs text-gray-500" data-testid="eligibility-summary">
+          {row.eligibility_relaxed ? '자격 완화 공고. ' : ''}
+          {row.eligibility_summary}
         </p>
       )}
       {badges.length > 0 && (
