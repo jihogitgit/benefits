@@ -31,14 +31,30 @@ describe('HousingCard', () => {
     expect(screen.getByText('D-3 접수 시작')).toBeInTheDocument()
   })
 
-  // LH는 API가 일정을 주지 않는다. 상세 페이지도 없어 원문으로 바로 보낸다(설계 5절).
-  it('LH 공고는 상태 라벨과 원문 링크만 낸다', () => {
+  // LH는 API가 일정을 주지 않지만 상세에 유형별 공통 자격과 원문 링크가 있어 상세로 보낸다.
+  it('LH 공고는 상태 라벨을 내고 상세로 링크한다(원문으로 바로 나가지 않는다)', () => {
     render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '행복주택', receipt_start: null, receipt_end: null, total_units: null, sp_newlywed_units: 0, sp_multi_child_units: 0, detail_url: 'https://apply.lh.or.kr/x' }} now={now} />)
     expect(screen.getByText('접수중')).toBeInTheDocument()
     expect(screen.getByText('행복주택')).toBeInTheDocument()
     const link = screen.getByRole('link', { name: /래미안 테스트/ })
-    expect(link).toHaveAttribute('href', 'https://apply.lh.or.kr/x')
-    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('href', '/housing/래미안-테스트')
+    expect(link).not.toHaveAttribute('target')
+  })
+
+  it('유형의 공통 자격 한 줄을 붙인다', () => {
+    render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '국민임대', title: '어느 단지 국민임대 예비입주자 모집' }} now={now} />)
+    expect(screen.getByText(/무주택세대구성원이고 소득이 도시근로자 월평균소득의 70% 이하/)).toBeInTheDocument()
+    expect(screen.queryByText(/자격 완화 공고/)).toBeNull()
+  })
+
+  it('제목이 자격 완화를 알리면 한 줄 앞에 표시한다', () => {
+    render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '국민임대', title: '어느 단지 국민임대 입주자격 완화 상시모집' }} now={now} />)
+    expect(screen.getByText(/자격 완화 공고/)).toBeInTheDocument()
+  })
+
+  it('안내가 없는 유형은 자격 한 줄을 붙이지 않는다', () => {
+    const { container } = render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', kind_detail: '가정어린이집' }} now={now} />)
+    expect(container.querySelectorAll('p')).toHaveLength(1) // 세부 구분 줄만
   })
 
   it('마감은 회색 라벨', () => {
@@ -52,15 +68,9 @@ describe('HousingCard', () => {
     expect(screen.getByText('지역 미상')).toBeInTheDocument()
   })
 
-  it('URL 없는 LH 공고는 링크 없이 제목만 낸다', () => {
+  it('원문 URL이 없는 LH 공고도 상세로 링크한다', () => {
     render(<HousingCard row={{ ...base, source: 'lh', kind: 'lh_rent', detail_url: null }} now={now} />)
-    expect(screen.getByText('래미안 테스트')).toBeInTheDocument()
-    expect(screen.queryByRole('link')).toBeNull()
-  })
-
-  it('LH 링크는 새 창 안내를 스크린리더에 준다', () => {
-    render(<HousingCard row={{ ...base, source: 'lh', detail_url: 'https://apply.lh.or.kr/x' }} now={now} />)
-    expect(screen.getByText('(새 창)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '래미안 테스트' })).toHaveAttribute('href', '/housing/래미안-테스트')
   })
 
   it('시작일이 오늘인 접수 예정은 "접수 예정"', () => {

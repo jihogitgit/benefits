@@ -4,22 +4,26 @@ import { KIND_LABEL, STATUS_LABEL } from '@/lib/housing/labels'
 import { regionName } from '@/components/benefits/BenefitCard'
 import DdayBadge from '@/components/benefits/DdayBadge'
 import { daysUntil } from '@/lib/benefits/status'
+import { resolveEligibility } from '@/lib/housing/eligibility-type'
+import { ELIGIBILITY_GUIDES } from '@/lib/housing/eligibility-guides'
 
 /**
- * 공고 카드. 청약홈은 상세(/housing/[slug])로, LH는 API가 일정·세대수를 주지 않아 상세 없이 LH 원문으로 보낸다.
+ * 공고 카드. 청약홈·LH 모두 상세(/housing/[slug])로 보낸다. LH는 API가 일정·세대수를 주지 않지만
+ * 상세에 유형별 공통 자격과 원문 링크가 있다.
  *
  * D-day: 접수중은 지원금 카드와 같은 DdayBadge(클라이언트에서 다시 센다). 접수 예정은 "D-n 접수 시작"을
  * 서버에서 찍는다 — 목록은 하루 ISR + cron이 매일 housing:lists를 비우므로 하루 이상 어긋나지 않는다.
  * 특별공급 배지는 세대수가 있을 때만 — 오피스텔·LH는 집계가 없어 0이라 배지가 안 뜬다(의도).
+ * 자격 한 줄(eligibility)은 유형의 공통 기준이 있을 때만 붙는다.
  */
 export default function HousingCard({ row, now }: { row: HousingCardRow; now?: Date }) {
-  const external = row.source === 'lh'
-  const href = external ? row.detail_url ?? '' : `/housing/${row.slug}`
   const badges = [
     row.sp_newlywed_units > 0 && '신혼부부 특공',
     row.sp_first_life_units > 0 && '생애최초 특공',
     row.sp_multi_child_units > 0 && '다자녀 특공',
   ].filter((b): b is string => !!b)
+  const match = resolveEligibility(row)
+  const guide = match ? ELIGIBILITY_GUIDES[match.key] : undefined
 
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm focus-within:border-brand-400">
@@ -30,22 +34,19 @@ export default function HousingCard({ row, now }: { row: HousingCardRow; now?: D
         <span className="text-xs text-gray-500">{KIND_LABEL[row.kind]}</span>
       </div>
       <h3 className="text-base font-semibold leading-snug">
-        {external && !row.detail_url ? (
-          <span>{row.title}</span>
-        ) : external ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="after:absolute after:inset-0 after:rounded-xl hover:text-brand-700">
-            {row.title} <span aria-hidden className="text-gray-400">↗</span>
-            <span className="sr-only">(새 창)</span>
-          </a>
-        ) : (
-          <Link href={href} className="after:absolute after:inset-0 after:rounded-xl hover:text-brand-700">
-            {row.title}
-          </Link>
-        )}
+        <Link href={`/housing/${row.slug}`} className="after:absolute after:inset-0 after:rounded-xl hover:text-brand-700">
+          {row.title}
+        </Link>
       </h3>
       <p className="mt-1 text-sm text-gray-600">
         {[row.kind_detail, row.total_units ? `${row.total_units.toLocaleString()}세대` : null].filter(Boolean).join(' · ')}
       </p>
+      {guide && (
+        <p className="mt-1.5 line-clamp-2 text-xs text-gray-500">
+          {match?.relaxed ? '자격 완화 공고. ' : ''}
+          {guide.summary}
+        </p>
+      )}
       {badges.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1" aria-label="특별공급">
           {badges.map((b) => (

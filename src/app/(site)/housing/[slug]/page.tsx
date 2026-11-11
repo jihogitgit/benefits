@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { listHousing, getHousingBySlug, countActiveHousingByRegion, HOUSING_LIST_LIMIT } from '@/lib/housing/queries'
+import { listHousing, getHousingBySlug, countActiveHousingByRegion, HOUSING_LIST_LIMIT, type HousingDetail } from '@/lib/housing/queries'
 import { housingRegionIndexable } from '@/lib/seo/index-policy'
 import { KIND_LABEL, STATUS_LABEL } from '@/lib/housing/labels'
 import { kstYear } from '@/lib/seo/hub-meta'
@@ -11,6 +11,11 @@ import JsonLd from '@/components/JsonLd'
 import HousingList from '@/components/housing/HousingList'
 import HousingSchedule from '@/components/housing/HousingSchedule'
 import UnitTypeTable from '@/components/housing/UnitTypeTable'
+import EligibilityPanel from '@/components/housing/EligibilityPanel'
+import ConditionFlags from '@/components/housing/ConditionFlags'
+import { resolveEligibility } from '@/lib/housing/eligibility-type'
+import { ELIGIBILITY_GUIDES } from '@/lib/housing/eligibility-guides'
+import { extractConditions } from '@/lib/housing/conditions'
 import DdayBadge from '@/components/benefits/DdayBadge'
 import { regionName } from '@/components/benefits/BenefitCard'
 import { REGIONS } from '../../../../../data/regions'
@@ -59,14 +64,27 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     }
   }
   const d = await getHousingBySlug(slug)
-  if (!d || d.source === 'lh') return {}
+  if (!d) return {}
+  const regionLabel = (d.region_code !== 'UNKNOWN' && regionName(d.region_code)) || '지역 미상'
+  const guide = guideOf(d)
   return {
-    title: `${d.title} 청약 일정·공급 내역`,
-    description: [KIND_LABEL[d.kind], (d.region_code !== 'UNKNOWN' && regionName(d.region_code)) || '지역 미상', d.total_units ? `${d.total_units}세대` : null, d.receipt_start ? `접수 ${d.receipt_start.replace(/-/g, '.')}부터` : null].filter(Boolean).join(' · '),
+    title: d.source === 'lh' ? `${d.title} · 일정과 신청 자격` : `${d.title} 청약 일정·공급 내역`,
+    description: [KIND_LABEL[d.kind], regionLabel, d.total_units ? `${d.total_units}세대` : null, d.receipt_start ? `접수 ${d.receipt_start.replace(/-/g, '.')}부터` : null, guide ? `${guide.name} 공통 신청 자격` : null].filter(Boolean).join(' · '),
     alternates: { canonical: absoluteUrl(`/housing/${d.slug}`) },
-    // 공고 상세는 원문을 옮긴 페이지라 색인하지 않는다(설계 5절). 해설이 붙으면 그때 연다.
+    // 공고 상세는 원문을 옮긴 페이지라 색인하지 않는다(설계 5절). 자격 안내는 유형 공통 내용이라 공고마다 같은 글이 되풀이된다.
     robots: { index: false, follow: true },
   }
+}
+
+const guideOf = (d: HousingDetail) => {
+  const m = resolveEligibility(d)
+  return m ? ELIGIBILITY_GUIDES[m.key] ?? null : null
+}
+
+/** LH 원문의 마감일(CLSG_DT, 2026.11.20 꼴). 동기화가 receipt_end에 싣지 않아 raw에서 읽는다. 날짜 꼴이 아니면 버린다. */
+function lhDeadline(raw: Record<string, unknown>): string | null {
+  const v = raw?.CLSG_DT
+  return typeof v === 'string' && /^\d{4}\.\d{2}\.\d{2}$/.test(v.trim()) ? v.trim() : null
 }
 
 export default async function HousingSlugPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -75,10 +93,13 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
   const reg = region(slug)
   if (reg) return <RegionPage slug={reg.slug} name={reg.name} />
   const d = await getHousingBySlug(slug)
-  // LH 공고는 상세 페이지가 없다 — API에 일정·주택형이 없어 옮길 내용이 없고, 카드는 원문으로 바로 보낸다.
-  if (!d || d.source === 'lh') notFound()
+  if (!d) notFound()
   const now = new Date()
   const closed = d.status === 'closed' || d.status === 'removed'
+  const lh = d.source === 'lh'
+  const match = resolveEligibility(d)
+  const conditions = lh ? [] : extractConditions(d.raw)
+  const deadline = lh ? lhDeadline(d.raw) : null
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
@@ -101,20 +122,34 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
         </div>
       )}
 
+      {lh && d.detail_url && (
+        <p className="mt-4">
+          <a href={d.detail_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">
+            LH 청약플러스에서 공고문 보기 <span aria-hidden>↗</span>
+            <span className="sr-only">(새 창)</span>
+          </a>
+        </p>
+      )}
+
       <section className="mt-6">
         <h2 className="mb-2 text-lg font-bold">한눈에 보기</h2>
         <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
           {d.total_units != null && <div className="rounded-xl border bg-white p-3"><dt className="text-gray-500">공급 세대</dt><dd className="mt-0.5 font-semibold">{d.total_units.toLocaleString()}세대</dd></div>}
           {d.address && <div className="col-span-2 rounded-xl border bg-white p-3"><dt className="text-gray-500">위치</dt><dd className="mt-0.5 font-semibold">{d.address}</dd></div>}
           {d.supplier && <div className="rounded-xl border bg-white p-3"><dt className="text-gray-500">사업주체</dt><dd className="mt-0.5 font-semibold">{d.supplier}</dd></div>}
+          {lh && d.notice_date && <div className="rounded-xl border bg-white p-3"><dt className="text-gray-500">공고일</dt><dd className="mt-0.5 font-semibold tabular-nums">{d.notice_date.replace(/-/g, '.')}</dd></div>}
+          {deadline && <div className="rounded-xl border bg-white p-3"><dt className="text-gray-500">마감일</dt><dd className="mt-0.5 font-semibold tabular-nums">{deadline}</dd></div>}
         </dl>
+        {lh && <p className="mt-2 text-xs text-gray-500">접수 기간, 공급 호수, 임대료는 LH 공고문에 있습니다.</p>}
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-2 text-lg font-bold">일정</h2>
-        <HousingSchedule d={d} />
-        <p className="mt-2 text-xs text-gray-500">1·2순위는 해당지역·기타지역 접수일 중 가장 이른 날부터 가장 늦은 날까지로 표시합니다. 정확한 일정은 모집공고문을 확인하세요.</p>
-      </section>
+      {!lh && (
+        <section className="mt-8">
+          <h2 className="mb-2 text-lg font-bold">일정</h2>
+          <HousingSchedule d={d} />
+          <p className="mt-2 text-xs text-gray-500">1·2순위는 해당지역·기타지역 접수일 중 가장 이른 날부터 가장 늦은 날까지로 표시합니다. 정확한 일정은 모집공고문을 확인하세요.</p>
+        </section>
+      )}
 
       {d.housing_unit_types.length > 0 && (
         <section className="mt-8">
@@ -123,13 +158,18 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
         </section>
       )}
 
+      <ConditionFlags conditions={conditions} />
+      <EligibilityPanel match={match} sourceUrl={d.detail_url} />
+
       {/* synced_at은 원문이나 상태가 바뀌어 행을 다시 쓸 때만 갱신된다(변경 없는 실행은 건너뜀). 그래서 '확인'이 아니라 '변경'. */}
       <footer className="mt-8 rounded-xl bg-gray-50 p-4 text-xs text-gray-500">
-        <p>출처: 한국부동산원 청약홈 분양정보(공공데이터포털) · 최종 변경 {d.synced_at.slice(0, 10).replace(/-/g, '.')}</p>
-        {d.detail_url && (
+        <p>출처: {lh ? '한국토지주택공사 분양임대공고문' : '한국부동산원 청약홈 분양정보'}(공공데이터포털) · 최종 변경 {d.synced_at.slice(0, 10).replace(/-/g, '.')}</p>
+        {!lh && d.detail_url && (
           <p className="mt-1"><a href={d.detail_url} target="_blank" rel="noopener noreferrer" className="underline">공고 원문·사업주체 홈페이지 보기<span className="sr-only">(새 창)</span></a></p>
         )}
-        <p className="mt-1">청약 신청은 <a href="https://www.applyhome.co.kr" target="_blank" rel="noopener noreferrer" className="underline">청약홈<span className="sr-only">(새 창)</span></a>에서 합니다. 이 페이지는 일정과 공급 내역만 정리하며 자격을 판정하지 않습니다.</p>
+        <p className="mt-1">
+          신청은 {lh ? <a href="https://apply.lh.or.kr" target="_blank" rel="noopener noreferrer" className="underline">LH 청약플러스<span className="sr-only">(새 창)</span></a> : <a href="https://www.applyhome.co.kr" target="_blank" rel="noopener noreferrer" className="underline">청약홈<span className="sr-only">(새 창)</span></a>}에서 합니다. 이 페이지는 일정과 유형별 공통 기준을 정리할 뿐 개인의 자격을 판정하지 않습니다.
+        </p>
       </footer>
     </div>
   )

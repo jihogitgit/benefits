@@ -24,6 +24,7 @@
   요청 시작 후 50초가 지나면 남은 주택형 조회와 소스를 다음 실행으로 미룬다(`aborted_reason`에 기록).
   요청 하나도 그 마감을 넘기지 않는다 — 진행 중 요청이 마감에 걸리면 그 소스는 `error`로 끝나고 `housing:all`을 비운다.
 - 운영 첫 적재: `supabase/migrations/006_housing.sql`을 Supabase SQL Editor에서 실행한 뒤 `npm run sync:housing`으로 첫 적재. LH API(15058530)는 공공데이터포털 활용신청이 필요하다. `HOUSING_API_KEY`는 선택(비우면 `GOV24_API_KEY`).
+- 유형별 공통 자격 안내(`src/lib/housing/eligibility-guides.ts`)의 금액·소득표는 해마다 손으로 고친다. 근거와 확인 못한 항목은 `docs/research/2026-11-11-housing-eligibility-*.md`. 공고를 유형으로 가르는 규칙은 `eligibility-type.ts`, 청약홈 규제 표시는 `conditions.ts`.
 - 공고 수동 적재: `npm run sync:housing` (청약홈 모집공고일 최근 180일 + LH 분양·임대·주거복지·신혼희망타운).
   변경 감지는 원문 해시(`content_hash`)와 날짜로 계산한 상태 비교. 주택형은 바뀐 APT·무순위 공고만 받는다.
   스크립트는 캐시를 비우지 않는다(cron만 `housing:lists`와 바뀐 `housing:{slug}`를 비운다). 첫 적재 뒤에는
@@ -122,7 +123,7 @@
 | `/guide/{slug}` | 가이드 | O |
 | `/housing` | 청약홈·LH 공고 목록. 탭 접수중·예정/마감, 종류 필터(필터 주소는 noindex) | 기본 주소만 O |
 | `/housing/{region}` | 지역별 공고(그 지역 전용 접수중·예정 5건 이상일 때만, `HOUSING_REGION_MIN_ACTIVE`) | 조건부 |
-| `/housing/{slug}` | 청약홈 공고 상세(일정·세대수·주택형). LH는 상세 없이 원문으로. 광고 없음 | X |
+| `/housing/{slug}` | 공고 상세. 청약홈은 일정·세대수·주택형·규제 표시, LH는 공고일·마감일·원문 링크. 둘 다 유형별 공통 신청 자격(`lib/housing/eligibility-guides.ts`)을 붙인다. 광고 없음 | X |
 | `/about` `/contact` `/privacy` `/terms` | 소개·편집 원칙, 문의, 개인정보처리방침, 약관. 운영 주체는 `NEXT_PUBLIC_OPERATOR_NAME`이 있을 때만 적는다 | O |
 | 404 | `src/app/not-found.tsx`(루트)와 `(site)/not-found.tsx`가 같은 한국어 본문을 낸다. 루트 레이아웃에 robots를 적지 않는 이유가 여기 있다(적으면 404에 index와 noindex가 같이 나간다) | X |
 | `/sitemap.xml` | 사이트맵 인덱스 | — |
