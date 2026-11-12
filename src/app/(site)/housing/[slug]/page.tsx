@@ -87,6 +87,30 @@ function lhDeadline(raw: Record<string, unknown>): string | null {
   return typeof v === 'string' && /^\d{4}\.\d{2}\.\d{2}$/.test(v.trim()) ? v.trim() : null
 }
 
+/**
+ * 원천 사이트로 보내는 버튼. 신청은 이 사이트가 아니라 청약홈·LH 청약플러스에서 하므로 이 페이지에서 가장 중요한 행동이다.
+ * 글귀는 상태를 따른다 — 접수 중일 때만 "신청하기"라고 쓴다. 접수 전이나 마감 뒤에 "신청하기"를 누르면 신청할 수 없다.
+ * 주소는 공고 하나의 원문(detail_url)이다. 없으면 사이트 첫 화면으로 보낸다.
+ */
+function SourceCta({ d, className }: { d: HousingDetail; className?: string }) {
+  const lh = d.source === 'lh'
+  const site = lh ? 'LH 청약플러스' : '청약홈'
+  const url = d.detail_url ?? (lh ? 'https://apply.lh.or.kr' : 'https://www.applyhome.co.kr')
+  const open = d.status === 'open'
+  const tone = open ? 'bg-brand-600 text-white hover:bg-brand-700' : 'border border-gray-300 bg-white text-gray-800 hover:border-brand-400'
+  return (
+    <div className={className} data-testid="source-cta">
+      <a href={url} target="_blank" rel="noopener noreferrer" className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-5 py-3.5 text-base font-bold sm:inline-flex sm:w-auto sm:min-w-72 ${tone}`}>
+        {open ? `${site}에서 신청하기` : `${site}에서 공고문 보기`} <span aria-hidden>↗</span>
+        <span className="sr-only">(새 창)</span>
+      </a>
+      <p className="mt-1.5 text-xs text-gray-500">
+        {open ? `신청은 ${site}에서 합니다. 접수 기간과 자격은 공고문에서 다시 확인하세요.` : d.status === 'upcoming' ? `접수가 시작되면 ${site}에서 신청합니다.` : '접수가 끝난 공고입니다.'}
+      </p>
+    </div>
+  )
+}
+
 export default async function HousingSlugPage({ params }: { params: Promise<{ slug: string }> }) {
   const slug = safeDecode((await params).slug)
   if (slug === null) notFound()
@@ -122,14 +146,7 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
         </div>
       )}
 
-      {lh && d.detail_url && (
-        <p className="mt-4">
-          <a href={d.detail_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">
-            LH 청약플러스에서 공고문 보기 <span aria-hidden>↗</span>
-            <span className="sr-only">(새 창)</span>
-          </a>
-        </p>
-      )}
+      <SourceCta d={d} className="mt-4" />
 
       <section className="mt-6">
         <h2 className="mb-2 text-lg font-bold">한눈에 보기</h2>
@@ -160,16 +177,13 @@ export default async function HousingSlugPage({ params }: { params: Promise<{ sl
 
       <ConditionFlags conditions={conditions} />
       <EligibilityPanel match={match} sourceUrl={d.detail_url} />
+      {/* 본문이 길어 끝까지 읽은 사람이 위로 되돌아가지 않게 한 번 더 둔다. */}
+      <SourceCta d={d} className="mt-8" />
 
       {/* synced_at은 원문이나 상태가 바뀌어 행을 다시 쓸 때만 갱신된다(변경 없는 실행은 건너뜀). 그래서 '확인'이 아니라 '변경'. */}
       <footer className="mt-8 rounded-xl bg-gray-50 p-4 text-xs text-gray-500">
         <p>출처: {lh ? '한국토지주택공사 분양임대공고문' : '한국부동산원 청약홈 분양정보'}(공공데이터포털) · 최종 변경 {d.synced_at.slice(0, 10).replace(/-/g, '.')}</p>
-        {!lh && d.detail_url && (
-          <p className="mt-1"><a href={d.detail_url} target="_blank" rel="noopener noreferrer" className="underline">공고 원문·사업주체 홈페이지 보기<span className="sr-only">(새 창)</span></a></p>
-        )}
-        <p className="mt-1">
-          신청은 {lh ? <a href="https://apply.lh.or.kr" target="_blank" rel="noopener noreferrer" className="underline">LH 청약플러스<span className="sr-only">(새 창)</span></a> : <a href="https://www.applyhome.co.kr" target="_blank" rel="noopener noreferrer" className="underline">청약홈<span className="sr-only">(새 창)</span></a>}에서 합니다. 이 페이지는 일정과 유형별 공통 기준을 정리할 뿐 개인의 자격을 판정하지 않습니다.
-        </p>
+        <p className="mt-1">이 페이지는 일정과 유형별 공통 기준을 정리할 뿐 개인의 자격을 판정하지 않습니다.</p>
       </footer>
     </div>
   )
