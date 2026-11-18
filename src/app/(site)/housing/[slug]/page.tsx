@@ -8,6 +8,7 @@ import { kstYear } from '@/lib/seo/hub-meta'
 import { absoluteUrl } from '@/lib/seo/site'
 import { breadcrumbs } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
+import RegionNav from '@/components/housing/RegionNav'
 import RegionHousingBrowser from '@/components/housing/RegionHousingBrowser'
 import HousingSchedule from '@/components/housing/HousingSchedule'
 import UnitTypeTable from '@/components/housing/UnitTypeTable'
@@ -194,7 +195,6 @@ async function RegionPage({ slug, name }: { slug: string; name: string }) {
   const [rows, counts] = await Promise.all([listHousing({ status: 'active', kind: null, region: slug, limit: HOUSING_LIST_LIMIT }), safeCounts()])
   const local = rows.filter((r) => r.region_code === slug)
   const national = rows.filter((r) => r.region_code === 'ALL')
-  const siblings = REGIONS.filter((r) => (counts[r.slug] ?? 0) > 0)
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
       <JsonLd data={breadcrumbs([{ name: '홈', path: '/' }, { name: '청약·임대 공고', path: '/housing' }, { name, path: `/housing/${slug}` }])} />
@@ -202,22 +202,8 @@ async function RegionPage({ slug, name }: { slug: string; name: string }) {
       <h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">{name} 청약·임대 공고 <span className="text-lg font-semibold text-gray-500">{local.length}건</span></h1>
       <p className="mt-2 max-w-2xl text-sm text-gray-600">{name}에서 접수 중이거나 예정된 공고입니다. 전국 어디서나 신청할 수 있는 공고는 아래에 따로 보여줍니다.</p>
 
+      <div className="mt-5"><RegionNav current={slug} counts={counts} /></div>
       <RegionHousingBrowser name={name} local={local} national={national} now={now} />
-
-      {siblings.length > 1 && (
-        <section className="mt-10">
-          <h2 className="mb-2 text-sm font-semibold text-gray-500">다른 지역</h2>
-          <nav className="flex flex-wrap gap-2" aria-label="다른 지역 공고">
-            {siblings.map((r) =>
-              r.slug === slug ? (
-                <span key={r.slug} aria-current="page" className="rounded-full border border-brand-600 bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-800">{r.name}</span>
-              ) : (
-                <Link key={r.slug} href={`/housing/${r.slug}`} className="rounded-full border bg-white px-3 py-1.5 text-sm hover:border-brand-400">{r.name} <span className="text-gray-400">{counts[r.slug]}</span></Link>
-              ),
-            )}
-          </nav>
-        </section>
-      )}
     </div>
   )
 }

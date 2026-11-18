@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { listHousing, HOUSING_LIST_LIMIT, type HousingListStatus } from '@/lib/housing/queries'
+import { listHousing, countActiveHousingByRegion, HOUSING_LIST_LIMIT, type HousingListStatus } from '@/lib/housing/queries'
 import { KIND_FILTERS, isHousingKind } from '@/lib/housing/labels'
 import { kstYear } from '@/lib/seo/hub-meta'
 import { absoluteUrl } from '@/lib/seo/site'
 import { breadcrumbs } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
 import HousingList from '@/components/housing/HousingList'
-import { REGIONS } from '../../../../data/regions'
+import RegionNav from '@/components/housing/RegionNav'
 
 // searchParams를 읽으므로 페이지는 동적이다. 데이터 캐시는 listHousing의 unstable_cache(housing:lists)가 맡고, cron이 비운다.
 
@@ -52,7 +52,14 @@ const chip = (active: boolean) =>
 export default async function HousingPage({ searchParams }: { searchParams: SP }) {
   const { status, kind } = parse(await searchParams)
   const now = new Date()
-  const rows = await listHousing({ status, kind, region: null, limit: HOUSING_LIST_LIMIT })
+  const [rows, counts] = await Promise.all([
+    listHousing({ status, kind, region: null, limit: HOUSING_LIST_LIMIT }),
+    // 지역 칩의 건수. 못 구해도 목록은 낸다.
+    countActiveHousingByRegion().catch((e) => {
+      console.error('[housing] count failed:', e)
+      return {} as Record<string, number>
+    }),
+  ])
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -63,7 +70,9 @@ export default async function HousingPage({ searchParams }: { searchParams: SP }
         청약홈(한국부동산원)과 LH의 분양·임대 공고를 접수 일정 순으로 모았습니다. 자격·금액은 각 공고문이 기준이며, 여기서는 일정과 공급 내역만 정리합니다.
       </p>
 
-      <nav aria-label="접수 상태" className="mt-5 flex gap-2">
+      <div className="mt-5"><RegionNav current={null} counts={counts} /></div>
+
+      <nav aria-label="접수 상태" className="mt-4 flex gap-2">
         <Link href={href({ kind })} aria-current={status === 'active' ? 'page' : undefined} className={chip(status === 'active')}>접수중·예정</Link>
         <Link href={href({ status: 'closed', kind })} aria-current={status === 'closed' ? 'page' : undefined} className={chip(status === 'closed')}>마감</Link>
       </nav>
@@ -79,15 +88,6 @@ export default async function HousingPage({ searchParams }: { searchParams: SP }
 
       <p className="mt-5 mb-3 text-sm text-gray-600"><b className="font-semibold text-gray-900">{rows.length.toLocaleString()}건</b></p>
       <HousingList rows={rows} now={now} emptyText={status === 'active' ? '지금 접수 중이거나 예정된 공고가 없습니다.' : '최근 마감된 공고가 없습니다.'} />
-
-      <section className="mt-10 border-t pt-6" aria-label="지역별로 보기">
-        <h2 className="text-base font-bold">지역별로 보기</h2>
-        <ul className="mt-3 flex flex-wrap gap-2 text-sm">
-          {REGIONS.map((r) => (
-            <li key={r.slug}><Link href={`/housing/${r.slug}`} className="inline-flex min-h-10 items-center rounded-full border bg-white px-3 hover:border-brand-400">{r.name}</Link></li>
-          ))}
-        </ul>
-      </section>
 
       <p className="mt-10 text-xs text-gray-500">데이터 출처: 한국부동산원 청약홈 분양정보, 한국토지주택공사 분양임대공고 (공공데이터포털). 매일 두 번 동기화합니다.</p>
     </div>

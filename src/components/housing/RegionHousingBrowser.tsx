@@ -37,7 +37,7 @@ export default function RegionHousingBrowser({ name, local, national, now }: { n
   return (
     <>
       {all.length > 0 && (
-        <div className="mt-5" data-testid="region-filters">
+        <div className="mt-4" data-testid="region-filters">
           <div role="group" aria-label="접수 상태" className="flex gap-2">
             {STATUS_FILTERS.map((f) => (
               <button key={f.value} type="button" aria-pressed={status === f.value} onClick={() => setStatus(f.value)} className={chip(status === f.value)}>
