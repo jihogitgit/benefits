@@ -232,7 +232,8 @@ describe('GET /api/cron/sync — 공고', () => {
     const before = Date.now()
     await GET(housingReq())
     const deps = housingMock.mock.calls[0][0] as { deadlineMs?: number }
-    expect(deps.deadlineMs).toBeGreaterThanOrEqual(before + 40_000)
-    expect(deps.deadlineMs).toBeLessThanOrEqual(Date.now() + 60_000)
+    // maxDuration 300초 안에서 여유를 남긴 값이어야 한다(60초일 때는 보조금24가 다 써서 공고 단계가 매번 건너뛰었다).
+    expect(deps.deadlineMs).toBeGreaterThanOrEqual(before + 200_000)
+    expect(deps.deadlineMs).toBeLessThanOrEqual(Date.now() + 290_000)
   })
 })

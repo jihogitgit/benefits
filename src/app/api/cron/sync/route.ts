@@ -12,9 +12,9 @@ import { fetchApplyhomeDetails, fetchApplyhomeUnits } from '@/lib/api/applyhome'
 import { fetchLhNotices } from '@/lib/api/lh'
 
 export const runtime = 'nodejs'
-// Vercel Hobby 상한. 플랜 상한을 넘는 값은 배포가 실패한다.
-// 초기 적재는 scripts/*.ts로 하고, Cron은 변경분만 upsert하므로 보통 30초 이내. Pro 전환 시 300으로.
-export const maxDuration = 60
+// Vercel Hobby 상한(Fluid Compute 기준 300초. Fluid를 끈 프로젝트는 60초가 상한이라 배포가 실패한다).
+// 60초일 때는 보조금24가 39~54초를 써서 공고 단계가 "시간 예산 초과"로 매번 건너뛰었다(2026-11-11~17, sync_runs).
+export const maxDuration = 300
 
 /**
  * 이 수를 넘는 변경은 한 장씩 비우지 않고 benefits:all로 전부 비운다. 원천이 갱신 시각을 통째로
@@ -25,8 +25,8 @@ const PER_SLUG_LIMIT = 100 // route 파일은 정해진 이름만 export할 수 
 
 /** 공고 동기화 창(일). scripts/sync-housing.ts와 같은 값. 설계 4절. */
 const HOUSING_WINDOW_DAYS = 180
-/** 공고 단계의 절대 마감 = 요청 시작 + 이 값(ms). maxDuration 60초에서 여유를 뺀 값. 보조금24 단계가 먼저 돌아 그만큼 공고 몫이 줄어든다. */
-const HOUSING_TIME_BUDGET_MS = 50_000
+/** 공고 단계의 절대 마감 = 요청 시작 + 이 값(ms). maxDuration 300초에서 여유를 뺀 값. 보조금24 단계가 먼저 돌아(40~55초) 그만큼 공고 몫이 줄어든다. */
+const HOUSING_TIME_BUDGET_MS = 270_000
 
 /**
  * 보조금24 → (housing=1이면) 청약홈·LH. Hobby는 cron 2개가 한도라 라우트를 하나로 합쳤다.

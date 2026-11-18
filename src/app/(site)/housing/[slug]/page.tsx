@@ -8,7 +8,7 @@ import { kstYear } from '@/lib/seo/hub-meta'
 import { absoluteUrl } from '@/lib/seo/site'
 import { breadcrumbs } from '@/lib/seo/jsonld'
 import JsonLd from '@/components/JsonLd'
-import HousingList from '@/components/housing/HousingList'
+import RegionHousingBrowser from '@/components/housing/RegionHousingBrowser'
 import HousingSchedule from '@/components/housing/HousingSchedule'
 import UnitTypeTable from '@/components/housing/UnitTypeTable'
 import EligibilityPanel from '@/components/housing/EligibilityPanel'
@@ -202,17 +202,7 @@ async function RegionPage({ slug, name }: { slug: string; name: string }) {
       <h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">{name} 청약·임대 공고 <span className="text-lg font-semibold text-gray-500">{local.length}건</span></h1>
       <p className="mt-2 max-w-2xl text-sm text-gray-600">{name}에서 접수 중이거나 예정된 공고입니다. 전국 어디서나 신청할 수 있는 공고는 아래에 따로 보여줍니다.</p>
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-lg font-bold">{name} 공고</h2>
-        <HousingList rows={local} now={now} emptyText={national.length > 0 ? `지금 접수 중인 ${name} 공고가 없습니다. 아래 전국 공통 공고를 확인하세요.` : `지금 접수 중인 ${name} 공고가 없습니다.`} />
-      </section>
-
-      {national.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-3 text-lg font-bold">전국 공통 공고 <span className="text-sm font-normal text-gray-500">{national.length}건</span></h2>
-          <HousingList rows={national} now={now} />
-        </section>
-      )}
+      <RegionHousingBrowser name={name} local={local} national={national} now={now} />
 
       {siblings.length > 1 && (
         <section className="mt-10">
