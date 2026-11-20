@@ -15,15 +15,15 @@ export const MAIN_NAV: NavLink[] = [
   { href: '/benefits', label: '지원금 찾기' },
   { href: '/housing', label: '청약·임대' },
   { href: '/guide', label: '가이드' },
-  { href: '/median-income', label: '중위소득 계산기' },
+  { href: '/calc', label: '계산기' },
 ]
 
-/** 데스크톱 가로줄. 홈은 로고가 맡고, 폭이 좁아 '계산기'로 줄인다. */
+/** 데스크톱 가로줄. 홈은 로고가 맡는다. 계산기는 모음 페이지(/calc)로 간다 — 계산기가 늘어도 메뉴는 그대로다. */
 export const MAIN_NAV_SHORT: NavLink[] = [
   { href: '/benefits', label: '지원금 찾기' },
   { href: '/housing', label: '청약·임대' },
   { href: '/guide', label: '가이드' },
-  { href: '/median-income', label: '계산기' },
+  { href: '/calc', label: '계산기' },
 ]
 
 /**

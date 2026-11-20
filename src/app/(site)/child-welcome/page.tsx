@@ -29,6 +29,7 @@ export default function ChildWelcomePage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
       <JsonLd data={breadcrumbs([{ name: '홈', path: '/' }, { name: '아이맞이지원금 계산기', path: '/child-welcome' }])} />
+      <nav className="mb-1 text-xs text-gray-500" aria-label="현재 위치"><Link href="/" className="hover:underline">홈</Link> › <Link href="/calc" className="hover:underline">계산기</Link></nav>
       <h1 className="text-2xl font-extrabold sm:text-3xl">아이맞이지원금·아동기본수당 계산기</h1>
       <p className="mt-2 max-w-2xl text-gray-600">
         2027년 7월 1일 이후 태어나는 아이부터 첫만남이용권·부모급여·아동수당이 아이맞이지원금과 아동기본수당으로 바뀔 예정입니다. 우리 아이가 12세까지 얼마를 받는지, 지금 제도와 얼마나 다른지 계산합니다.

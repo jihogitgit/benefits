@@ -26,6 +26,7 @@ export async function GET(): Promise<Response> {
     ...PUBLIC_SEGMENTS.filter((s) => hubIndexable({ explainedCount: explained.filter((r) => r.segments.includes(s.slug)).length }))
       .map((s) => line(`${s.name} 지원금`, `/${s.path}`)),
     line('마감 임박 지원금', '/deadline'),
+    line('계산기 모음', '/calc'),
     line('기준 중위소득 계산기', '/median-income'),
     line('아이맞이지원금·아동기본수당 계산기(2027년 개편안)', '/child-welcome'),
     line('청약·임대 공고(접수중·접수 예정)', '/housing'),

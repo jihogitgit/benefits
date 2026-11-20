@@ -102,6 +102,7 @@ export function staticEntries(explainedBySegment: Record<string, number>): Entry
     { url: absoluteUrl('/deadline'), changeFrequency: 'daily', priority: 0.8 },
     // 고시값은 해마다 한 번 바뀐다. 내용이 매일 도는 목록 페이지들과 빈도를 같게 두면
     // 크롤러에게 거짓을 말하는 셈이다.
+    { url: absoluteUrl('/calc'), changeFrequency: 'monthly', priority: 0.7 },
     { url: absoluteUrl('/median-income'), changeFrequency: 'yearly', priority: 0.8 },
     // 정부안이 국회에서 바뀔 때 고친다.
     { url: absoluteUrl('/child-welcome'), changeFrequency: 'monthly', priority: 0.8 },
