@@ -114,6 +114,7 @@ export default function MedianIncomePage() {
         </p>
         <p className="mt-3 text-sm">
           <Link href="/" className="font-medium text-brand-700 hover:underline">나이·지역까지 넣어 진단하기 →</Link>
+          <Link href="/child-welcome" className="ml-4 font-medium text-brand-700 hover:underline">아이맞이지원금 계산기 →</Link>
         </p>
       </section>
     </div>
